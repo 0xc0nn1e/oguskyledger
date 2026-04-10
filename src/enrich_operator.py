@@ -15,6 +15,8 @@ OPERATOR_RULES = [
     (r'^AAR', 'Asiana Airlines', '韓國'),
     (r'^KAL', 'Korean Air', '韓國'),
     (r'^CPA', 'Cathay Pacific', '香港'),
+    (r'^HKE', 'Hong Kong Express', '香港'),
+    (r'^CRK', 'Hong Kong Airlines', '香港'),
     (r'^AIC', 'Air India', '印度'),
     (r'^DAL', 'Delta Air Lines', '美國'),
     (r'^AAL', 'American Airlines', '美國'),
@@ -86,7 +88,10 @@ for r in rows:
         ON CONFLICT(icao) DO UPDATE SET
           operator = excluded.operator,
           operator_country = excluded.operator_country,
-          country = COALESCE(aircraft_registry_cache.country, excluded.country),
+          country = CASE
+            WHEN excluded.operator_country IN ('香港') THEN excluded.operator_country
+            ELSE COALESCE(aircraft_registry_cache.country, excluded.country)
+          END,
           last_lookup_at = excluded.last_lookup_at
         ''',
         (icao, existing_country or op_country or '未知', now, operator, op_country)

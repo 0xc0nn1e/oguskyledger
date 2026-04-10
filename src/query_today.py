@@ -24,11 +24,11 @@ cur.execute(
     '''
     SELECT
       s.icao,
-      COALESCE(MAX(s.flight), '') AS flight,
-      COALESCE(MAX(s.category), '') AS category,
-      COALESCE(MAX(c.registration), '') AS registration,
-      COALESCE(MAX(c.country), '') AS country,
-      COALESCE(MAX(c.operator), '') AS operator,
+      COALESCE(MAX(NULLIF(TRIM(s.flight), '')), '') AS flight,
+      COALESCE(MAX(NULLIF(TRIM(s.category), '')), '') AS category,
+      COALESCE(MAX(NULLIF(TRIM(c.registration), '')), '') AS registration,
+      COALESCE(MAX(NULLIF(TRIM(c.country), '')), '') AS country,
+      COALESCE(MAX(NULLIF(TRIM(c.operator), '')), '') AS operator,
       MIN(s.seen_at) AS first_seen,
       MAX(s.seen_at) AS last_seen,
       MIN(CASE WHEN s.alt_baro IS NOT NULL THEN s.alt_baro END) AS min_alt_baro,

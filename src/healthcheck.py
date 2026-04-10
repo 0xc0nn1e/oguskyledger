@@ -20,11 +20,16 @@ print('plane-history healthcheck')
 print('=' * 60)
 
 try:
+    uid = subprocess.check_output(['id', '-u']).decode().strip()
     out = subprocess.check_output([
-        'launchctl', 'print', f'gui:{subprocess.check_output(["id", "-u"]).decode().strip()}/com.connie.plane-history.ingest'
+        'launchctl', 'print', f'gui/{uid}/com.connie.plane-history.ingest'
     ], stderr=subprocess.STDOUT).decode()
     state_line = next((line.strip() for line in out.splitlines() if 'state =' in line), 'state = unknown')
+    exit_line = next((line.strip() for line in out.splitlines() if 'last exit code =' in line), 'last exit code = unknown')
+    runs_line = next((line.strip() for line in out.splitlines() if 'runs =' in line), 'runs = unknown')
     print(f'launchd: {state_line}')
+    print(f'launchd: {exit_line}')
+    print(f'launchd: {runs_line}')
 except Exception as e:
     print(f'launchd: ERROR {e}')
 
