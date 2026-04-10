@@ -76,6 +76,8 @@ for r in rows:
     icao = r['icao']
     flight = (r['flight'] or '').strip()
     operator, op_country = infer_operator(flight)
+    if operator is None:
+        continue
 
     cur.execute('SELECT country FROM aircraft_registry_cache WHERE icao = ?', (icao,))
     existing = cur.fetchone()
@@ -86,8 +88,8 @@ for r in rows:
         INSERT INTO aircraft_registry_cache (icao, registration, country, lookup_source, last_lookup_at, operator, operator_country)
         VALUES (?, NULL, ?, 'operator-infer', ?, ?, ?)
         ON CONFLICT(icao) DO UPDATE SET
-          operator = excluded.operator,
-          operator_country = excluded.operator_country,
+          operator = COALESCE(excluded.operator, aircraft_registry_cache.operator),
+          operator_country = COALESCE(excluded.operator_country, aircraft_registry_cache.operator_country),
           country = CASE
             WHEN excluded.operator_country IN ('香港') THEN excluded.operator_country
             ELSE COALESCE(aircraft_registry_cache.country, excluded.country)
