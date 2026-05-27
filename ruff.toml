@@ -1,0 +1,19 @@
+target-version = "py39"
+line-length = 100
+
+[lint]
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes (undefined names, unused imports)
+  "W",   # pycodestyle warnings
+  "I",   # isort
+  "B",   # flake8-bugbear (likely bugs)
+  "UP",  # pyupgrade
+]
+ignore = [
+  "E501",  # line-too-long — embedded HTML / SQL in web_app.py
+  "E402",  # module-level import not at top — some scripts set sys.path first
+]
+
+[lint.per-file-ignores]
+"src/web_app.py" = ["E731"]  # inline lambdas in handler are fine

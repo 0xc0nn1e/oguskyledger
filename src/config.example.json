@@ -1,0 +1,22 @@
+{
+  "receiver": {
+    "name": "wing-readsb-home"
+  },
+  "source": {
+    "name": "tar1090-macmini",
+    "aircraft_json_url": "http://192.168.x.x:8080/data/aircraft.json"
+  },
+  "db": {
+    "path": "data/plane_history.sqlite3"
+  },
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "plane_history",
+    "password": "CHANGE_ME",
+    "database": "plane_history"
+  },
+  "push": {
+    "secret": "CHANGE_ME"
+  }
+}

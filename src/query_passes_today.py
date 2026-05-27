@@ -1,11 +1,7 @@
-import json
-import sqlite3
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
+
 JST = timezone(timedelta(hours=9))
 
 def fmt_ts(ts):
@@ -16,16 +12,15 @@ def fmt_ts(ts):
 
 today = datetime.now(JST).strftime('%Y-%m-%d')
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = connect()
+cur = dict_cursor(conn)
 cur.execute(
     '''
     SELECT pass_id, icao, COALESCE(flight, '') AS flight, COALESCE(operator, '') AS operator,
            COALESCE(country, '') AS country, COALESCE(category, '') AS category,
            first_seen, last_seen, samples, min_alt_baro, max_alt_baro
     FROM aircraft_passes
-    WHERE pass_date = ?
+    WHERE pass_date = %s
     ORDER BY first_seen DESC
     ''',
     (today,)

@@ -1,46 +1,75 @@
-import json
-import sqlite3
-from pathlib import Path
+"""
+First-time / idempotent schema init for plane-history MySQL DB.
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+Safe to re-run — uses CREATE TABLE IF NOT EXISTS. Indexes are declared inline
+on the table (MySQL doesn't support CREATE INDEX IF NOT EXISTS).
+"""
 
-schema = '''
-CREATE TABLE IF NOT EXISTS sightings_raw (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  seen_at TEXT NOT NULL,
-  receiver_name TEXT NOT NULL,
-  source_name TEXT NOT NULL,
-  icao TEXT NOT NULL,
-  flight TEXT,
-  category TEXT,
-  alt_baro REAL,
-  alt_geom REAL,
-  gs REAL,
-  track REAL,
-  lat REAL,
-  lon REAL,
-  raw_json TEXT NOT NULL
-);
+from db import connect
 
-CREATE INDEX IF NOT EXISTS idx_sightings_seen_at ON sightings_raw(seen_at);
-CREATE INDEX IF NOT EXISTS idx_sightings_icao_seen_at ON sightings_raw(icao, seen_at);
+DDL = [
+    """
+    CREATE TABLE IF NOT EXISTS sightings_raw (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      seen_at         VARCHAR(40) NOT NULL,
+      receiver_name   VARCHAR(128) NOT NULL,
+      source_name     VARCHAR(128) NOT NULL,
+      icao            VARCHAR(16) NOT NULL,
+      flight          VARCHAR(32),
+      category        VARCHAR(16),
+      alt_baro        DOUBLE,
+      alt_geom        DOUBLE,
+      gs              DOUBLE,
+      track           DOUBLE,
+      lat             DOUBLE,
+      lon             DOUBLE,
+      raw_json        LONGTEXT NOT NULL,
+      KEY idx_sightings_seen_at (seen_at),
+      KEY idx_sightings_icao_seen_at (icao, seen_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS aircraft_registry_cache (
+      icao             VARCHAR(16) NOT NULL PRIMARY KEY,
+      registration     VARCHAR(32),
+      country          VARCHAR(64),
+      lookup_source    VARCHAR(64),
+      last_lookup_at   VARCHAR(40) NOT NULL,
+      operator         VARCHAR(255),
+      operator_country VARCHAR(64),
+      aircraft_type    VARCHAR(16),
+      fr24_id          VARCHAR(64),
+      from_airport     VARCHAR(64),
+      to_airport       VARCHAR(64),
+      hke_notified_at  VARCHAR(40)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS aircraft_passes (
+      pass_id      INT AUTO_INCREMENT PRIMARY KEY,
+      pass_date    VARCHAR(16) NOT NULL,
+      icao         VARCHAR(16) NOT NULL,
+      flight       VARCHAR(32),
+      operator     VARCHAR(255),
+      country      VARCHAR(64),
+      category     VARCHAR(16),
+      first_seen   VARCHAR(40) NOT NULL,
+      last_seen    VARCHAR(40) NOT NULL,
+      samples      INT NOT NULL,
+      min_alt_baro DOUBLE,
+      max_alt_baro DOUBLE,
+      min_gs       DOUBLE,
+      max_gs       DOUBLE,
+      KEY idx_passes_date (pass_date),
+      KEY idx_passes_icao_date (icao, pass_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+]
 
-CREATE TABLE IF NOT EXISTS aircraft_registry_cache (
-  icao TEXT PRIMARY KEY,
-  registration TEXT,
-  country TEXT,
-  lookup_source TEXT,
-  last_lookup_at TEXT NOT NULL,
-  operator TEXT,
-  operator_country TEXT
-);
-'''
 
-conn = sqlite3.connect(DB_PATH)
-conn.executescript(schema)
-conn.commit()
+conn = connect(autocommit=True)
+cur = conn.cursor()
+for stmt in DDL:
+    cur.execute(stmt)
 conn.close()
-print(f'Initialized DB: {DB_PATH}')
+print('Initialized MySQL schema (plane_history).')

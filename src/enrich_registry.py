@@ -1,11 +1,7 @@
 import json
-import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
 
 PREFIX_COUNTRY = [
     ((0x71C000, 0x71CFFF), 'HL-', '韓國'),
@@ -30,21 +26,8 @@ def infer_from_icao(icao):
     return None, '未知', 'icao-prefix:unknown'
 
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
-
-cur.executescript(
-    '''
-    CREATE TABLE IF NOT EXISTS aircraft_registry_cache (
-      icao TEXT PRIMARY KEY,
-      registration TEXT,
-      country TEXT,
-      lookup_source TEXT,
-      last_lookup_at TEXT NOT NULL
-    );
-    '''
-)
+conn = connect()
+cur = dict_cursor(conn)
 
 cur.execute(
     '''
@@ -63,8 +46,13 @@ for icao in missing:
     registration, country, source = infer_from_icao(icao)
     cur.execute(
         '''
-        INSERT OR REPLACE INTO aircraft_registry_cache (icao, registration, country, lookup_source, last_lookup_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO aircraft_registry_cache (icao, registration, country, lookup_source, last_lookup_at)
+        VALUES (%s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+          registration = VALUES(registration),
+          country = VALUES(country),
+          lookup_source = VALUES(lookup_source),
+          last_lookup_at = VALUES(last_lookup_at)
         ''',
         (icao, registration, country, source, now)
     )

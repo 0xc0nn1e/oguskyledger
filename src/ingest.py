@@ -1,19 +1,21 @@
 import argparse
 import json
-import sqlite3
 import sys
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from db import connect
 from notifier import send_push
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
 
 RECEIVER_NAME = CONFIG['receiver']['name']
 SOURCE_NAME = CONFIG['source']['name']
 SOURCE_URL = CONFIG['source']['aircraft_json_url']
+
+JST = timezone(timedelta(hours=9))
 
 
 def fetch_aircraft():
@@ -21,18 +23,27 @@ def fetch_aircraft():
         return json.loads(resp.read().decode('utf-8'))
 
 
+def jst_today_utc_range():
+    now_jst = datetime.now(JST)
+    start_jst = now_jst.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_jst = start_jst + timedelta(days=1)
+    return (start_jst.astimezone(timezone.utc).isoformat(),
+            end_jst.astimezone(timezone.utc).isoformat())
+
+
 def ingest_once():
     payload = fetch_aircraft()
     now = datetime.now(timezone.utc).isoformat()
     aircraft = payload.get('aircraft', [])
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect()
     cur = conn.cursor()
 
     inserted = 0
 
     # Send one sample message on first sighting today (JST)
-    today_jst = datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d')
+    today_jst = datetime.now(JST).strftime('%Y-%m-%d')
+    today_start_utc, today_end_utc = jst_today_utc_range()
     push_secret = CONFIG.get('push', {}).get('secret')
 
     for a in aircraft:
@@ -42,9 +53,15 @@ def ingest_once():
 
         flight = (a.get('flight') or '').strip() or None
         category = a.get('category')
+        alt_baro = a.get('alt_baro')
+        if isinstance(alt_baro, str):  # tar1090 sends "ground" for landed aircraft
+            alt_baro = None
 
         if push_secret:
-            cur.execute("SELECT registration, country, operator, aircraft_type FROM aircraft_registry_cache WHERE icao = ?", (icao,))
+            cur.execute(
+                "SELECT registration, country, operator, aircraft_type FROM aircraft_registry_cache WHERE icao = %s",
+                (icao,),
+            )
             reg_row = cur.fetchone()
             registration = reg_row[0] if reg_row and reg_row[0] else None
             country = reg_row[1] if reg_row and reg_row[1] else None
@@ -54,8 +71,17 @@ def ingest_once():
             is_hke = bool((flight and flight.startswith('HKE')) or operator == 'Hong Kong Express')
             if is_hke:
                 cur.execute(
-                    "SELECT 1 FROM sightings_raw WHERE icao = ? AND date(seen_at, '+9 hours') = ? AND ((flight IS NOT NULL AND flight LIKE 'HKE%') OR icao IN (SELECT icao FROM aircraft_registry_cache WHERE operator = 'Hong Kong Express')) LIMIT 1",
-                    (icao, today_jst),
+                    """
+                    SELECT 1 FROM sightings_raw
+                    WHERE icao = %s
+                      AND seen_at >= %s AND seen_at < %s
+                      AND (
+                        (flight IS NOT NULL AND flight LIKE 'HKE%%')
+                        OR icao IN (SELECT icao FROM aircraft_registry_cache WHERE operator = 'Hong Kong Express')
+                      )
+                    LIMIT 1
+                    """,
+                    (icao, today_start_utc, today_end_utc),
                 )
                 already_confirmed_today = cur.fetchone() is not None
                 if not already_confirmed_today:
@@ -89,7 +115,7 @@ def ingest_once():
             INSERT INTO sightings_raw (
               seen_at, receiver_name, source_name, icao, flight, category,
               alt_baro, alt_geom, gs, track, lat, lon, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''',
             (
                 now,
@@ -98,7 +124,7 @@ def ingest_once():
                 icao,
                 flight,
                 category,
-                a.get('alt_baro'),
+                alt_baro,
                 a.get('alt_geom'),
                 a.get('gs'),
                 a.get('track'),

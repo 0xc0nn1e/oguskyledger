@@ -1,11 +1,6 @@
-import json
-import sqlite3
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
 
 JST = timezone(timedelta(hours=9))
 
@@ -17,9 +12,8 @@ def fmt_ts(ts):
 
 today = datetime.now(JST).strftime('%Y-%m-%d')
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = connect()
+cur = dict_cursor(conn)
 cur.execute(
     '''
     SELECT
@@ -36,7 +30,7 @@ cur.execute(
       COUNT(*) AS samples
     FROM sightings_raw s
     LEFT JOIN aircraft_registry_cache c ON c.icao = s.icao
-    WHERE substr(s.seen_at, 1, 10) = ?
+    WHERE SUBSTR(s.seen_at, 1, 10) = %s
     GROUP BY s.icao
     ORDER BY last_seen DESC
     ''',

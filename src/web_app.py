@@ -1,13 +1,10 @@
 import json
-import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
+
 HOST = '0.0.0.0'
 PORT = 8765
 JST = timezone(timedelta(hours=9))
@@ -149,21 +146,30 @@ def fmt_ts(ts):
     return dt.astimezone(JST).strftime('%Y-%m-%d %H:%M:%S JST')
 
 
+def jst_day_utc_bounds(day_str):
+    # JST day [00:00, 24:00) 對應 UTC (day-1) 15:00:00 至 day 15:00:00。
+    # seen_at 存 ISO UTC 字串（e.g. "2026-05-27T09:34:18.100311+00:00"），可以做字串範圍比較。
+    d = date.fromisoformat(day_str)
+    start = (datetime.combine(d, datetime.min.time()) - timedelta(hours=9)).strftime('%Y-%m-%dT%H:%M:%S+00:00')
+    end = (datetime.combine(d, datetime.min.time()) + timedelta(hours=15)).strftime('%Y-%m-%dT%H:%M:%S+00:00')
+    return start, end
+
+
 def query_rows(day_str, sort_key, country_filter='', operator_filter='', type_filter=''):
     order_by = ALLOWED_SORTS.get(sort_key, ALLOWED_SORTS['last_seen'])
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    conditions = ["date(s.seen_at, '+9 hours') = ?"]
-    params = [day_str]
+    start_utc, end_utc = jst_day_utc_bounds(day_str)
+    conn = connect()
+    cur = dict_cursor(conn)
+    conditions = ["s.seen_at >= %s", "s.seen_at < %s"]
+    params = [start_utc, end_utc]
     if country_filter:
-        conditions.append("COALESCE(NULLIF(TRIM(c.country), ''), '-') = ?")
+        conditions.append("COALESCE(NULLIF(TRIM(c.country), ''), '-') = %s")
         params.append(country_filter)
     if operator_filter:
-        conditions.append("COALESCE(NULLIF(TRIM(c.operator), ''), '-') = ?")
+        conditions.append("COALESCE(NULLIF(TRIM(c.operator), ''), '-') = %s")
         params.append(operator_filter)
     if type_filter:
-        conditions.append("COALESCE(NULLIF(TRIM(c.aircraft_type), ''), '-') = ?")
+        conditions.append("COALESCE(NULLIF(TRIM(c.aircraft_type), ''), '-') = %s")
         params.append(type_filter)
     where_clause = ' AND '.join(conditions)
     cur.execute(

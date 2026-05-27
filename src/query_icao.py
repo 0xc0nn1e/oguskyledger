@@ -1,12 +1,7 @@
-import json
-import sqlite3
 import sys
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
 
 if len(sys.argv) < 2:
     print('Usage: python3 src/query_icao.py <icao-or-flight>')
@@ -22,9 +17,8 @@ def fmt_ts(ts):
 
 term = sys.argv[1].strip().lower()
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = connect()
+cur = dict_cursor(conn)
 cur.execute(
     '''
     SELECT
@@ -41,8 +35,8 @@ cur.execute(
       s.lon
     FROM sightings_raw s
     LEFT JOIN aircraft_registry_cache c ON c.icao = s.icao
-    WHERE lower(s.icao) = ?
-       OR lower(COALESCE(s.flight, '')) LIKE '%' || ? || '%'
+    WHERE LOWER(s.icao) = %s
+       OR LOWER(COALESCE(s.flight, '')) LIKE CONCAT('%%', %s, '%%')
     ORDER BY s.seen_at DESC
     LIMIT 50
     ''',

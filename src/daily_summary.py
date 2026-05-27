@@ -1,11 +1,6 @@
-import json
-import sqlite3
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
 
 JST = timezone(timedelta(hours=9))
 
@@ -17,21 +12,20 @@ def fmt_ts(ts):
 
 today = datetime.now(JST).strftime('%Y-%m-%d')
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = connect()
+cur = dict_cursor(conn)
 
-cur.execute("SELECT COUNT(*) AS c FROM sightings_raw WHERE substr(seen_at,1,10)=?", (today,))
+cur.execute("SELECT COUNT(*) AS c FROM sightings_raw WHERE SUBSTR(seen_at,1,10)=%s", (today,))
 rows_today = cur.fetchone()['c']
 
-cur.execute("SELECT COUNT(DISTINCT icao) AS c FROM sightings_raw WHERE substr(seen_at,1,10)=?", (today,))
+cur.execute("SELECT COUNT(DISTINCT icao) AS c FROM sightings_raw WHERE SUBSTR(seen_at,1,10)=%s", (today,))
 unique_today = cur.fetchone()['c']
 
 cur.execute(
     '''
     SELECT COALESCE(category, '-') AS category, COUNT(DISTINCT icao) AS c
     FROM sightings_raw
-    WHERE substr(seen_at,1,10)=?
+    WHERE SUBSTR(seen_at,1,10)=%s
     GROUP BY COALESCE(category, '-')
     ORDER BY c DESC
     LIMIT 10
@@ -49,7 +43,7 @@ cur.execute(
       MIN(seen_at) AS first_seen,
       MAX(seen_at) AS last_seen
     FROM sightings_raw
-    WHERE substr(seen_at,1,10)=?
+    WHERE SUBSTR(seen_at,1,10)=%s
     GROUP BY icao
     ORDER BY samples DESC, last_seen DESC
     LIMIT 10

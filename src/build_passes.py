@@ -1,43 +1,17 @@
 import json
-import sqlite3
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor
 
 PASS_GAP_MINUTES = 20
 UTC = timezone.utc
 JST = timezone(timedelta(hours=9))
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = connect()
+cur = dict_cursor(conn)
 
-cur.executescript(
-    '''
-    CREATE TABLE IF NOT EXISTS aircraft_passes (
-      pass_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      pass_date TEXT NOT NULL,
-      icao TEXT NOT NULL,
-      flight TEXT,
-      operator TEXT,
-      country TEXT,
-      category TEXT,
-      first_seen TEXT NOT NULL,
-      last_seen TEXT NOT NULL,
-      samples INTEGER NOT NULL,
-      min_alt_baro REAL,
-      max_alt_baro REAL,
-      min_gs REAL,
-      max_gs REAL
-    );
-    CREATE INDEX IF NOT EXISTS idx_passes_date ON aircraft_passes(pass_date);
-    CREATE INDEX IF NOT EXISTS idx_passes_icao_date ON aircraft_passes(icao, pass_date);
-    DELETE FROM aircraft_passes;
-    '''
-)
+# Schema + indexes already created by init_db.py / migration SQL.
+cur.execute('DELETE FROM aircraft_passes')
 
 cur.execute(
     '''
@@ -109,7 +83,7 @@ for p in passes:
         INSERT INTO aircraft_passes (
           pass_date, icao, flight, operator, country, category,
           first_seen, last_seen, samples, min_alt_baro, max_alt_baro, min_gs, max_gs
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''',
         (
             pass_date, p['icao'], p['flight'], p['operator'], p['country'], p['category'],

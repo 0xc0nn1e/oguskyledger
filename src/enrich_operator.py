@@ -1,12 +1,8 @@
 import json
 import re
-import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
-DB_PATH = BASE_DIR / CONFIG['db']['path']
+from db import connect, dict_cursor, column_set
 
 OPERATOR_RULES = [
     (r'^ANA', 'All Nippon Airways', '日本'),
@@ -35,30 +31,14 @@ def infer_operator(flight):
     return None, None
 
 
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = connect()
+cur = dict_cursor(conn)
 
-cur.execute(
-    '''
-    CREATE TABLE IF NOT EXISTS aircraft_registry_cache (
-      icao TEXT PRIMARY KEY,
-      registration TEXT,
-      country TEXT,
-      lookup_source TEXT,
-      last_lookup_at TEXT NOT NULL,
-      operator TEXT,
-      operator_country TEXT
-    )
-    '''
-)
-
-cur.execute("PRAGMA table_info(aircraft_registry_cache)")
-columns = {row[1] for row in cur.fetchall()}
+columns = column_set(conn, 'aircraft_registry_cache')
 if 'operator' not in columns:
-    cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN operator TEXT")
+    cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN operator VARCHAR(255)")
 if 'operator_country' not in columns:
-    cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN operator_country TEXT")
+    cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN operator_country VARCHAR(64)")
 
 cur.execute(
     '''
@@ -79,22 +59,22 @@ for r in rows:
     if operator is None:
         continue
 
-    cur.execute('SELECT country FROM aircraft_registry_cache WHERE icao = ?', (icao,))
+    cur.execute('SELECT country FROM aircraft_registry_cache WHERE icao = %s', (icao,))
     existing = cur.fetchone()
     existing_country = existing['country'] if existing else None
 
     cur.execute(
         '''
         INSERT INTO aircraft_registry_cache (icao, registration, country, lookup_source, last_lookup_at, operator, operator_country)
-        VALUES (?, NULL, ?, 'operator-infer', ?, ?, ?)
-        ON CONFLICT(icao) DO UPDATE SET
-          operator = COALESCE(excluded.operator, aircraft_registry_cache.operator),
-          operator_country = COALESCE(excluded.operator_country, aircraft_registry_cache.operator_country),
+        VALUES (%s, NULL, %s, 'operator-infer', %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+          operator = COALESCE(VALUES(operator), aircraft_registry_cache.operator),
+          operator_country = COALESCE(VALUES(operator_country), aircraft_registry_cache.operator_country),
           country = CASE
-            WHEN excluded.operator_country IN ('香港') THEN excluded.operator_country
-            ELSE COALESCE(aircraft_registry_cache.country, excluded.country)
+            WHEN VALUES(operator_country) IN ('香港') THEN VALUES(operator_country)
+            ELSE COALESCE(aircraft_registry_cache.country, VALUES(country))
           END,
-          last_lookup_at = excluded.last_lookup_at
+          last_lookup_at = VALUES(last_lookup_at)
         ''',
         (icao, existing_country or op_country or '未知', now, operator, op_country)
     )

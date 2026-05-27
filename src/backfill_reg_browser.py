@@ -1,10 +1,7 @@
 import json
-import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / 'data' / 'plane_history.sqlite3'
+from db import connect
 
 REG_DATA = {
     '71c010': ('HL8010', '韓國'),
@@ -21,33 +18,20 @@ REG_DATA = {
     '8681b6': ('JA73NQ', '日本'),
 }
 
-conn = sqlite3.connect(DB_PATH)
+conn = connect()
 cur = conn.cursor()
-cur.execute(
-    '''
-    CREATE TABLE IF NOT EXISTS aircraft_registry_cache (
-      icao TEXT PRIMARY KEY,
-      registration TEXT,
-      country TEXT,
-      lookup_source TEXT,
-      last_lookup_at TEXT NOT NULL,
-      operator TEXT,
-      operator_country TEXT
-    )
-    '''
-)
 now = datetime.now(timezone.utc).isoformat()
 updated = 0
 for icao, (reg, country) in REG_DATA.items():
     cur.execute(
         '''
         INSERT INTO aircraft_registry_cache (icao, registration, country, lookup_source, last_lookup_at)
-        VALUES (?, ?, ?, 'tar1090-browser', ?)
-        ON CONFLICT(icao) DO UPDATE SET
-          registration = excluded.registration,
-          country = excluded.country,
-          lookup_source = excluded.lookup_source,
-          last_lookup_at = excluded.last_lookup_at
+        VALUES (%s, %s, %s, 'tar1090-browser', %s)
+        ON DUPLICATE KEY UPDATE
+          registration = VALUES(registration),
+          country = VALUES(country),
+          lookup_source = VALUES(lookup_source),
+          last_lookup_at = VALUES(last_lookup_at)
         ''',
         (icao.lower(), reg, country, now)
     )
