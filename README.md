@@ -45,35 +45,28 @@ python3 src/healthcheck.py
 
 ## 自動執行（launchd）
 
-### 1 分鐘 ingest job
+只有一個 supervisor job，入面跑晒 ingest / reg / web 三條 thread。
 
 ```bash
-cp com.connie.plane-history.ingest.plist ~/Library/LaunchAgents/
-launchctl bootout gui/$(id -u)/com.connie.plane-history.ingest 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.ingest.plist
-launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.ingest
+cp com.connie.plane-history.supervisor.plist ~/Library/LaunchAgents/
+launchctl bootout gui/$(id -u)/com.connie.plane-history.supervisor 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.supervisor.plist
+launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.supervisor
 ```
 
-內容：
+`src/supervisor.py` 內容：
+- Main thread：`web_app.serve()`（blocking）
+- Thread `ingest`：每 60 秒 `bash run_ingest.sh`
+- Thread `reg`：每 180 秒 `python3 src/browser_bulk_backfill.py`
+
+`run_ingest.sh` 入面 pipeline 順序：
 1. `ingest.py --once`
 2. `enrich_registry.py`
 3. `backfill_reg_browser.py`
 4. `enrich_operator.py`
 5. `build_passes.py`
 
-### 3 分鐘 REG bulk backfill job
-
-```bash
-cp com.connie.plane-history.reg.plist ~/Library/LaunchAgents/
-launchctl bootout gui/$(id -u)/com.connie.plane-history.reg 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.reg.plist
-launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.reg
-```
-
-內容：
-- `python3 src/browser_bulk_backfill.py`
-
-會補：
+`browser_bulk_backfill.py` 會補：
 - `registration`
 - `country`
 - `aircraft_type`（例如 `A21N`, `B77W`）
@@ -101,28 +94,17 @@ launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.reg
 
 ## Logs / DB
 
+- `data/supervisor.log` / `data/supervisor.out.log` / `data/supervisor.err.log`
 - `data/ingest.log`
 - `data/browser_bulk_backfill.log`
-- `data/launchd.out.log`
-- `data/launchd.err.log`
-- `data/launchd.reg.out.log`
-- `data/launchd.reg.err.log`
 - `data/plane_history.sqlite3`
 
 ## Web UI
 
+`supervisor` 已經自動開咗 web app，直接開 `http://127.0.0.1:8765` 就睇到。手動 run 嘅話：
+
 ```bash
 python3 src/web_app.py
-# open http://127.0.0.1:8765
-```
-
-或者用 launchd：
-
-```bash
-cp com.connie.plane-history.web.plist ~/Library/LaunchAgents/
-launchctl bootout gui/$(id -u)/com.connie.plane-history.web 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.web.plist
-launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.web
 ```
 
 功能：
