@@ -12,7 +12,7 @@
 - 支援 web UI 查今日飛機資料
 - web UI 支援 `country / operator / type` filter 同 sort
 - 凡係接收站收得到嘅 aircraft，都當作「屋企收到」
-- 寫入 SQLite
+- 寫入 MySQL
 - 查今日 / ICAO / passes
 - macOS launchd 自動執行
 
@@ -97,7 +97,7 @@ launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.supervisor
 - `data/supervisor.log` / `data/supervisor.out.log` / `data/supervisor.err.log`
 - `data/ingest.log`
 - `data/browser_bulk_backfill.log`
-- `data/plane_history.sqlite3`
+- MySQL：`127.0.0.1:3306`，DB `plane_history`（connection info 喺 `src/config.json` 入面）
 
 ## Web UI
 
