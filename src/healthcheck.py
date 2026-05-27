@@ -20,7 +20,7 @@ print('=' * 60)
 try:
     uid = subprocess.check_output(['id', '-u']).decode().strip()
     out = subprocess.check_output([
-        'launchctl', 'print', f'gui/{uid}/com.connie.plane-history.ingest'
+        'launchctl', 'print', f'gui/{uid}/com.connie.plane-history.supervisor'
     ], stderr=subprocess.STDOUT).decode()
     state_line = next((line.strip() for line in out.splitlines() if 'state =' in line), 'state = unknown')
     exit_line = next((line.strip() for line in out.splitlines() if 'last exit code =' in line), 'last exit code = unknown')
