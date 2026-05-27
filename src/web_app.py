@@ -1,8 +1,11 @@
+import html
 import json
 from datetime import date, datetime, timedelta, timezone
+from http import cookies as http_cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+import auth
 from db import connect, dict_cursor
 
 HOST = '0.0.0.0'
@@ -32,10 +35,17 @@ HTML = '''<!doctype html>
     th { position:sticky; top:0; background:#1f2937; }
     .meta { margin-bottom:12px; color:#d1d5db; }
     .wrap { overflow:auto; max-height:75vh; border:1px solid #374151; border-radius:12px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .nav a, .nav span { color:#93c5fd; text-decoration:none; margin-left:12px; font-size:14px; }
+    .nav form { display:inline; margin:0; }
+    .nav button { background:none; border:none; color:#93c5fd; padding:0; cursor:pointer; font-size:14px; margin-left:12px; }
   </style>
 </head>
 <body>
-  <h1>plane-history</h1>
+  <div class="topbar">
+    <h1 style="margin:0">plane-history</h1>
+    <div class="nav" id="nav"></div>
+  </div>
   <div class="controls">
     <label>日期
       <input type="date" id="day">
@@ -121,6 +131,22 @@ HTML = '''<!doctype html>
         </tr>`).join('');
     }
 
+    async function renderNav() {
+      const nav = document.getElementById('nav');
+      try {
+        const me = await (await fetch('/api/me')).json();
+        if (me.username) {
+          nav.innerHTML = `<span>👤 ${esc(me.username)}</span>
+            <a href="/account">改密碼</a>
+            <form method="post" action="/logout"><button type="submit">登出</button></form>`;
+        } else {
+          nav.innerHTML = `<a href="/login">登入</a>`;
+        }
+      } catch (e) {
+        nav.innerHTML = `<a href="/login">登入</a>`;
+      }
+    }
+
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -132,6 +158,7 @@ HTML = '''<!doctype html>
     countryFilter.addEventListener('change', load);
     operatorFilter.addEventListener('change', load);
     typeFilter.addEventListener('change', load);
+    renderNav();
     load();
   </script>
 </body>
@@ -215,6 +242,149 @@ def query_rows(day_str, sort_key, country_filter='', operator_filter='', type_fi
     return rows
 
 
+LOGIN_PAGE = '''<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登入 · plane-history</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#111827; color:#f9fafb; margin:0; display:flex; min-height:100vh; align-items:center; justify-content:center; }
+  .card { background:#1f2937; padding:32px; border-radius:12px; min-width:300px; }
+  h1 { margin:0 0 24px; font-size:20px; }
+  label { display:block; margin-bottom:12px; font-size:14px; }
+  input { width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #374151; background:#111827; color:#f9fafb; margin-top:6px; }
+  button { width:100%; padding:10px; border-radius:8px; border:none; background:#2563eb; color:white; cursor:pointer; font-size:14px; }
+  .err { color:#fca5a5; font-size:13px; margin-bottom:12px; }
+  .back { display:block; text-align:center; margin-top:16px; color:#93c5fd; font-size:13px; }
+</style></head><body>
+<div class="card">
+  <h1>登入 plane-history</h1>
+  {ERR}
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{NEXT}">
+    <label>Username<input name="username" autocomplete="username" required autofocus></label>
+    <label>密碼<input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">登入</button>
+  </form>
+  <a class="back" href="/">← 返首頁</a>
+</div></body></html>'''
+
+
+ACCOUNT_PAGE = '''<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>改密碼 · plane-history</title>
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#111827; color:#f9fafb; margin:0; display:flex; min-height:100vh; align-items:center; justify-content:center; }
+  .card { background:#1f2937; padding:32px; border-radius:12px; min-width:320px; }
+  h1 { margin:0 0 8px; font-size:20px; }
+  .who { color:#9ca3af; font-size:13px; margin-bottom:20px; }
+  label { display:block; margin-bottom:12px; font-size:14px; }
+  input { width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #374151; background:#111827; color:#f9fafb; margin-top:6px; }
+  button { width:100%; padding:10px; border-radius:8px; border:none; background:#2563eb; color:white; cursor:pointer; font-size:14px; }
+  .err { color:#fca5a5; font-size:13px; margin-bottom:12px; }
+  .ok { color:#86efac; font-size:13px; margin-bottom:12px; }
+  .back { display:block; text-align:center; margin-top:16px; color:#93c5fd; font-size:13px; }
+</style></head><body>
+<div class="card">
+  <h1>改密碼</h1>
+  <div class="who">👤 {USER}</div>
+  {MSG}
+  <form method="post" action="/account/password">
+    <label>而家嘅密碼<input name="current" type="password" autocomplete="current-password" required autofocus></label>
+    <label>新密碼<input name="new" type="password" autocomplete="new-password" required minlength="6"></label>
+    <label>再入一次<input name="confirm" type="password" autocomplete="new-password" required minlength="6"></label>
+    <button type="submit">更新密碼</button>
+  </form>
+  <a class="back" href="/">← 返首頁</a>
+</div></body></html>'''
+
+
+def _parse_cookie(header_value):
+    if not header_value:
+        return {}
+    c = http_cookies.SimpleCookie()
+    try:
+        c.load(header_value)
+    except http_cookies.CookieError:
+        return {}
+    return {k: m.value for k, m in c.items()}
+
+
+def _read_form(handler):
+    length = int(handler.headers.get('Content-Length') or 0)
+    if not length:
+        return {}
+    body = handler.rfile.read(length).decode('utf-8', errors='replace')
+    return {k: v[0] for k, v in parse_qs(body, keep_blank_values=True).items()}
+
+
+def _current_user(handler):
+    token = _parse_cookie(handler.headers.get('Cookie')).get(auth.COOKIE_NAME)
+    return auth.lookup_session(token) if token else None
+
+
+def _send_simple(handler, status, body, content_type='text/html; charset=utf-8', extra_headers=None):
+    if isinstance(body, str):
+        body = body.encode('utf-8')
+    handler.send_response(status)
+    handler.send_header('Content-Type', content_type)
+    handler.send_header('Content-Length', str(len(body)))
+    if extra_headers:
+        for k, v in extra_headers:
+            handler.send_header(k, v)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _redirect(handler, location, extra_headers=None):
+    handler.send_response(303)
+    handler.send_header('Location', location)
+    if extra_headers:
+        for k, v in extra_headers:
+            handler.send_header(k, v)
+    handler.send_header('Content-Length', '0')
+    handler.end_headers()
+
+
+def _session_cookie_header(token, expires_utc):
+    # SameSite=Lax: cross-site form POST 唔會帶 cookie，CSRF 基本擋到。
+    # 冇 Secure（LAN-only HTTP）。
+    return (
+        'Set-Cookie',
+        f"{auth.COOKIE_NAME}={token}; HttpOnly; SameSite=Lax; Path=/; "
+        f"Expires={expires_utc.strftime('%a, %d %b %Y %H:%M:%S GMT')}",
+    )
+
+
+def _clear_session_cookie_header():
+    return (
+        'Set-Cookie',
+        f"{auth.COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; "
+        "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    )
+
+
+def _render_login(error='', next_path='/'):
+    err_html = f'<div class="err">{html.escape(error)}</div>' if error else ''
+    return LOGIN_PAGE.replace('{ERR}', err_html).replace('{NEXT}', html.escape(next_path))
+
+
+def _render_account(user, msg='', ok=False):
+    if msg:
+        cls = 'ok' if ok else 'err'
+        msg_html = f'<div class="{cls}">{html.escape(msg)}</div>'
+    else:
+        msg_html = ''
+    return ACCOUNT_PAGE.replace('{USER}', html.escape(user)).replace('{MSG}', msg_html)
+
+
+def _safe_next(value):
+    # 只接受本地 path，避免 open redirect。
+    if value and value.startswith('/') and not value.startswith('//'):
+        return value
+    return '/'
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -223,6 +393,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(HTML.encode('utf-8'))
+            return
+        if parsed.path == '/api/me':
+            user = _current_user(self)
+            _send_simple(self, 200, json.dumps({'username': user}, ensure_ascii=False),
+                         content_type='application/json; charset=utf-8')
+            return
+        if parsed.path == '/login':
+            qs = parse_qs(parsed.query)
+            next_path = _safe_next(qs.get('next', ['/'])[0])
+            _send_simple(self, 200, _render_login(next_path=next_path))
+            return
+        if parsed.path == '/account':
+            user = _current_user(self)
+            if not user:
+                _redirect(self, '/login?next=/account')
+                return
+            _send_simple(self, 200, _render_account(user))
             return
         if parsed.path == '/api/today':
             qs = parse_qs(parsed.query)
@@ -255,11 +442,57 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(404)
         self.end_headers()
 
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == '/login':
+            form = _read_form(self)
+            username = (form.get('username') or '').strip()
+            password = form.get('password') or ''
+            next_path = _safe_next(form.get('next', '/'))
+            if not username or not password or not auth.authenticate(username, password):
+                _send_simple(self, 200, _render_login(error='Username 或密碼錯誤', next_path=next_path))
+                return
+            token, expires = auth.create_session(username)
+            _redirect(self, next_path, extra_headers=[_session_cookie_header(token, expires)])
+            return
+        if parsed.path == '/logout':
+            token = _parse_cookie(self.headers.get('Cookie')).get(auth.COOKIE_NAME)
+            auth.delete_session(token)
+            _redirect(self, '/', extra_headers=[_clear_session_cookie_header()])
+            return
+        if parsed.path == '/account/password':
+            user = _current_user(self)
+            if not user:
+                _redirect(self, '/login?next=/account')
+                return
+            form = _read_form(self)
+            current = form.get('current') or ''
+            new = form.get('new') or ''
+            confirm = form.get('confirm') or ''
+            if not auth.authenticate(user, current):
+                _send_simple(self, 200, _render_account(user, msg='而家嘅密碼錯'))
+                return
+            if new != confirm:
+                _send_simple(self, 200, _render_account(user, msg='兩次新密碼唔一樣'))
+                return
+            if len(new) < 6:
+                _send_simple(self, 200, _render_account(user, msg='新密碼至少 6 個字'))
+                return
+            auth.set_password(user, new)
+            _send_simple(self, 200, _render_account(user, msg='✓ 密碼已更新', ok=True))
+            return
+        self.send_response(404)
+        self.end_headers()
+
     def log_message(self, format, *args):
         return
 
 
-if __name__ == '__main__':
+def serve():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f'plane-history web app: http://{HOST}:{PORT}', flush=True)
     server.serve_forever()
+
+
+if __name__ == '__main__':
+    serve()

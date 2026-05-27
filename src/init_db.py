@@ -64,6 +64,24 @@ DDL = [
       KEY idx_passes_icao_date (icao, pass_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
+    """
+    CREATE TABLE IF NOT EXISTS users (
+      username       VARCHAR(64) NOT NULL PRIMARY KEY,
+      password_hash  VARCHAR(255) NOT NULL,
+      created_at     VARCHAR(40) NOT NULL,
+      updated_at     VARCHAR(40) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash  VARCHAR(64) NOT NULL PRIMARY KEY,
+      username    VARCHAR(64) NOT NULL,
+      created_at  VARCHAR(40) NOT NULL,
+      expires_at  VARCHAR(40) NOT NULL,
+      KEY idx_sessions_username (username),
+      KEY idx_sessions_expires (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
 ]
 
 
