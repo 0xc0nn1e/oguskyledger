@@ -59,7 +59,7 @@ def ingest_once():
 
         if push_secret:
             cur.execute(
-                "SELECT registration, country, operator, aircraft_type FROM aircraft_registry_cache WHERE icao = %s",
+                "SELECT registration, country, operator, aircraft_type, from_airport, to_airport FROM aircraft_registry_cache WHERE icao = %s",
                 (icao,),
             )
             reg_row = cur.fetchone()
@@ -67,6 +67,8 @@ def ingest_once():
             country = reg_row[1] if reg_row and reg_row[1] else None
             operator = reg_row[2] if reg_row and reg_row[2] else None
             aircraft_type = reg_row[3] if reg_row and reg_row[3] else None
+            from_airport = reg_row[4] if reg_row and reg_row[4] else None
+            to_airport = reg_row[5] if reg_row and reg_row[5] else None
 
             is_hke = bool((flight and flight.startswith('HKE')) or operator == 'Hong Kong Express')
             if is_hke:
@@ -85,16 +87,16 @@ def ingest_once():
                 )
                 already_confirmed_today = cur.fetchone() is not None
                 if not already_confirmed_today:
-                    title = registration or icao.upper()
-                    parts = [f"HKE confirm: {title}"]
-                    if flight:
-                        parts.append(f"flight {flight}")
-                    if operator:
-                        parts.append(operator)
-                    if aircraft_type:
-                        parts.append(aircraft_type)
-                    if country:
-                        parts.append(country)
+                    # 格式：HKE confirm: HKE625 | B-LEL | Tokyo (HND)>Hong Kong (HKG)
+                    flight_label = (flight or '').strip() or icao.upper()
+                    reg_label = registration or icao.upper()
+                    parts = [f"HKE confirm: {flight_label}", reg_label]
+                    if from_airport and to_airport:
+                        parts.append(f"{from_airport}>{to_airport}")
+                    elif from_airport:
+                        parts.append(from_airport)
+                    elif to_airport:
+                        parts.append(to_airport)
 
                     link_target = (registration or icao).lower()
                     msg = " | ".join(parts) + f"\nhttps://www.flightradar24.com/data/aircraft/{link_target}"
@@ -104,9 +106,8 @@ def ingest_once():
                         'icao': icao,
                         'flight': flight,
                         'registration': registration,
-                        'operator': operator,
-                        'aircraft_type': aircraft_type,
-                        'country': country,
+                        'from_airport': from_airport,
+                        'to_airport': to_airport,
                         'status': status,
                     }, ensure_ascii=False), flush=True)
 
