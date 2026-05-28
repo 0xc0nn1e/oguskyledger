@@ -219,8 +219,15 @@ with sync_playwright() as p:
                 )
 
                 if push_secret and fr24_id and reg and from_airport and to_airport:
-                    flight_code = (fr24_id or '').upper()
-                    is_uo = flight_code.startswith('UO') or operator == 'Hong Kong Express'
+                    # 用 ADS-B 廣播 callsign（e.g. HKE651），唔好用 fr24_id（aircraft 結果係 hex）
+                    cur.execute(
+                        "SELECT flight FROM sightings_raw WHERE icao = %s AND COALESCE(flight, '') <> '' ORDER BY seen_at DESC LIMIT 1",
+                        (hex,),
+                    )
+                    cs_row = cur.fetchone()
+                    callsign = cs_row[0].strip() if cs_row and cs_row[0] else None
+                    flight_code = (callsign or fr24_id or '').upper()
+                    is_uo = flight_code.startswith(('UO', 'HKE')) or operator == 'Hong Kong Express'
                     if is_uo:
                         today_jst = datetime.now(JST).strftime('%Y-%m-%d')
                         cur.execute("SELECT hke_notified_at FROM aircraft_registry_cache WHERE icao = %s", (hex,))
@@ -234,7 +241,7 @@ with sync_playwright() as p:
                             except Exception:
                                 already_notified_today = False
                         if not already_notified_today:
-                            msg = f"HKE confirm: {flight_code} | {reg} | {from_airport}>{to_airport} \nhttps://www.flightradar24.com/data/flights/{flight_code.lower()}"
+                            msg = f"HKE confirm: {flight_code} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
                             status = send_push(push_secret, msg)
                             cur.execute("UPDATE aircraft_registry_cache SET hke_notified_at = %s WHERE icao = %s", (now_iso, hex))
                             log_line({'event': 'push_hke_confirm', 'icao': hex, 'flight_code': flight_code, 'registration': reg, 'from_airport': from_airport, 'to_airport': to_airport, 'status': status, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
