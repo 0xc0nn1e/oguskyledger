@@ -31,10 +31,21 @@ STRINGS = {
         'login_title': 'ログイン · plane-history',
         'account_title': 'パスワード変更 · plane-history',
         'nav_details': '詳細',
+        'nav_stats': '統計',
         'nav_home': '← トップ',
         'nav_login': 'ログイン',
         'nav_logout': 'ログアウト',
         'nav_account': 'アカウント',
+        'stats_title': '統計 · plane-history',
+        'stats_hdr_7d_hist': '直近7日 · 機数推移',
+        'stats_hdr_7d_types': '直近7日 · 機種 TOP 10',
+        'stats_hdr_7d_ops': '直近7日 · 運航会社 TOP 10',
+        'stats_hdr_7d_from': '直近7日 · 出発空港 TOP 10',
+        'stats_hdr_7d_to': '直近7日 · 到着空港 TOP 10',
+        'stats_hdr_db_total': '全DB · 累計機数',
+        'stats_hdr_db_types': '全DB · 機種数',
+        'stats_col_aircraft': '機数',
+        'stats_col_rank': '順位',
         'loading': '読み込み中...',
         'no_data': '// 本日データなし',
         'cta_details': '▸  詳細ビューを開く  ▸',
@@ -73,10 +84,21 @@ STRINGS = {
         'login_title': '登入 · plane-history',
         'account_title': '改密碼 · plane-history',
         'nav_details': '詳細',
+        'nav_stats': '統計',
         'nav_home': '← 首頁',
         'nav_login': '登入',
         'nav_logout': '登出',
         'nav_account': '改密碼',
+        'stats_title': '統計 · plane-history',
+        'stats_hdr_7d_hist': '近 7 日 · 每日機數',
+        'stats_hdr_7d_types': '近 7 日 · 機型 TOP 10',
+        'stats_hdr_7d_ops': '近 7 日 · 航空公司 TOP 10',
+        'stats_hdr_7d_from': '近 7 日 · 出發地 TOP 10',
+        'stats_hdr_7d_to': '近 7 日 · 目的地 TOP 10',
+        'stats_hdr_db_total': '全 DB · 累計機數',
+        'stats_hdr_db_types': '全 DB · 機型總數',
+        'stats_col_aircraft': '機數',
+        'stats_col_rank': '排名',
         'loading': '載入中...',
         'no_data': '// 今日未有資料',
         'cta_details': '▸  開詳細表  ▸',
@@ -115,10 +137,21 @@ STRINGS = {
         'login_title': 'Sign in · plane-history',
         'account_title': 'Change password · plane-history',
         'nav_details': 'DETAILS',
+        'nav_stats': 'STATS',
         'nav_home': '← HOME',
         'nav_login': 'SIGN IN',
         'nav_logout': 'SIGN OUT',
         'nav_account': 'ACCOUNT',
+        'stats_title': 'Stats · plane-history',
+        'stats_hdr_7d_hist': '7-DAY · DAILY AIRCRAFT',
+        'stats_hdr_7d_types': '7-DAY · TOP 10 TYPES',
+        'stats_hdr_7d_ops': '7-DAY · TOP 10 OPERATORS',
+        'stats_hdr_7d_from': '7-DAY · TOP 10 FROM',
+        'stats_hdr_7d_to': '7-DAY · TOP 10 TO',
+        'stats_hdr_db_total': 'ALL-TIME · TOTAL AIRCRAFT',
+        'stats_hdr_db_types': 'ALL-TIME · TOTAL TYPES',
+        'stats_col_aircraft': 'AIRCRAFT',
+        'stats_col_rank': '#',
         'loading': 'loading...',
         'no_data': '// no data today',
         'cta_details': '▸  OPEN DETAILED VIEW  ▸',
@@ -158,7 +191,7 @@ def _render(template, lang):
     s = STRINGS[lang]
     def repl(m):
         return s.get(m.group(1), m.group(0))
-    out = re.sub(r'\{\{T_([a-z_]+)\}\}', repl, template)
+    out = re.sub(r'\{\{T_([a-z0-9_]+)\}\}', repl, template)
     out = out.replace('{{LANG}}', lang)
     out = out.replace('{{HTML_LANG}}', HTML_LANG_ATTR[lang])
     out = out.replace('{{T_JSDICT}}', json.dumps(s, ensure_ascii=False))
@@ -213,12 +246,12 @@ DETAILS_HTML = '''<!doctype html>
 
     .container {
       position: relative; z-index: 2;
-      height: 100vh; overflow-y: auto; overflow-x: hidden;
+      height: 100vh; height: 100dvh; overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--x-muted) transparent;
     }
     .container::-webkit-scrollbar { width: 6px; }
     .container::-webkit-scrollbar-thumb { background: rgba(127,255,212,0.15); border-radius: 3px; }
-    .inner { max-width: 1400px; margin: 0 auto; padding: 24px 32px 60px; }
+    .inner { max-width: 1400px; margin: 0 auto; padding: 24px 32px calc(80px + env(safe-area-inset-bottom)); }
 
     header.page-hdr { padding-bottom: 14px; margin-bottom: 18px;
       border-bottom: 1px solid rgba(127,255,212,0.15); }
@@ -320,6 +353,31 @@ DETAILS_HTML = '''<!doctype html>
       text-transform: uppercase;
     }
     .loading { font-size: 11px; color: var(--muted); letter-spacing: 1.5px; padding: 40px; text-align: center; }
+    @media (max-width: 700px) {
+      .inner { position: relative; padding: 44px 16px calc(100px + env(safe-area-inset-bottom)); }
+      .hdr-row { gap: 8px; }
+      .hdr-row.top { font-size: 9px; letter-spacing: 1.5px; }
+      .hdr-row.main { flex-wrap: wrap; }
+      .hdr-row.main .title { font-size: 16px; letter-spacing: 0.5px; }
+      .hdr-row.main .clock { font-size: 13px; }
+      .hdr-row.sub .coords { display: none; }
+      .hdr-row.sub { justify-content: flex-end; }
+      .tools .nav > span:not(.lang-switch) { display: none; }
+      .tools { justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
+      .tools .nav { justify-content: flex-end; gap: 4px; }
+      .tools .nav a, .tools .nav button { padding: 5px 8px; font-size: 10px; letter-spacing: 1px; }
+      .lang-switch {
+        position: absolute; top: 12px; right: 12px; z-index: 5;
+        margin: 0; gap: 4px;
+        background: rgba(5,10,13,0.85); padding: 4px;
+        border-radius: 4px;
+      }
+      .lang-switch a { padding: 5px 8px; font-size: 10px; }
+      .controls { padding: 10px; gap: 6px; }
+      .controls label { font-size: 8px; }
+      .wrap { max-height: none; overflow-y: visible; overflow-x: auto; }
+      th, td { padding: 6px 6px; font-size: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -570,16 +628,17 @@ DETAILS_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
+      const back = `<a href="/">${esc(T.link_back_home)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
-          nav.innerHTML = ls + `<span style="font-size:10px;letter-spacing:1px;color:var(--muted)">👤 ${esc(me.username)}</span>
+          nav.innerHTML = back + ls + `<span style="font-size:10px;letter-spacing:1px;color:var(--muted)">👤 ${esc(me.username)}</span>
             <a href="/account">${esc(T.nav_account)}</a>
             <form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
         } else {
-          nav.innerHTML = ls + `<a href="/login">${esc(T.nav_login)}</a>`;
+          nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`;
         }
-      } catch { nav.innerHTML = ls + `<a href="/login">${esc(T.nav_login)}</a>`; }
+      } catch { nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`; }
     }
 
     const todayJST = getJST();
@@ -638,12 +697,12 @@ HOME_HTML = '''<!doctype html>
 
     .container {
       position: relative; z-index: 2;
-      height: 100vh; overflow-y: auto; overflow-x: hidden;
+      height: 100vh; height: 100dvh; overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: var(--x-muted) transparent;
     }
     .container::-webkit-scrollbar { width: 6px; }
     .container::-webkit-scrollbar-thumb { background: rgba(127,255,212,0.15); border-radius: 3px; }
-    .inner { max-width: 1320px; margin: 0 auto; padding: 24px 32px 60px; }
+    .inner { max-width: 1320px; margin: 0 auto; padding: 24px 32px calc(80px + env(safe-area-inset-bottom)); }
 
     /* HEADER */
     header.page-hdr { padding-bottom: 14px; margin-bottom: 18px;
@@ -810,9 +869,9 @@ HOME_HTML = '''<!doctype html>
       .tools input[type="date"] { flex: 0 1 auto; }
       .tools .nav { justify-content: flex-end; gap: 4px; flex: 0 0 auto; }
       .tools .nav a, .tools .nav button { padding: 5px 8px; font-size: 10px; letter-spacing: 1px; }
-      .inner { position: relative; padding-top: 44px; }
+      .inner { position: relative; padding: 44px 16px calc(100px + env(safe-area-inset-bottom)); }
       .lang-switch {
-        position: absolute; top: 12px; right: 28px; z-index: 5;
+        position: absolute; top: 12px; right: 12px; z-index: 5;
         margin: 0; gap: 4px;
         background: rgba(5,10,13,0.85); padding: 4px;
         border-radius: 4px;
@@ -1072,15 +1131,16 @@ HOME_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
+      const links = `<a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
-          nav.innerHTML = ls + `<a href="/details">${esc(T.nav_details)}</a><a href="/account">${esc(me.username)}</a>` +
+          nav.innerHTML = ls + links + `<a href="/account">${esc(me.username)}</a>` +
             `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
         } else {
-          nav.innerHTML = ls + `<a href="/details">${esc(T.nav_details)}</a><a href="/login">${esc(T.nav_login)}</a>`;
+          nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`;
         }
-      } catch { nav.innerHTML = ls + `<a href="/details">${esc(T.nav_details)}</a>`; }
+      } catch { nav.innerHTML = ls + links; }
     }
     renderNav();
 
@@ -1392,6 +1452,69 @@ def query_summary(day_str):
     }
 
 
+def query_stats():
+    today_jst = datetime.now(JST).date()
+    start_day = today_jst - timedelta(days=6)
+    start_utc, _ = jst_day_utc_bounds(start_day.isoformat())
+    _, end_utc = jst_day_utc_bounds(today_jst.isoformat())
+
+    conn = connect()
+    cur = dict_cursor(conn)
+
+    days = [(start_day + timedelta(days=i)).isoformat() for i in range(7)]
+    histogram = []
+    for d in days:
+        ds, de = jst_day_utc_bounds(d)
+        cur.execute(
+            'SELECT COUNT(DISTINCT icao) AS t FROM sightings_raw WHERE seen_at >= %s AND seen_at < %s',
+            (ds, de),
+        )
+        histogram.append({'day': d, 'count': cur.fetchone()['t']})
+
+    def top10(col):
+        cur.execute(
+            f'''
+            SELECT COALESCE(NULLIF(TRIM(c.{col}), ''), '(unknown)') AS k,
+                   COUNT(DISTINCT s.icao) AS cnt
+            FROM sightings_raw s
+            LEFT JOIN aircraft_registry_cache c ON c.icao = s.icao
+            WHERE s.seen_at >= %s AND s.seen_at < %s
+            GROUP BY COALESCE(NULLIF(TRIM(c.{col}), ''), '(unknown)')
+            ORDER BY cnt DESC, k ASC
+            LIMIT 10
+            ''',
+            (start_utc, end_utc),
+        )
+        return [{'name': r['k'], 'count': r['cnt']} for r in cur.fetchall()]
+
+    top_types = top10('aircraft_type')
+    top_ops = top10('operator')
+    top_from = top10('from_airport')
+    top_to = top10('to_airport')
+
+    cur.execute('SELECT COUNT(DISTINCT icao) AS t FROM sightings_raw')
+    db_total = cur.fetchone()['t']
+
+    cur.execute(
+        '''SELECT COUNT(DISTINCT TRIM(aircraft_type)) AS t
+           FROM aircraft_registry_cache
+           WHERE aircraft_type IS NOT NULL AND TRIM(aircraft_type) <> ''
+        '''
+    )
+    db_types = cur.fetchone()['t']
+
+    conn.close()
+    return {
+        'histogram': histogram,
+        'top_types': top_types,
+        'top_ops': top_ops,
+        'top_from': top_from,
+        'top_to': top_to,
+        'db_total': db_total,
+        'db_types': db_types,
+    }
+
+
 _AUTH_LANG_SWITCH = '''<div class="lang-switch">
   <a href="#" onclick="setLang('jp');return false" class="{CL_JP}">JP</a>
   <a href="#" onclick="setLang('hk');return false" class="{CL_HK}">HK</a>
@@ -1658,6 +1781,361 @@ def _safe_next(value):
     return '/'
 
 
+STATS_HTML = '''<!doctype html>
+<html lang="{{HTML_LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{T_stats_title}}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      --bg:#050a0d; --mint:#7fffd4; --mint-light:#aafff0; --amber:#f5d96f;
+      --muted:#4a8a7a; --x-muted:#3a6a5a;
+      --card:rgba(15,31,34,0.7); --card-body:rgba(10,20,22,0.7);
+      --hdr-bar:rgba(15,31,34,0.85);
+      --border:0.5px solid rgba(127,255,212,0.15);
+      --row-div:0.5px solid rgba(127,255,212,0.05);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; height:100%;
+      background: var(--bg); color: var(--mint);
+      font-family:'SF Mono','Menlo','Courier New',monospace;
+      -webkit-font-smoothing:antialiased;
+    }
+    body { overflow:hidden; }
+    #radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
+    .bg-vignette { position:fixed; inset:0; z-index:1; pointer-events:none;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(5,10,13,0.85) 95%); }
+
+    .container { position:relative; z-index:2; height:100vh; height:100dvh;
+      overflow-y:auto; overflow-x:hidden;
+      scrollbar-width:thin; scrollbar-color:var(--x-muted) transparent; }
+    .container::-webkit-scrollbar { width:6px; }
+    .container::-webkit-scrollbar-thumb { background:rgba(127,255,212,0.15); border-radius:3px; }
+    .inner { max-width:1320px; margin:0 auto;
+      padding: 24px 32px calc(80px + env(safe-area-inset-bottom)); }
+
+    header.page-hdr { padding-bottom:14px; margin-bottom:18px;
+      border-bottom:1px solid rgba(127,255,212,0.15); }
+    .hdr-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .hdr-row.top { font-size:10px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; }
+    .hdr-row.top .dot { color:var(--mint); animation:blink 2s infinite; margin-right:4px; }
+    @keyframes blink { 50% { opacity:0.35 } }
+    .hdr-row.main { margin:6px 0 4px; }
+    .hdr-row.main .title { font-size:22px; letter-spacing:1px; color:var(--mint); font-weight:500; margin:0; }
+    .hdr-row.main .title a { color:inherit; text-decoration:none; }
+    .hdr-row.main .clock { font-size:16px; color:var(--mint); letter-spacing:1px; }
+    .hdr-row.sub { font-size:10px; letter-spacing:2px; color:var(--x-muted); }
+    .hdr-row.sub .coords { text-transform:uppercase; }
+    .tools { display:flex; gap:6px; align-items:center; }
+    .tools .nav a, .tools .nav button {
+      background:rgba(15,31,34,0.6); color:var(--mint);
+      border:var(--border); border-radius:4px;
+      font:inherit; font-size:10px; letter-spacing:1.5px;
+      padding:6px 10px; outline:none; cursor:pointer;
+      text-decoration:none;
+    }
+    .tools .nav a:hover, .tools .nav button:hover { color:var(--mint); border-color:var(--mint); }
+    .nav { display:flex; gap:4px; align-items:center; }
+    .nav form { display:inline; margin:0; }
+    .lang-switch { display:inline-flex; gap:2px; margin-right:4px; }
+    .lang-switch a { color:var(--muted); text-decoration:none; font-size:10px;
+      padding:5px 8px; border:var(--border); border-radius:4px;
+      letter-spacing:0.1em; background:rgba(15,31,34,0.6); }
+    .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
+
+    .summary { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:18px; }
+    .stat-big {
+      background:var(--card); backdrop-filter:blur(8px);
+      border:var(--border); border-radius:4px; padding:16px 18px;
+    }
+    .stat-big .lbl { font-size:10px; letter-spacing:2px; color:var(--muted);
+      margin-bottom:8px; text-transform:uppercase; }
+    .stat-big .val { font-size:32px; font-weight:500; color:var(--mint); line-height:1;
+      letter-spacing:1px; }
+
+    section.panel { margin-bottom:18px; }
+    .panel-hdr {
+      background:var(--hdr-bar); backdrop-filter:blur(8px);
+      border:var(--border); border-radius:4px 4px 0 0;
+      padding:10px 14px; font-size:11px; letter-spacing:2px;
+      color:var(--amber); text-transform:uppercase;
+    }
+    .panel-hdr .diamond { color:var(--amber); margin-right:6px; }
+    .panel-body {
+      background:var(--card-body); backdrop-filter:blur(8px);
+      border:var(--border); border-top:0;
+      border-radius:0 0 4px 4px;
+      padding:14px;
+    }
+
+    /* histogram */
+    .hist { display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; align-items:end; }
+    .hist .bar-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .hist .bar-area { width:100%; height:140px; display:flex; align-items:flex-end; }
+    .hist .bar {
+      width:100%; min-height:2px; border-radius:2px 2px 0 0;
+      background:linear-gradient(180deg, var(--mint) 0%, rgba(127,255,212,0.35) 100%);
+    }
+    .hist .day { font-size:9px; letter-spacing:1px; color:var(--x-muted); text-transform:uppercase; }
+    .hist .val { font-size:11px; color:var(--mint); }
+
+    /* top-10 lists */
+    .row-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .row-2col section.panel { margin-bottom:0; }
+    .top10 { display:flex; flex-direction:column; }
+    .top10 .row {
+      display:grid; grid-template-columns:24px 1fr 60px;
+      gap:10px; align-items:center;
+      padding:7px 0; font-size:11px;
+      border-bottom:var(--row-div);
+    }
+    .top10 .row:last-child { border-bottom:0; }
+    .top10 .rank { color:var(--x-muted); font-size:10px; text-align:right; }
+    .top10 .name { color:var(--mint-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .top10 .cnt { color:var(--amber); text-align:right; }
+    .top10 .cols {
+      display:grid; grid-template-columns:24px 1fr 60px;
+      gap:10px;
+      font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+      padding:6px 0; border-bottom:0.5px solid rgba(127,255,212,0.1);
+      text-transform:uppercase;
+    }
+    .top10 .cols .r { text-align:right; }
+    .top10 .cols .c { text-align:right; }
+
+    .loading { font-size:11px; color:var(--muted); letter-spacing:1.5px; padding:24px; text-align:center; }
+
+    .page-footer { margin-top:36px; padding-top:22px;
+      border-top:var(--border); text-align:center;
+      font-size:9px; letter-spacing:3px; color:var(--x-muted); text-transform:uppercase; }
+
+    @media (max-width:700px) {
+      .inner { position:relative; padding:44px 16px calc(100px + env(safe-area-inset-bottom)); }
+      .hdr-row.top { font-size:9px; letter-spacing:1.5px; }
+      .hdr-row.main { flex-wrap:wrap; }
+      .hdr-row.main .title { font-size:16px; letter-spacing:0.5px; }
+      .hdr-row.main .clock { font-size:13px; }
+      .hdr-row.sub .coords { display:none; }
+      .hdr-row.sub { justify-content:flex-end; }
+      .tools .nav > span:not(.lang-switch) { display:none; }
+      .tools { justify-content:flex-end; gap:4px; flex-wrap:wrap; }
+      .tools .nav { justify-content:flex-end; gap:4px; }
+      .tools .nav a, .tools .nav button { padding:5px 8px; font-size:10px; letter-spacing:1px; }
+      .lang-switch {
+        position:absolute; top:12px; right:12px; z-index:5;
+        margin:0; gap:4px;
+        background:rgba(5,10,13,0.85); padding:4px; border-radius:4px;
+      }
+      .lang-switch a { padding:5px 8px; font-size:10px; }
+      .row-2col { grid-template-columns:1fr; }
+      .stat-big .val { font-size:24px; }
+      .hist .bar-area { height:100px; }
+      .hist .day { font-size:8px; letter-spacing:0; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="radar"></canvas>
+  <div class="bg-vignette"></div>
+  <div class="container">
+    <div class="inner">
+      <header class="page-hdr">
+        <div class="hdr-row top">
+          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
+          <span id="date">— — —</span>
+        </div>
+        <div class="hdr-row main">
+          <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
+          <span class="clock" id="clock">--:--:--</span>
+        </div>
+        <div class="hdr-row sub">
+          <span class="coords">Powered by connie.hk</span>
+          <div class="tools"><div class="nav" id="nav"></div></div>
+        </div>
+      </header>
+
+      <section class="summary">
+        <div class="stat-big">
+          <div class="lbl">{{T_stats_hdr_db_total}}</div>
+          <div class="val" id="db-total">—</div>
+        </div>
+        <div class="stat-big">
+          <div class="lbl">{{T_stats_hdr_db_types}}</div>
+          <div class="val" id="db-types">—</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_hist}}</div>
+        <div class="panel-body">
+          <div class="hist" id="hist"><div class="loading">{{T_loading}}</div></div>
+        </div>
+      </section>
+
+      <div class="row-2col">
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_types}}</div>
+          <div class="panel-body"><div class="top10" id="top-types"><div class="loading">{{T_loading}}</div></div></div>
+        </section>
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_ops}}</div>
+          <div class="panel-body"><div class="top10" id="top-ops"><div class="loading">{{T_loading}}</div></div></div>
+        </section>
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_from}}</div>
+          <div class="panel-body"><div class="top10" id="top-from"><div class="loading">{{T_loading}}</div></div></div>
+        </section>
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_to}}</div>
+          <div class="panel-body"><div class="top10" id="top-to"><div class="loading">{{T_loading}}</div></div></div>
+        </section>
+      </div>
+
+      <footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    const T = {{T_JSDICT}};
+    const LANG = '{{LANG}}';
+    const pad = n => String(n).padStart(2, '0');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function getJST() { const n = new Date(); return new Date(n.getTime() + 9*3600*1000); }
+    function updateClock() {
+      const j = getJST();
+      document.getElementById('clock').textContent =
+        `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:${pad(j.getUTCSeconds())} JPT`;
+      const wd = ['SUN','MON','TUE','WED','THU','FRI','SAT'][j.getUTCDay()];
+      document.getElementById('date').textContent =
+        `${j.getUTCFullYear()}.${pad(j.getUTCMonth()+1)}.${pad(j.getUTCDate())} · ${wd}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    function setLang(l) {
+      document.cookie = `lang=${l}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      location.reload();
+    }
+    window.setLang = setLang;
+
+    function langSwitchHTML() {
+      const labels = { jp:'JP', hk:'HK', en:'EN' };
+      return '<span class="lang-switch">' +
+        ['jp','hk','en'].map(l =>
+          `<a href="#" onclick="setLang('${l}');return false" class="${l===LANG?'on':''}">${labels[l]}</a>`
+        ).join('') + '</span>';
+    }
+    async function renderNav() {
+      const nav = document.getElementById('nav');
+      const ls = langSwitchHTML();
+      const back = `<a href="/">${esc(T.link_back_home)}</a>`;
+      try {
+        const me = await (await fetch('/api/me')).json();
+        if (me.username) {
+          nav.innerHTML = back + ls +
+            `<span style="font-size:10px;letter-spacing:1px;color:var(--muted)">👤 ${esc(me.username)}</span>` +
+            `<a href="/account">${esc(T.nav_account)}</a>` +
+            `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
+        } else {
+          nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`;
+        }
+      } catch { nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`; }
+    }
+    renderNav();
+
+    function renderTop(targetId, items) {
+      const el = document.getElementById(targetId);
+      if (!items || !items.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
+      const colsHTML = `<div class="cols"><div class="r">${esc(T.stats_col_rank)}</div><div>NAME</div><div class="c">${esc(T.stats_col_aircraft)}</div></div>`;
+      el.innerHTML = colsHTML + items.map((it, i) => `
+        <div class="row">
+          <div class="rank">${i+1}</div>
+          <div class="name" title="${esc(it.name)}">${esc(it.name)}</div>
+          <div class="cnt">${it.count}</div>
+        </div>`).join('');
+    }
+
+    function renderHist(hist) {
+      const el = document.getElementById('hist');
+      if (!hist || !hist.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
+      const max = Math.max(1, ...hist.map(h => h.count));
+      el.innerHTML = hist.map(h => {
+        const pct = (h.count / max * 100).toFixed(1);
+        const md = h.day.slice(5);
+        return `<div class="bar-wrap">
+          <div class="val">${h.count}</div>
+          <div class="bar-area"><div class="bar" style="height:${pct}%"></div></div>
+          <div class="day">${md}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function load() {
+      try {
+        const r = await (await fetch('/api/stats')).json();
+        document.getElementById('db-total').textContent = r.db_total;
+        document.getElementById('db-types').textContent = r.db_types;
+        renderHist(r.histogram);
+        renderTop('top-types', r.top_types);
+        renderTop('top-ops', r.top_ops);
+        renderTop('top-from', r.top_from);
+        renderTop('top-to', r.top_to);
+      } catch (e) {
+        document.getElementById('hist').innerHTML = '<div class="loading">error: ' + esc(String(e)) + '</div>';
+      }
+    }
+    load();
+
+    // ===== radar background =====
+    const MINT=0x7fffd4, AMBER=0xf5d96f, RING=0x1f5a4a;
+    const canvas = document.getElementById('radar');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 200);
+    camera.position.set(0, 8, 14); camera.lookAt(0, 0, 0);
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    for (const r of [2,4,6,8,10]) {
+      scene.add(new THREE.Mesh(
+        new THREE.RingGeometry(r-0.01, r+0.01, 96),
+        new THREE.MeshBasicMaterial({ color:RING, transparent:true, opacity:0.5, side:THREE.DoubleSide })
+      )).rotation.x = -Math.PI/2;
+    }
+    scene.add(new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-10,0,0), new THREE.Vector3(10,0,0),
+        new THREE.Vector3(0,0,-10), new THREE.Vector3(0,0,10),
+      ]),
+      new THREE.LineBasicMaterial({ color:RING, transparent:true, opacity:0.35 })
+    ));
+    const sweepGroup = new THREE.Group();
+    sweepGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(10,0,0)]),
+      new THREE.LineBasicMaterial({ color:MINT, transparent:true, opacity:0.7 })
+    ));
+    const wedge = new THREE.Mesh(
+      new THREE.CircleGeometry(10, 48, -Math.PI/4, Math.PI/4),
+      new THREE.MeshBasicMaterial({ color:MINT, transparent:true, opacity:0.08, side:THREE.DoubleSide })
+    );
+    wedge.rotation.x = -Math.PI/2; sweepGroup.add(wedge); scene.add(sweepGroup);
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+    function animate() {
+      sweepGroup.rotation.y -= 0.012;
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>'''
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -1680,6 +2158,21 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(_render(DETAILS_HTML, lang).encode('utf-8'))
+            return
+        if parsed.path == '/stats':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(_render(STATS_HTML, lang).encode('utf-8'))
+            return
+        if parsed.path == '/api/stats':
+            payload = query_stats()
+            body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
         if parsed.path == '/api/summary':
             qs = parse_qs(parsed.query)
