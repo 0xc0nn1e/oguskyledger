@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright
 
 from db import connect, column_set
@@ -8,7 +9,12 @@ from notifier import send_push
 
 BASE = Path.home() / "plane-history"
 LOG = BASE / 'data' / 'browser_bulk_backfill.log'
-URL = 'http://192.168.x.x:8080/?icao={}'
+
+# 接收機 base URL 由 config.json -> source.aircraft_json_url 推導，
+# 唔好硬編真 LAN IP（repo 只放 sample，真值放喺 untracked config.json）
+_CFG = json.loads((BASE / 'src' / 'config.json').read_text())
+_parts = urlsplit(_CFG['source']['aircraft_json_url'])
+URL = f'{_parts.scheme}://{_parts.netloc}/?icao={{}}'
 
 JST = timezone(timedelta(hours=9))
 
@@ -30,7 +36,7 @@ def jst_today_utc_range():
 
 conn = connect()
 cur = conn.cursor()
-push_secret = json.loads((BASE / 'src' / 'config.json').read_text()).get('push', {}).get('secret')
+push_secret = _CFG.get('push', {}).get('secret')
 
 if 'hke_notified_at' not in column_set(conn, 'aircraft_registry_cache'):
     cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN hke_notified_at VARCHAR(40)")
