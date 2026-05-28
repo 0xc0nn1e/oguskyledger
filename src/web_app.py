@@ -780,6 +780,48 @@ HOME_HTML = '''<!doctype html>
       font-size: 11px; color: var(--muted); letter-spacing: 1.5px;
       text-align: center; padding: 40px;
     }
+    @media (max-width: 700px) {
+      section.groups { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .recent-contacts .flight-cols,
+      .recent-contacts .flight { grid-template-columns: 55px 1fr 65px 55px; gap: 6px; }
+      .recent-contacts .flight-cols div:nth-child(n+5),
+      .recent-contacts .flight > div:nth-child(n+5) { display: none; }
+      section.groups .group-body { padding: 0 10px 4px; }
+      section.groups .flight-cols,
+      section.groups .flight { grid-template-columns: 55px 1fr 65px 70px; gap: 6px; }
+      section.groups .flight { padding-left: 6px; margin-left: -8px; }
+      section.groups .flight-cols > div:nth-child(4),
+      section.groups .flight-cols > div:nth-child(6),
+      section.groups .flight-cols > div:nth-child(7),
+      section.groups .flight > div:nth-child(4),
+      section.groups .flight > div:nth-child(6),
+      section.groups .flight > div:nth-child(7) { display: none; }
+      .hdr-row { gap: 8px; }
+      .hdr-row.top { font-size: 9px; letter-spacing: 1.5px; }
+      .hdr-row.main { flex-wrap: wrap; }
+      .hdr-row.main .title { font-size: 16px; letter-spacing: 0.5px; }
+      .hdr-row.main .clock { font-size: 13px; }
+      .hdr-row.sub .coords { display: none; }
+      .tools .nav > span:not(.lang-switch) { display: none; }
+      .hdr-row.sub { justify-content: flex-end; }
+      .tools { justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
+      .tools input[type="search"] { width: 110px; flex: 0 1 auto; }
+      .tools input[type="date"] { flex: 0 1 auto; }
+      .tools .nav { justify-content: flex-end; gap: 4px; flex: 0 0 auto; }
+      .tools .nav a, .tools .nav button { padding: 5px 8px; font-size: 10px; letter-spacing: 1px; }
+      .inner { position: relative; padding-top: 44px; }
+      .lang-switch {
+        position: absolute; top: 12px; right: 28px; z-index: 5;
+        margin: 0; gap: 4px;
+        background: rgba(5,10,13,0.85); padding: 4px;
+        border-radius: 4px;
+      }
+      .lang-switch a { padding: 5px 8px; font-size: 10px; }
+      .group-hdr { align-items: flex-start; gap: 10px; }
+      .group-hdr .left { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; flex: 1; }
+      .group-hdr .left .op { white-space: normal; word-break: break-word; line-height: 1.3; }
+    }
   </style>
 </head>
 <body>
