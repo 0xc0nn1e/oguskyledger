@@ -12,6 +12,8 @@ from db import connect, dict_cursor
 HOST = '0.0.0.0'
 PORT = 8765
 JST = timezone(timedelta(hours=9))
+# process 起身時間（supervisor 每次拉返起會 reset），/about 用嚟計 uptime
+_BOOT_AT = datetime.now(timezone.utc)
 ALLOWED_SORTS = {
     'last_seen': 'last_seen DESC',
     'country': 'country ASC, operator ASC, last_seen DESC',
@@ -37,15 +39,51 @@ STRINGS = {
         'nav_logout': 'ログアウト',
         'nav_account': 'アカウント',
         'stats_title': '統計 · plane-history',
-        'stats_hdr_7d_hist': '直近7日 · 機数推移',
+        'stats_hdr_7d_hist': '直近7日 · 便数推移',
+        'stats_hdr_24h_hist': '直近24時間 · 時間帯別便数 (JST)',
         'stats_hdr_7d_types': '直近7日 · 機種 TOP 10',
         'stats_hdr_7d_ops': '直近7日 · 運航会社 TOP 10',
         'stats_hdr_7d_from': '直近7日 · 出発空港 TOP 10',
         'stats_hdr_7d_to': '直近7日 · 到着空港 TOP 10',
-        'stats_hdr_db_total': '全DB · 累計機数',
+        'stats_hdr_db_total': '全DB · 累計便数',
         'stats_hdr_db_types': '全DB · 機種数',
-        'stats_col_aircraft': '機数',
+        'stats_hdr_peak_alt': '全DB · 最高高度',
+        'stats_hdr_busiest_hour': '全DB · 繁忙時間帯 (JST)',
+        'stats_col_aircraft': '便数',
         'stats_col_rank': '順位',
+        'nav_about': '概要',
+        'about_title': 'About · plane-history',
+        'about_hdr_receiver': '受信機ステータス',
+        'about_hdr_project': 'このプロジェクト',
+        'about_hdr_arch': 'アーキテクチャ',
+        'about_lbl_receiver': '受信機',
+        'about_lbl_source': 'ソース',
+        'about_lbl_uptime': '稼働時間',
+        'about_lbl_last_update': '最終受信',
+        'about_lbl_feed': 'フィード状態',
+        'about_feed_ok': 'OK · 正常',
+        'about_feed_stale': '遅延',
+        'about_feed_down': '停止',
+        'about_ago_fmt': '{n}{u}前',
+        'about_unit_sec': '秒',
+        'about_unit_min': '分',
+        'about_unit_hr': '時間',
+        'about_unit_day': '日',
+        'about_desc': '自宅に設置したADS-B受信機から航空機データを取得し、MySQLに履歴を保存したうえで、Python（標準ライブラリの http.server）によるAPIとWebダッシュボードで可視化しています。',
+        'home_subtitle': '東京・尾久の自宅受信機で取得した航空機データを記録・可視化する個人開発プロジェクトです。',
+        'stats_note': 'これらの統計は MySQL に保存された過去の航空機コンタクトから算出しています。',
+        'details_note': '運航会社・機種・航路・国・高度レンジで過去の航空機コンタクトを検索・絞り込みできます。',
+        'about_hdr_stack': '技術スタック',
+        'about_hdr_health': 'システムヘルス',
+        'about_stack_frontend': 'フロントエンド',
+        'about_stack_backend': 'バックエンド',
+        'about_stack_db': 'データベース',
+        'about_stack_receiver': '受信機',
+        'about_stack_deploy': 'デプロイ',
+        'about_stack_notify': '通知',
+        'about_lbl_api': 'API',
+        'about_lbl_db': 'データベース',
+        'about_lbl_records_today': '本日の記録数',
         'loading': '読み込み中...',
         'no_data': '// 本日データなし',
         'cta_details': '▸  詳細ビューを開く  ▸',
@@ -90,15 +128,51 @@ STRINGS = {
         'nav_logout': '登出',
         'nav_account': '改密碼',
         'stats_title': '統計 · plane-history',
-        'stats_hdr_7d_hist': '近 7 日 · 每日機數',
+        'stats_hdr_7d_hist': '近 7 日 · 每日班次',
+        'stats_hdr_24h_hist': '近 24 小時 · 每小時班次 (JST)',
         'stats_hdr_7d_types': '近 7 日 · 機型 TOP 10',
         'stats_hdr_7d_ops': '近 7 日 · 航空公司 TOP 10',
         'stats_hdr_7d_from': '近 7 日 · 出發地 TOP 10',
         'stats_hdr_7d_to': '近 7 日 · 目的地 TOP 10',
-        'stats_hdr_db_total': '全 DB · 累計機數',
+        'stats_hdr_db_total': '全 DB · 累計班次',
         'stats_hdr_db_types': '全 DB · 機型總數',
-        'stats_col_aircraft': '機數',
+        'stats_hdr_peak_alt': '全 DB · 最高高度',
+        'stats_hdr_busiest_hour': '全 DB · 最繁忙時段 (JST)',
+        'stats_col_aircraft': '班次',
         'stats_col_rank': '排名',
+        'nav_about': '關於',
+        'about_title': '關於 · plane-history',
+        'about_hdr_receiver': '接收機狀態',
+        'about_hdr_project': '關於呢個 project',
+        'about_hdr_arch': '系統架構',
+        'about_lbl_receiver': '接收機',
+        'about_lbl_source': '來源',
+        'about_lbl_uptime': '運行時間',
+        'about_lbl_last_update': '最後收到',
+        'about_lbl_feed': 'Feed 狀態',
+        'about_feed_ok': 'OK · 正常',
+        'about_feed_stale': '延遲',
+        'about_feed_down': '停咗',
+        'about_ago_fmt': '{n} {u}前',
+        'about_unit_sec': '秒',
+        'about_unit_min': '分',
+        'about_unit_hr': '小時',
+        'about_unit_day': '日',
+        'about_desc': '呢個 project 由自己 host 嘅 ADS-B 接收機收集飛機數據，將歷史接觸記錄存入 MySQL，再透過 Python（stdlib http.server）後端 API 同 Web dashboard 將近期飛機活動視覺化。',
+        'home_subtitle': '由東京尾久自宅接收機收集飛機數據、記錄同視覺化嘅個人 project。',
+        'stats_note': '呢啲統計係由 MySQL 入面儲存嘅歷史飛機接觸記錄計出嚟。',
+        'details_note': '可以按航空公司、機型、航線、國家同高度範圍搜尋同篩選歷史飛機接觸記錄。',
+        'about_hdr_stack': '技術 Stack',
+        'about_hdr_health': '系統健康',
+        'about_stack_frontend': '前端',
+        'about_stack_backend': '後端',
+        'about_stack_db': '資料庫',
+        'about_stack_receiver': '接收機',
+        'about_stack_deploy': '部署',
+        'about_stack_notify': '通知',
+        'about_lbl_api': 'API',
+        'about_lbl_db': '資料庫',
+        'about_lbl_records_today': '今日記錄數',
         'loading': '載入中...',
         'no_data': '// 今日未有資料',
         'cta_details': '▸  開詳細表  ▸',
@@ -143,15 +217,51 @@ STRINGS = {
         'nav_logout': 'SIGN OUT',
         'nav_account': 'ACCOUNT',
         'stats_title': 'Stats · plane-history',
-        'stats_hdr_7d_hist': '7-DAY · DAILY AIRCRAFT',
+        'stats_hdr_7d_hist': '7-DAY · DAILY FLIGHTS',
+        'stats_hdr_24h_hist': 'LAST 24H · FLIGHTS BY HOUR (JST)',
         'stats_hdr_7d_types': '7-DAY · TOP 10 TYPES',
         'stats_hdr_7d_ops': '7-DAY · TOP 10 OPERATORS',
         'stats_hdr_7d_from': '7-DAY · TOP 10 FROM',
         'stats_hdr_7d_to': '7-DAY · TOP 10 TO',
-        'stats_hdr_db_total': 'ALL-TIME · TOTAL AIRCRAFT',
+        'stats_hdr_db_total': 'ALL-TIME · TOTAL FLIGHTS',
         'stats_hdr_db_types': 'ALL-TIME · TOTAL TYPES',
-        'stats_col_aircraft': 'AIRCRAFT',
+        'stats_hdr_peak_alt': 'ALL-TIME · PEAK ALT',
+        'stats_hdr_busiest_hour': 'ALL-TIME · BUSIEST HOUR (JST)',
+        'stats_col_aircraft': 'FLIGHTS',
         'stats_col_rank': '#',
+        'nav_about': 'ABOUT',
+        'about_title': 'About · plane-history',
+        'about_hdr_receiver': 'RECEIVER STATUS',
+        'about_hdr_project': 'ABOUT THIS PROJECT',
+        'about_hdr_arch': 'ARCHITECTURE',
+        'about_lbl_receiver': 'Receiver',
+        'about_lbl_source': 'Source',
+        'about_lbl_uptime': 'Uptime',
+        'about_lbl_last_update': 'Last aircraft update',
+        'about_lbl_feed': 'Feed health',
+        'about_feed_ok': 'OK',
+        'about_feed_stale': 'DELAYED',
+        'about_feed_down': 'DOWN',
+        'about_ago_fmt': '{n} {u} ago',
+        'about_unit_sec': 'sec',
+        'about_unit_min': 'min',
+        'about_unit_hr': 'hr',
+        'about_unit_day': 'day',
+        'about_desc': 'This project collects ADS-B aircraft data from a self-hosted receiver, stores historical contacts in MySQL, and visualizes recent aircraft activity through a Python backend (stdlib http.server) and web dashboard.',
+        'home_subtitle': 'Personal ADS-B flight data dashboard powered by a self-hosted receiver in Oku, Tokyo.',
+        'stats_note': 'These statistics are calculated from historical aircraft contacts stored in MySQL.',
+        'details_note': 'Search and filter historical aircraft contacts by operator, aircraft type, route, country and altitude range.',
+        'about_hdr_stack': 'TECH STACK',
+        'about_hdr_health': 'SYSTEM HEALTH',
+        'about_stack_frontend': 'Frontend',
+        'about_stack_backend': 'Backend',
+        'about_stack_db': 'Database',
+        'about_stack_receiver': 'Receiver',
+        'about_stack_deploy': 'Deployment',
+        'about_stack_notify': 'Notification',
+        'about_lbl_api': 'API',
+        'about_lbl_db': 'Database',
+        'about_lbl_records_today': 'Records today',
         'loading': 'loading...',
         'no_data': '// no data today',
         'cta_details': '▸  OPEN DETAILED VIEW  ▸',
@@ -286,6 +396,8 @@ DETAILS_HTML = '''<!doctype html>
     }
     .lang-switch a.on { color: var(--mint); border-color: var(--mint); }
 
+    .page-subtitle { margin:0 0 16px; font-size:12px; line-height:1.7;
+      letter-spacing:0.5px; color:var(--muted); max-width:760px; }
     .controls {
       display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;
       margin-bottom: 14px;
@@ -401,6 +513,8 @@ DETAILS_HTML = '''<!doctype html>
           </div>
         </div>
       </header>
+
+      <p class="page-subtitle">{{T_details_note}}</p>
 
       <div class="controls">
         <label>{{T_lbl_date}}
@@ -739,6 +853,8 @@ HOME_HTML = '''<!doctype html>
     .lang-switch a.on { color: var(--mint); border-color: var(--mint); }
 
     /* RECENT CONTACTS */
+    .page-subtitle { margin: 0 0 18px; font-size: 12px; line-height: 1.7;
+      letter-spacing: 0.5px; color: var(--muted); max-width: 720px; }
     .recent-contacts { margin-bottom: 14px; }
     .recent-contacts .flight-cols,
     .recent-contacts .flight {
@@ -907,6 +1023,8 @@ HOME_HTML = '''<!doctype html>
           </div>
         </div>
       </header>
+
+      <p class="page-subtitle">{{T_home_subtitle}}</p>
 
       <section class="recent-contacts">
         <div class="group">
@@ -1131,7 +1249,7 @@ HOME_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -1455,8 +1573,6 @@ def query_summary(day_str):
 def query_stats():
     today_jst = datetime.now(JST).date()
     start_day = today_jst - timedelta(days=6)
-    start_utc, _ = jst_day_utc_bounds(start_day.isoformat())
-    _, end_utc = jst_day_utc_bounds(today_jst.isoformat())
 
     conn = connect()
     cur = dict_cursor(conn)
@@ -1464,35 +1580,52 @@ def query_stats():
     days = [(start_day + timedelta(days=i)).isoformat() for i in range(7)]
     histogram = []
     for d in days:
-        ds, de = jst_day_utc_bounds(d)
         cur.execute(
-            'SELECT COUNT(DISTINCT icao) AS t FROM sightings_raw WHERE seen_at >= %s AND seen_at < %s',
-            (ds, de),
+            'SELECT COUNT(*) AS t FROM aircraft_passes WHERE pass_date = %s',
+            (d,),
         )
         histogram.append({'day': d, 'count': cur.fetchone()['t']})
 
-    def top10(col):
-        cur.execute(
-            f'''
-            SELECT COALESCE(NULLIF(TRIM(c.{col}), ''), '(unknown)') AS k,
-                   COUNT(DISTINCT s.icao) AS cnt
-            FROM sightings_raw s
-            LEFT JOIN aircraft_registry_cache c ON c.icao = s.icao
-            WHERE s.seen_at >= %s AND s.seen_at < %s
-            GROUP BY COALESCE(NULLIF(TRIM(c.{col}), ''), '(unknown)')
-            ORDER BY cnt DESC, k ASC
-            LIMIT 10
-            ''',
-            (start_utc, end_utc),
-        )
+    start_date = start_day.isoformat()
+    end_date = today_jst.isoformat()
+
+    def top10(col, from_passes=False):
+        # operator 喺 passes 表自己有；type/from/to 要 JOIN registry
+        if from_passes:
+            cur.execute(
+                f'''
+                SELECT COALESCE(NULLIF(TRIM(p.{col}), ''), '(unknown)') AS k,
+                       COUNT(*) AS cnt
+                FROM aircraft_passes p
+                WHERE p.pass_date >= %s AND p.pass_date <= %s
+                GROUP BY COALESCE(NULLIF(TRIM(p.{col}), ''), '(unknown)')
+                ORDER BY cnt DESC, k ASC
+                LIMIT 10
+                ''',
+                (start_date, end_date),
+            )
+        else:
+            cur.execute(
+                f'''
+                SELECT COALESCE(NULLIF(TRIM(c.{col}), ''), '(unknown)') AS k,
+                       COUNT(*) AS cnt
+                FROM aircraft_passes p
+                LEFT JOIN aircraft_registry_cache c ON c.icao = p.icao
+                WHERE p.pass_date >= %s AND p.pass_date <= %s
+                GROUP BY COALESCE(NULLIF(TRIM(c.{col}), ''), '(unknown)')
+                ORDER BY cnt DESC, k ASC
+                LIMIT 10
+                ''',
+                (start_date, end_date),
+            )
         return [{'name': r['k'], 'count': r['cnt']} for r in cur.fetchall()]
 
     top_types = top10('aircraft_type')
-    top_ops = top10('operator')
+    top_ops = top10('operator', from_passes=True)
     top_from = top10('from_airport')
     top_to = top10('to_airport')
 
-    cur.execute('SELECT COUNT(DISTINCT icao) AS t FROM sightings_raw')
+    cur.execute('SELECT COUNT(*) AS t FROM aircraft_passes')
     db_total = cur.fetchone()['t']
 
     cur.execute(
@@ -1503,6 +1636,59 @@ def query_stats():
     )
     db_types = cur.fetchone()['t']
 
+    # 最高高度（全 DB），順手帶返係邊班機飛到
+    cur.execute(
+        '''SELECT max_alt_baro AS alt, flight
+           FROM aircraft_passes
+           WHERE max_alt_baro IS NOT NULL
+           ORDER BY max_alt_baro DESC
+           LIMIT 1'''
+    )
+    row = cur.fetchone()
+    peak_alt = {'alt': row['alt'], 'flight': row['flight']} if row else None
+
+    # 最繁忙時段：first_seen（UTC）+9 小時轉 JST，按小時 group
+    cur.execute(
+        '''SELECT HOUR(DATE_ADD(
+                     STR_TO_DATE(SUBSTRING(first_seen, 1, 19), '%Y-%m-%dT%H:%i:%s'),
+                     INTERVAL 9 HOUR)) AS hr,
+                  COUNT(*) AS cnt
+           FROM aircraft_passes
+           GROUP BY hr
+           ORDER BY cnt DESC, hr ASC
+           LIMIT 1'''
+    )
+    row = cur.fetchone()
+    busiest_hour = (
+        {'hour': row['hr'], 'count': row['cnt']}
+        if row and row['hr'] is not None else None
+    )
+
+    # 近 24 小時（rolling window）每個鐘頭嘅便数推移，
+    # oldest → newest 排，最後一條 = 而家所在嘅鐘頭（前端會 highlight）
+    now_utc = datetime.now(timezone.utc)
+    window_start = now_utc - timedelta(hours=24)
+    cur.execute(
+        'SELECT first_seen FROM aircraft_passes WHERE first_seen >= %s',
+        (window_start.isoformat(),),
+    )
+    cur_hour = now_utc.astimezone(JST).replace(minute=0, second=0, microsecond=0)
+    starts = [cur_hour - timedelta(hours=23 - i) for i in range(24)]
+    counts = {s: 0 for s in starts}
+    for r in cur.fetchall():
+        try:
+            slot = (datetime.fromisoformat(r['first_seen'])
+                    .astimezone(JST)
+                    .replace(minute=0, second=0, microsecond=0))
+        except (ValueError, TypeError):
+            continue
+        if slot in counts:
+            counts[slot] += 1
+    hourly = [
+        {'hour': s.hour, 'count': counts[s], 'current': (s == cur_hour)}
+        for s in starts
+    ]
+
     conn.close()
     return {
         'histogram': histogram,
@@ -1512,7 +1698,81 @@ def query_stats():
         'top_to': top_to,
         'db_total': db_total,
         'db_types': db_types,
+        'peak_alt': peak_alt,
+        'busiest_hour': busiest_hour,
+        'hourly': hourly,
     }
+
+
+def _receiver_snapshot():
+    """共用：最後一筆 sample 幾耐之前（秒）同今日 pass 數。會 raise 如果 DB connect 唔到。"""
+    conn = connect()
+    cur = dict_cursor(conn)
+    cur.execute('SELECT MAX(seen_at) AS ts FROM sightings_raw')
+    row = cur.fetchone()
+    today_jst = datetime.now(JST).strftime('%Y-%m-%d')
+    cur.execute('SELECT COUNT(*) AS c FROM aircraft_passes WHERE pass_date = %s', (today_jst,))
+    records_today = cur.fetchone()['c']
+    conn.close()
+
+    last_secs = None
+    if row and row['ts']:
+        try:
+            last_dt = datetime.fromisoformat(row['ts'])
+            last_secs = max(0, int((datetime.now(timezone.utc) - last_dt).total_seconds()))
+        except ValueError:
+            last_secs = None
+    return last_secs, records_today
+
+
+def _feed_health(last_secs):
+    # pipeline 每 60 秒 run 一次，180 秒內當正常、900 秒內當遲、再耐就當停
+    if last_secs is None:
+        return 'down'
+    if last_secs <= 180:
+        return 'ok'
+    if last_secs <= 900:
+        return 'stale'
+    return 'down'
+
+
+def query_about():
+    # 接收機 / feed 健康狀態，畀 /about 頁顯示
+    last_secs, records_today = _receiver_snapshot()
+    uptime_secs = (datetime.now(timezone.utc) - _BOOT_AT).total_seconds()
+    return {
+        'receiver': 'Oku Home RX',
+        'source': 'Pi / dump1090 / readsb',
+        'uptime_secs': int(uptime_secs),
+        'last_update_secs': last_secs,
+        'feed_health': _feed_health(last_secs),
+        'records_today': records_today,
+    }
+
+
+def query_health():
+    """畀 /api/health 用嘅 monitoring endpoint。回 (payload, http_status)。"""
+    db_ok = True
+    last_secs = None
+    records_today = None
+    try:
+        last_secs, records_today = _receiver_snapshot()
+    except Exception:
+        db_ok = False
+
+    receiver = _feed_health(last_secs) if db_ok else 'down'
+    # 服務本身健唔健康 = API 起到 + DB 連到。Receiver 遲/停當 degraded，唔當 503。
+    healthy = db_ok
+    payload = {
+        'status': 'ok' if healthy else 'error',
+        'api': 'ok',
+        'db': 'ok' if db_ok else 'down',
+        'receiver': receiver,
+        'receiver_last_seen_secs': last_secs,
+        'records_today': records_today,
+        'uptime_secs': int((datetime.now(timezone.utc) - _BOOT_AT).total_seconds()),
+    }
+    return payload, (200 if healthy else 503)
 
 
 _AUTH_LANG_SWITCH = '''<div class="lang-switch">
@@ -1845,6 +2105,8 @@ STATS_HTML = '''<!doctype html>
       letter-spacing:0.1em; background:rgba(15,31,34,0.6); }
     .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
 
+    .page-subtitle { margin:0 0 18px; font-size:12px; line-height:1.7;
+      letter-spacing:0.5px; color:var(--muted); max-width:720px; }
     .summary { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:18px; }
     .stat-big {
       background:var(--card); backdrop-filter:blur(8px);
@@ -1854,6 +2116,8 @@ STATS_HTML = '''<!doctype html>
       margin-bottom:8px; text-transform:uppercase; }
     .stat-big .val { font-size:32px; font-weight:500; color:var(--mint); line-height:1;
       letter-spacing:1px; }
+    .stat-big .sub { font-size:10px; letter-spacing:1px; color:var(--x-muted);
+      margin-top:7px; min-height:11px; }
 
     section.panel { margin-bottom:18px; }
     .panel-hdr {
@@ -1880,6 +2144,14 @@ STATS_HTML = '''<!doctype html>
     }
     .hist .day { font-size:9px; letter-spacing:1px; color:var(--x-muted); text-transform:uppercase; }
     .hist .val { font-size:11px; color:var(--mint); }
+    .hist24 { grid-template-columns:repeat(24, 1fr); gap:2px; }
+    .hist24 .bar-wrap { gap:4px; }
+    .hist24 .bar-area { height:110px; }
+    .hist24 .val { font-size:8px; letter-spacing:0; }
+    .hist24 .day { font-size:8px; letter-spacing:0; }
+    /* 而家所在嗰個鐘頭：轉琥珀色 */
+    .hist24 .bar.now { background:linear-gradient(180deg, var(--amber) 0%, rgba(245,217,111,0.35) 100%); }
+    .hist24 .bar-wrap.now .day, .hist24 .bar-wrap.now .val { color:var(--amber); }
 
     /* top-10 lists */
     .row-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -1933,6 +2205,8 @@ STATS_HTML = '''<!doctype html>
       .stat-big .val { font-size:24px; }
       .hist .bar-area { height:100px; }
       .hist .day { font-size:8px; letter-spacing:0; }
+      .hist24 .val { display:none; }
+      .hist24 .bar-area { height:80px; }
     }
   </style>
 </head>
@@ -1956,6 +2230,8 @@ STATS_HTML = '''<!doctype html>
         </div>
       </header>
 
+      <p class="page-subtitle">{{T_stats_note}}</p>
+
       <section class="summary">
         <div class="stat-big">
           <div class="lbl">{{T_stats_hdr_db_total}}</div>
@@ -1965,12 +2241,29 @@ STATS_HTML = '''<!doctype html>
           <div class="lbl">{{T_stats_hdr_db_types}}</div>
           <div class="val" id="db-types">—</div>
         </div>
+        <div class="stat-big">
+          <div class="lbl">{{T_stats_hdr_peak_alt}}</div>
+          <div class="val" id="peak-alt">—</div>
+          <div class="sub" id="peak-alt-sub"></div>
+        </div>
+        <div class="stat-big">
+          <div class="lbl">{{T_stats_hdr_busiest_hour}}</div>
+          <div class="val" id="busiest-hour">—</div>
+          <div class="sub" id="busiest-hour-sub"></div>
+        </div>
       </section>
 
       <section class="panel">
         <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_hist}}</div>
         <div class="panel-body">
           <div class="hist" id="hist"><div class="loading">{{T_loading}}</div></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_24h_hist}}</div>
+        <div class="panel-body">
+          <div class="hist hist24" id="hist24"><div class="loading">{{T_loading}}</div></div>
         </div>
       </section>
 
@@ -2073,12 +2366,40 @@ STATS_HTML = '''<!doctype html>
       }).join('');
     }
 
+    function renderHist24(hourly) {
+      const el = document.getElementById('hist24');
+      if (!hourly || !hourly.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
+      const max = Math.max(1, ...hourly.map(h => h.count));
+      el.innerHTML = hourly.map(h => {
+        const pct = (h.count / max * 100).toFixed(1);
+        // 每條 bar 都標鐘頭刻度，唔會走位；個數放 title tooltip
+        const valTxt = h.count ? h.count : '';
+        const now = h.current ? ' now' : '';
+        return `<div class="bar-wrap${now}" title="${pad(h.hour)}:00 · ${h.count}">
+          <div class="val">${valTxt}</div>
+          <div class="bar-area"><div class="bar${now}" style="height:${pct}%"></div></div>
+          <div class="day">${pad(h.hour)}</div>
+        </div>`;
+      }).join('');
+    }
+
     async function load() {
       try {
         const r = await (await fetch('/api/stats')).json();
         document.getElementById('db-total').textContent = r.db_total;
         document.getElementById('db-types').textContent = r.db_types;
+        if (r.peak_alt && r.peak_alt.alt != null) {
+          document.getElementById('peak-alt').textContent = Math.round(r.peak_alt.alt).toLocaleString() + ' ft';
+          const fl = r.peak_alt.flight ? r.peak_alt.flight.trim() : '';
+          document.getElementById('peak-alt-sub').textContent = fl ? '✈ ' + fl : '';
+        }
+        if (r.busiest_hour && r.busiest_hour.hour != null) {
+          const h = r.busiest_hour.hour;
+          document.getElementById('busiest-hour').textContent = pad(h) + ':00–' + pad((h + 1) % 24) + ':00';
+          document.getElementById('busiest-hour-sub').textContent = r.busiest_hour.count + ' ' + T.stats_col_aircraft;
+        }
         renderHist(r.histogram);
+        renderHist24(r.hourly);
         renderTop('top-types', r.top_types);
         renderTop('top-ops', r.top_ops);
         renderTop('top-from', r.top_from);
@@ -2088,6 +2409,384 @@ STATS_HTML = '''<!doctype html>
       }
     }
     load();
+
+    // ===== radar background =====
+    const MINT=0x7fffd4, AMBER=0xf5d96f, RING=0x1f5a4a;
+    const canvas = document.getElementById('radar');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 200);
+    camera.position.set(0, 8, 14); camera.lookAt(0, 0, 0);
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    for (const r of [2,4,6,8,10]) {
+      scene.add(new THREE.Mesh(
+        new THREE.RingGeometry(r-0.01, r+0.01, 96),
+        new THREE.MeshBasicMaterial({ color:RING, transparent:true, opacity:0.5, side:THREE.DoubleSide })
+      )).rotation.x = -Math.PI/2;
+    }
+    scene.add(new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-10,0,0), new THREE.Vector3(10,0,0),
+        new THREE.Vector3(0,0,-10), new THREE.Vector3(0,0,10),
+      ]),
+      new THREE.LineBasicMaterial({ color:RING, transparent:true, opacity:0.35 })
+    ));
+    const sweepGroup = new THREE.Group();
+    sweepGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(10,0,0)]),
+      new THREE.LineBasicMaterial({ color:MINT, transparent:true, opacity:0.7 })
+    ));
+    const wedge = new THREE.Mesh(
+      new THREE.CircleGeometry(10, 48, -Math.PI/4, Math.PI/4),
+      new THREE.MeshBasicMaterial({ color:MINT, transparent:true, opacity:0.08, side:THREE.DoubleSide })
+    );
+    wedge.rotation.x = -Math.PI/2; sweepGroup.add(wedge); scene.add(sweepGroup);
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+    function animate() {
+      sweepGroup.rotation.y -= 0.012;
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>'''
+
+
+ABOUT_HTML = '''<!doctype html>
+<html lang="{{HTML_LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{T_about_title}}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      --bg:#050a0d; --mint:#7fffd4; --mint-light:#aafff0; --amber:#f5d96f;
+      --muted:#4a8a7a; --x-muted:#3a6a5a; --warn:#ff7a59; --warn-light:#ff9a80;
+      --card:rgba(15,31,34,0.7); --card-body:rgba(10,20,22,0.7);
+      --hdr-bar:rgba(15,31,34,0.85);
+      --border:0.5px solid rgba(127,255,212,0.15);
+      --row-div:0.5px solid rgba(127,255,212,0.05);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; height:100%;
+      background: var(--bg); color: var(--mint);
+      font-family:'SF Mono','Menlo','Courier New',monospace;
+      -webkit-font-smoothing:antialiased;
+    }
+    body { overflow:hidden; }
+    #radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
+    .bg-vignette { position:fixed; inset:0; z-index:1; pointer-events:none;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(5,10,13,0.85) 95%); }
+
+    .container { position:relative; z-index:2; height:100vh; height:100dvh;
+      overflow-y:auto; overflow-x:hidden;
+      scrollbar-width:thin; scrollbar-color:var(--x-muted) transparent; }
+    .container::-webkit-scrollbar { width:6px; }
+    .container::-webkit-scrollbar-thumb { background:rgba(127,255,212,0.15); border-radius:3px; }
+    .inner { max-width:1320px; margin:0 auto;
+      padding: 24px 32px calc(80px + env(safe-area-inset-bottom)); }
+
+    header.page-hdr { padding-bottom:14px; margin-bottom:18px;
+      border-bottom:1px solid rgba(127,255,212,0.15); }
+    .hdr-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .hdr-row.top { font-size:10px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; }
+    .hdr-row.top .dot { color:var(--mint); animation:blink 2s infinite; margin-right:4px; }
+    @keyframes blink { 50% { opacity:0.35 } }
+    .hdr-row.main { margin:6px 0 4px; }
+    .hdr-row.main .title { font-size:22px; letter-spacing:1px; color:var(--mint); font-weight:500; margin:0; }
+    .hdr-row.main .title a { color:inherit; text-decoration:none; }
+    .hdr-row.main .clock { font-size:16px; color:var(--mint); letter-spacing:1px; }
+    .hdr-row.sub { font-size:10px; letter-spacing:2px; color:var(--x-muted); }
+    .hdr-row.sub .coords { text-transform:uppercase; }
+    .tools { display:flex; gap:6px; align-items:center; }
+    .tools .nav a, .tools .nav button {
+      background:rgba(15,31,34,0.6); color:var(--mint);
+      border:var(--border); border-radius:4px;
+      font:inherit; font-size:10px; letter-spacing:1.5px;
+      padding:6px 10px; outline:none; cursor:pointer; text-decoration:none;
+    }
+    .tools .nav a:hover, .tools .nav button:hover { color:var(--mint); border-color:var(--mint); }
+    .nav { display:flex; gap:4px; align-items:center; }
+    .nav form { display:inline; margin:0; }
+    .lang-switch { display:inline-flex; gap:2px; margin-right:4px; }
+    .lang-switch a { color:var(--muted); text-decoration:none; font-size:10px;
+      padding:5px 8px; border:var(--border); border-radius:4px;
+      letter-spacing:0.1em; background:rgba(15,31,34,0.6); }
+    .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
+
+    section.panel { margin-bottom:18px; }
+    .panel-hdr {
+      background:var(--hdr-bar); backdrop-filter:blur(8px);
+      border:var(--border); border-radius:4px 4px 0 0;
+      padding:10px 14px; font-size:11px; letter-spacing:2px;
+      color:var(--amber); text-transform:uppercase;
+    }
+    .panel-hdr .diamond { color:var(--amber); margin-right:6px; }
+    .panel-body {
+      background:var(--card-body); backdrop-filter:blur(8px);
+      border:var(--border); border-top:0;
+      border-radius:0 0 4px 4px; padding:14px 16px;
+    }
+
+    .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+    .about-grid section.panel { margin-bottom:18px; }
+
+    /* receiver key-value */
+    .kv { display:flex; flex-direction:column; }
+    .kv .row { display:grid; grid-template-columns:150px 1fr; gap:12px;
+      padding:10px 0; border-bottom:var(--row-div); font-size:12px; align-items:center; }
+    .kv .row:last-child { border-bottom:0; }
+    .kv .k { color:var(--muted); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; }
+    .kv .v { color:var(--mint-light); letter-spacing:0.5px; }
+    .feed { display:inline-flex; align-items:center; gap:8px; letter-spacing:1.5px; }
+    .feed .dot { width:8px; height:8px; border-radius:50%; display:inline-block; background:var(--x-muted); }
+    .feed.ok { color:var(--mint); }
+    .feed.ok .dot { background:var(--mint); box-shadow:0 0 8px var(--mint); animation:blink 2s infinite; }
+    .feed.stale { color:var(--amber); }
+    .feed.stale .dot { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+    .feed.down { color:var(--warn-light); }
+    .feed.down .dot { background:var(--warn); box-shadow:0 0 8px var(--warn); }
+
+    /* project description */
+    .desc { font-size:13px; line-height:1.95; color:var(--mint-light); letter-spacing:0.4px; margin:2px 0 0; }
+    .tags { display:flex; flex-wrap:wrap; gap:7px; margin-top:18px; }
+    .tags span { font-size:10px; letter-spacing:1px; color:var(--mint);
+      border:var(--border); border-radius:999px; padding:5px 11px;
+      background:rgba(127,255,212,0.06); }
+
+    /* architecture diagram */
+    .arch { margin:0; overflow-x:auto; font-size:12.5px; line-height:1.5;
+      color:var(--mint); white-space:pre; letter-spacing:0;
+      font-family:'SF Mono','Menlo','Courier New',monospace; }
+
+    .page-footer { margin-top:36px; padding-top:22px;
+      border-top:var(--border); text-align:center;
+      font-size:9px; letter-spacing:3px; color:var(--x-muted); text-transform:uppercase; }
+
+    @media (max-width:700px) {
+      .inner { position:relative; padding:44px 16px calc(100px + env(safe-area-inset-bottom)); }
+      .hdr-row.top { font-size:9px; letter-spacing:1.5px; }
+      .hdr-row.main { flex-wrap:wrap; }
+      .hdr-row.main .title { font-size:16px; letter-spacing:0.5px; }
+      .hdr-row.main .clock { font-size:13px; }
+      .hdr-row.sub .coords { display:none; }
+      .hdr-row.sub { justify-content:flex-end; }
+      .tools { justify-content:flex-end; gap:4px; flex-wrap:wrap; }
+      .tools .nav { justify-content:flex-end; gap:4px; }
+      .tools .nav a, .tools .nav button { padding:5px 8px; font-size:10px; letter-spacing:1px; }
+      .lang-switch {
+        position:absolute; top:12px; right:12px; z-index:5; margin:0; gap:4px;
+        background:rgba(5,10,13,0.85); padding:4px; border-radius:4px;
+      }
+      .lang-switch a { padding:5px 8px; font-size:10px; }
+      .about-grid { grid-template-columns:1fr; gap:0; }
+      .kv .row { grid-template-columns:120px 1fr; }
+      .arch { font-size:10px; line-height:1.45; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="radar"></canvas>
+  <div class="bg-vignette"></div>
+  <div class="container">
+    <div class="inner">
+      <header class="page-hdr">
+        <div class="hdr-row top">
+          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
+          <span id="date">— — —</span>
+        </div>
+        <div class="hdr-row main">
+          <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
+          <span class="clock" id="clock">--:--:--</span>
+        </div>
+        <div class="hdr-row sub">
+          <span class="coords">Powered by connie.hk</span>
+          <div class="tools"><div class="nav" id="nav"></div></div>
+        </div>
+      </header>
+
+      <div class="about-grid">
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_about_hdr_receiver}}</div>
+          <div class="panel-body">
+            <div class="kv">
+              <div class="row"><div class="k">{{T_about_lbl_receiver}}</div><div class="v" id="ab-receiver">—</div></div>
+              <div class="row"><div class="k">{{T_about_lbl_source}}</div><div class="v" id="ab-source">—</div></div>
+              <div class="row"><div class="k">{{T_about_lbl_uptime}}</div><div class="v" id="ab-uptime">—</div></div>
+              <div class="row"><div class="k">{{T_about_lbl_last_update}}</div><div class="v" id="ab-last">—</div></div>
+              <div class="row"><div class="k">{{T_about_lbl_feed}}</div><div class="v"><span class="feed" id="ab-feed"><span class="dot"></span><span id="ab-feed-txt">—</span></span></div></div>
+            </div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_about_hdr_project}}</div>
+          <div class="panel-body">
+            <p class="desc">{{T_about_desc}}</p>
+            <div class="tags">
+              <span>self-hosted</span><span>data ingestion</span><span>API</span><span>MySQL</span><span>dashboard</span><span>monitoring</span><span>real-time</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="about-grid">
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_about_hdr_health}}</div>
+          <div class="panel-body">
+            <div class="kv">
+              <div class="row"><div class="k">{{T_about_lbl_api}}</div><div class="v"><span class="feed" id="hl-api"><span class="dot"></span><span id="hl-api-txt">—</span></span></div></div>
+              <div class="row"><div class="k">{{T_about_lbl_db}}</div><div class="v"><span class="feed" id="hl-db"><span class="dot"></span><span id="hl-db-txt">—</span></span></div></div>
+              <div class="row"><div class="k">{{T_about_lbl_last_update}}</div><div class="v" id="hl-last">—</div></div>
+              <div class="row"><div class="k">{{T_about_lbl_records_today}}</div><div class="v" id="hl-records">—</div></div>
+            </div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-hdr"><span class="diamond">◆</span>{{T_about_hdr_stack}}</div>
+          <div class="panel-body">
+            <div class="kv">
+              <div class="row"><div class="k">{{T_about_stack_frontend}}</div><div class="v">HTML / CSS / JavaScript</div></div>
+              <div class="row"><div class="k">{{T_about_stack_backend}}</div><div class="v">Python http.server API</div></div>
+              <div class="row"><div class="k">{{T_about_stack_db}}</div><div class="v">MySQL</div></div>
+              <div class="row"><div class="k">{{T_about_stack_receiver}}</div><div class="v">Raspberry Pi 5B + dump1090 / readsb / tar1090</div></div>
+              <div class="row"><div class="k">{{T_about_stack_deploy}}</div><div class="v">self-hosted server + HTTPS</div></div>
+              <div class="row"><div class="k">{{T_about_stack_notify}}</div><div class="v">Telegram / LINE push</div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_about_hdr_arch}}</div>
+        <div class="panel-body">
+<pre class="arch">       (( o ))  ANTENNA · 1090 MHz
+           │
+           ▼
+   ┌──────────────────────────┐
+   │ Raspberry Pi 5B          │
+   │ dump1090 / readsb        │
+   │ tar1090  →  JSON feed    │
+   └──────────────────────────┘
+           │   HTTP poll · 60s
+           ▼
+   ┌──────────────────────────┐
+   │ Ingest / API  (Python)   │
+   │ stdlib http.server       │
+   │ enrich → build_passes    │
+   └──────────────────────────┘
+           │
+           ├──────────────►  MySQL  · history
+           │
+           ├──────────────►  Push   · Telegram / LINE
+           │
+           ▼
+   ┌──────────────────────────┐
+   │ Web dashboard            │
+   │ / · /stats · /about      │
+   └──────────────────────────┘</pre>
+        </div>
+      </section>
+
+      <footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    const T = {{T_JSDICT}};
+    const LANG = '{{LANG}}';
+    const pad = n => String(n).padStart(2, '0');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function getJST() { const n = new Date(); return new Date(n.getTime() + 9*3600*1000); }
+    function updateClock() {
+      const j = getJST();
+      document.getElementById('clock').textContent =
+        `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:${pad(j.getUTCSeconds())} JPT`;
+      const wd = ['SUN','MON','TUE','WED','THU','FRI','SAT'][j.getUTCDay()];
+      document.getElementById('date').textContent =
+        `${j.getUTCFullYear()}.${pad(j.getUTCMonth()+1)}.${pad(j.getUTCDate())} · ${wd}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    function setLang(l) {
+      document.cookie = `lang=${l}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      location.reload();
+    }
+    window.setLang = setLang;
+
+    function langSwitchHTML() {
+      const labels = { jp:'JP', hk:'HK', en:'EN' };
+      return '<span class="lang-switch">' +
+        ['jp','hk','en'].map(l =>
+          `<a href="#" onclick="setLang('${l}');return false" class="${l===LANG?'on':''}">${labels[l]}</a>`
+        ).join('') + '</span>';
+    }
+    async function renderNav() {
+      const nav = document.getElementById('nav');
+      const ls = langSwitchHTML();
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      try {
+        const me = await (await fetch('/api/me')).json();
+        if (me.username) {
+          nav.innerHTML = ls + links +
+            `<span style="font-size:10px;letter-spacing:1px;color:var(--muted)">👤 ${esc(me.username)}</span>` +
+            `<a href="/account">${esc(T.nav_account)}</a>` +
+            `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
+        } else {
+          nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`;
+        }
+      } catch { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
+    }
+    renderNav();
+
+    function relTime(secs) {
+      if (secs == null) return '—';
+      let n, u;
+      if (secs < 60) { n = secs; u = T.about_unit_sec; }
+      else if (secs < 3600) { n = Math.floor(secs/60); u = T.about_unit_min; }
+      else if (secs < 86400) { n = Math.floor(secs/3600); u = T.about_unit_hr; }
+      else { n = Math.floor(secs/86400); u = T.about_unit_day; }
+      return T.about_ago_fmt.replace('{n}', n).replace('{u}', u);
+    }
+    function uptimeFmt(secs) {
+      const d = Math.floor(secs/86400), h = Math.floor((secs%86400)/3600), m = Math.floor((secs%3600)/60);
+      if (d > 0) return `${d}d ${pad(h)}h`;
+      if (h > 0) return `${h}h ${pad(m)}m`;
+      return `${m}m`;
+    }
+    function setFeed(id, cls, txt) {
+      document.getElementById(id).className = 'feed ' + cls;
+      document.getElementById(id + '-txt').textContent = txt;
+    }
+    async function loadAbout() {
+      let r = null;
+      try { r = await (await fetch('/api/about')).json(); } catch (e) { r = null; }
+      const ok = !!r;
+      if (ok) {
+        document.getElementById('ab-receiver').textContent = r.receiver;
+        document.getElementById('ab-source').textContent = r.source;
+        document.getElementById('ab-uptime').textContent = uptimeFmt(r.uptime_secs);
+        document.getElementById('ab-last').textContent = relTime(r.last_update_secs);
+        setFeed('ab-feed', r.feed_health, T['about_feed_' + r.feed_health] || r.feed_health);
+      } else {
+        setFeed('ab-feed', 'down', 'error');
+      }
+      // 系統健康：個頁攞到 data 即係 API + DB 都 ok
+      setFeed('hl-api', ok ? 'ok' : 'down', ok ? 'OK' : 'DOWN');
+      setFeed('hl-db', ok ? 'ok' : 'down', ok ? 'OK' : 'DOWN');
+      document.getElementById('hl-last').textContent = ok ? relTime(r.last_update_secs) : '—';
+      document.getElementById('hl-records').textContent =
+        (ok && r.records_today != null) ? r.records_today : '—';
+    }
+    loadAbout();
+    setInterval(loadAbout, 5000);
 
     // ===== radar background =====
     const MINT=0x7fffd4, AMBER=0xf5d96f, RING=0x1f5a4a;
@@ -2169,6 +2868,30 @@ class Handler(BaseHTTPRequestHandler):
             payload = query_stats()
             body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == '/about':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(_render(ABOUT_HTML, lang).encode('utf-8'))
+            return
+        if parsed.path == '/api/about':
+            payload = query_about()
+            body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == '/api/health':
+            payload, status = query_health()
+            body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
