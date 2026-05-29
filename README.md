@@ -9,11 +9,19 @@
 - `operator` 會由兩條路徑補完
   - 先用 flight prefix 推斷（例如 `HKE`）
   - 再對符合條件嘅 aircraft 去 FR24 aircraft page 補真實 operator
-- 支援 web UI 查今日飛機資料
-- web UI 支援 `country / operator / type` filter 同 sort
+- Web dashboard（SKYLEDGER 雷達主題）多頁：
+  - `/`：首頁，recent contacts + 今日 aircraft table
+  - `/details`：歷史飛機接觸搜尋 / filter（公司・機型・航線・國家・高度）+ sort
+  - `/stats`：7 日每日班次、近 24 小時逐鐘 histogram、TOP 10、peak altitude、busiest hour
+  - `/map`：即時地圖，tar1090 live 位置，FR24 式平滑移動，click 出詳細 popup
+  - `/coverage`：接收覆蓋極座標雷達圖（近 30 日，每方位最遠距離）+ max range / 最遠機體
+  - `/aircraft?icao=<hex>`：單機歷史（聚合統計、每日出現、經過記錄）—— 喺 `/`、`/details`、`/map` 撳機入
+  - `/about`：接收機狀態、技術 stack、架構圖、系統健康
+  - `/api/health`：monitoring endpoint（DB ok 回 200、死回 503）
+- 簡單 login / session（`users` / `sessions` 表）
 - 凡係接收站收得到嘅 aircraft，都當作「屋企收到」
+- HKE / Hong Kong Express 入區時送 push（`HKE confirm: <flight no> | <reg> | <from>>HKG`）
 - 寫入 MySQL
-- 查今日 / ICAO / passes
 - macOS launchd 自動執行
 
 ## 資料來源
@@ -21,6 +29,14 @@
 - tar1090 JSON endpoint: `http://192.168.x.x:8080/data/aircraft.json`
 - tar1090 aircraft page: `http://192.168.x.x:8080/?icao=<HEX>`
 - Receiver: `192.168.x.x`
+
+## 設定
+
+```bash
+cp src/config.example.json src/config.json
+# 改 src/config.json：source.aircraft_json_url（真 tar1090 URL）、
+#                     mysql.password、push.secret、
+```
 
 ## 專案位置
 
@@ -82,7 +98,7 @@ launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.supervisor
 - `src/ingest.py`：抓 tar1090 `aircraft.json` 寫入 `sightings_raw`，並在**同一個 ICAO 今日第一次確認係 HKE / Hong Kong Express**時送 push message 到 `push.connie.hk`
 - `src/enrich_registry.py`：prefix/country fallback enrichment
 - `src/backfill_reg_browser.py`：browser-based REG backfill（目前 quick source）
-- `src/browser_bulk_backfill.py`：Playwright bulk backfill，掃缺 `registration / country / aircraft_type / operator` 嘅 ICAO，自動寫回 DB
+- `src/browser_bulk_backfill.py`：Playwright bulk backfill，掃缺 `registration / country / aircraft_type / operator` 嘅 ICAO，自動寫回 DB；補完後如果係 HKE / Hong Kong Express，會送 `HKE confirm` push（一日一次）。flight no 用 ADS-B 廣播 callsign（`sightings_raw.flight`），**未 read 到 callsign 嗰鋪會 skip，唔會 push ICAO hex**，等下個 cycle 有 callsign 先送
 - `src/enrich_operator.py`：按 flight prefix 補 operator / operator_country（唔會再用空值覆蓋 browser / FR24 補回來嘅 operator）
 - `src/notifier.py`：用 `openssl + curl` 簽名送 message 去 `push.connie.hk`
 - `src/build_passes.py`：用 20 分鐘 gap 聚合 passes
@@ -107,11 +123,15 @@ launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.supervisor
 python3 src/web_app.py
 ```
 
-功能：
-- 今日 aircraft table
-- 顯示 `REG / TYPE / COUNTRY / OPERATOR`
-- `country / operator / type` filter
-- `last_seen / country / operator / type` sort
+頁面：`/`（首頁）、`/details`（搜尋 / filter / sort）、`/stats`（統計）、`/map`（即時地圖）、`/coverage`（覆蓋雷達）、`/aircraft?icao=`（單機歷史）、`/about`（關於 / 系統健康）。三語切換（日 / 廣東話 / 英文）。
+
+JSON API：
+- `/api/stats`：統計數據
+- `/api/live`：tar1090 即時飛機（地圖用，含 registry enrichment）
+- `/api/aircraft?icao=`：單機歷史（registry + passes 聚合）
+- `/api/coverage`：接收覆蓋（每方位最遠距離，10 分鐘快取）
+- `/api/about`：接收機 / feed 狀態
+- `/api/health`：健康檢查（200 / 503）
 
 ## 常用指令
 

@@ -1,6 +1,8 @@
 {
   "receiver": {
-    "name": "wing-readsb-home"
+    "name": "wing-readsb-home",
+    "lat": 0.0,
+    "lon": 0.0
   },
   "source": {
     "name": "tar1090-macmini",

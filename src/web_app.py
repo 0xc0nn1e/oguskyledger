@@ -17,13 +17,17 @@ JST = timezone(timedelta(hours=9))
 # process 起身時間（supervisor 每次拉返起會 reset），/about 用嚟計 uptime
 _BOOT_AT = datetime.now(timezone.utc)
 
-# tar1090 aircraft.json URL（由 config 讀，/api/live 即時抓嚟畀地圖）
+# config.json 讀一次：tar1090 URL（/api/live 用）+ 接收機座標（/coverage 用）
 try:
-    _SOURCE_URL = json.loads(
-        (Path(__file__).resolve().parent / 'config.json').read_text()
-    )['source']['aircraft_json_url']
+    _CFG = json.loads((Path(__file__).resolve().parent / 'config.json').read_text())
 except Exception:
-    _SOURCE_URL = None
+    _CFG = {}
+_SOURCE_URL = (_CFG.get('source') or {}).get('aircraft_json_url')
+try:
+    _RX_LAT = float((_CFG.get('receiver') or {}).get('lat'))
+    _RX_LON = float((_CFG.get('receiver') or {}).get('lon'))
+except (TypeError, ValueError):
+    _RX_LAT = _RX_LON = None
 ALLOWED_SORTS = {
     'last_seen': 'last_seen DESC',
     'country': 'country ASC, operator ASC, last_seen DESC',
@@ -111,6 +115,34 @@ STRINGS = {
         'map_vs': '昇降率',
         'map_hdg': '進路',
         'map_fr24': 'FR24 で見る',
+        'map_search': '便名 / レジ で検索',
+        'map_low': '低',
+        'map_high': '高',
+        'map_emerg': '緊急',
+        'nav_coverage': 'カバレッジ',
+        'ac_title': '機体履歴 · plane-history',
+        'ac_total_passes': '通過回数',
+        'ac_days': '出現日数',
+        'ac_first_seen': '初観測',
+        'ac_last_seen': '最終観測',
+        'ac_peak_alt': '最高高度',
+        'ac_max_spd': '最高速度',
+        'ac_daily_hdr': '直近 · 日別出現',
+        'ac_passes_hdr': '通過履歴',
+        'ac_col_date': '日付',
+        'ac_col_time': '時刻 (JST)',
+        'ac_col_flight': '便',
+        'ac_col_alt': '高度',
+        'ac_col_samples': 'samples',
+        'ac_notfound': '// この ICAO の記録がありません',
+        'cov_title': 'カバレッジ · plane-history',
+        'cov_hdr': '受信カバレッジ · 直近 {n} 日 (JST)',
+        'cov_max_range': '最大受信距離',
+        'cov_farthest': '最遠の機体',
+        'cov_aircraft_seen': '測位できた機体数',
+        'cov_note': '各方位で受信できた最大距離。受信機の真位置は非表示、相対距離のみ。',
+        'cov_nocoords': '// config.json に receiver.lat / lon を設定してください',
+        'cov_loading': '集計中…（重いので少々お待ちを）',
         'loading': '読み込み中...',
         'no_data': '// 本日データなし',
         'cta_details': '▸  詳細ビューを開く  ▸',
@@ -217,6 +249,34 @@ STRINGS = {
         'map_vs': '升降率',
         'map_hdg': '航向',
         'map_fr24': 'FR24 詳情',
+        'map_search': '搜尋 航班 / 機牌',
+        'map_low': '低',
+        'map_high': '高',
+        'map_emerg': '緊急',
+        'nav_coverage': '覆蓋',
+        'ac_title': '機歷 · plane-history',
+        'ac_total_passes': '經過次數',
+        'ac_days': '出現日數',
+        'ac_first_seen': '首次見到',
+        'ac_last_seen': '最後見到',
+        'ac_peak_alt': '最高高度',
+        'ac_max_spd': '最高速度',
+        'ac_daily_hdr': '近期 · 每日出現',
+        'ac_passes_hdr': '經過記錄',
+        'ac_col_date': '日期',
+        'ac_col_time': '時間 (JST)',
+        'ac_col_flight': '航班',
+        'ac_col_alt': '高度',
+        'ac_col_samples': 'samples',
+        'ac_notfound': '// 冇呢個 ICAO 嘅記錄',
+        'cov_title': '覆蓋 · plane-history',
+        'cov_hdr': '接收覆蓋 · 近 {n} 日 (JST)',
+        'cov_max_range': '最遠接收距離',
+        'cov_farthest': '最遠嗰架機',
+        'cov_aircraft_seen': '有定位嘅機數',
+        'cov_note': '每個方位收得到嘅最遠距離。唔顯示接收機確實位置，只係相對距離。',
+        'cov_nocoords': '// 請喺 config.json 填 receiver.lat / lon',
+        'cov_loading': '計緊…（幾重，等一陣）',
         'loading': '載入中...',
         'no_data': '// 今日未有資料',
         'cta_details': '▸  開詳細表  ▸',
@@ -323,6 +383,34 @@ STRINGS = {
         'map_vs': 'V/S',
         'map_hdg': 'HDG',
         'map_fr24': 'VIEW ON FR24',
+        'map_search': 'search flight / reg',
+        'map_low': 'LOW',
+        'map_high': 'HIGH',
+        'map_emerg': 'EMERGENCY',
+        'nav_coverage': 'COVERAGE',
+        'ac_title': 'Aircraft · plane-history',
+        'ac_total_passes': 'Total passes',
+        'ac_days': 'Days seen',
+        'ac_first_seen': 'First seen',
+        'ac_last_seen': 'Last seen',
+        'ac_peak_alt': 'Peak altitude',
+        'ac_max_spd': 'Max speed',
+        'ac_daily_hdr': 'RECENT · DAILY APPEARANCES',
+        'ac_passes_hdr': 'PASS HISTORY',
+        'ac_col_date': 'DATE',
+        'ac_col_time': 'TIME (JST)',
+        'ac_col_flight': 'FLIGHT',
+        'ac_col_alt': 'ALT',
+        'ac_col_samples': 'SAMPLES',
+        'ac_notfound': '// no records for this ICAO',
+        'cov_title': 'Coverage · plane-history',
+        'cov_hdr': 'RECEIVER COVERAGE · LAST {n}D (JST)',
+        'cov_max_range': 'Max range',
+        'cov_farthest': 'Farthest aircraft',
+        'cov_aircraft_seen': 'Aircraft with position',
+        'cov_note': 'Max reception distance per compass bearing. Receiver exact location hidden — relative ranges only.',
+        'cov_nocoords': '// set receiver.lat / lon in config.json',
+        'cov_loading': 'crunching… (heavy, hang on)',
         'loading': 'loading...',
         'no_data': '// no data today',
         'cta_details': '▸  OPEN DETAILED VIEW  ▸',
@@ -515,6 +603,8 @@ DETAILS_HTML = '''<!doctype html>
     }
     tr:last-child td { border-bottom: 0; }
     tr:hover td { background: rgba(127,255,212,0.02); }
+    td a.ac-link { color: var(--mint-light); text-decoration: none; }
+    td a.ac-link:hover { color: var(--mint); text-decoration: underline; }
     td a { color: var(--mint-light); text-decoration: none; border-bottom: 0.5px dotted rgba(170,255,240,0.4); }
     td a:hover { color: var(--mint); }
 
@@ -776,7 +866,7 @@ DETAILS_HTML = '''<!doctype html>
         data.to_airports.forEach(v => toFilter.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
       rowsEl.innerHTML = data.rows.map(r => `
         <tr>
-          <td>${esc(r.icao)}</td>
+          <td><a class="ac-link" href="/aircraft?icao=${esc(r.icao)}">${esc(r.icao)}</a></td>
           <td>${esc(r.flight)}</td>
           <td>${esc(r.from_airport)}</td>
           <td>${esc(r.to_airport)}</td>
@@ -989,6 +1079,8 @@ HOME_HTML = '''<!doctype html>
     .flight:last-child { border-bottom: 0; }
     .flight:hover { border-left-color: var(--mint); background: rgba(127,255,212,0.02); }
     .flight .icao { color: var(--muted); }
+    .flight .icao a { color: inherit; text-decoration: none; }
+    .flight .icao a:hover { color: var(--mint); text-decoration: underline; }
     .flight .flight-no { color: var(--amber); font-weight: 500; }
     .flight .reg { color: var(--mint-light); }
     .flight .type { color: var(--mint); }
@@ -1310,7 +1402,7 @@ HOME_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
+      const links = `<a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -1408,7 +1500,7 @@ HOME_HTML = '''<!doctype html>
           : '—';
         return `
         <div class="flight">
-          <div class="icao">${esc(f.icao)}</div>
+          <div class="icao"><a href="/aircraft?icao=${esc(f.icao)}">${esc(f.icao)}</a></div>
           <div class="op-name">${esc(f.operator !== '-' ? f.operator : '—')}</div>
           <div class="flight-no">${esc(f.flight !== '-' ? f.flight : '—')}</div>
           <div class="reg">${regCell}</div>
@@ -1476,7 +1568,7 @@ HOME_HTML = '''<!doctype html>
                 : '—';
               return `
               <div class="flight" data-search="${esc(hay)}" title="${esc(tip)}">
-                <div class="icao">${esc(f.icao)}</div>
+                <div class="icao"><a href="/aircraft?icao=${esc(f.icao)}">${esc(f.icao)}</a></div>
                 <div class="flight-no">${esc(f.flight !== '-' ? f.flight : '—')}</div>
                 <div class="reg">${regCell}</div>
                 <div class="type">${esc(f.aircraft_type !== '-' ? f.aircraft_type : '—')}</div>
@@ -1858,6 +1950,9 @@ def query_live():
         rate = a.get('baro_rate')
         if rate is None:
             rate = a.get('geom_rate')
+        emerg = a.get('emergency')
+        if emerg in (None, 'none', ''):
+            emerg = None
         out.append({
             'hex': (a.get('hex') or '').strip().lower(),
             'flight': (a.get('flight') or '').strip() or None,
@@ -1867,6 +1962,10 @@ def query_live():
             'rate': rate,
             'track': a.get('track'),
             'gs': a.get('gs'),
+            'squawk': (a.get('squawk') or '').strip() or None,
+            'emergency': emerg,
+            'category': (a.get('category') or '').strip() or None,
+            'seen': a.get('seen'),
         })
 
     # 由 registry cache 補返機牌 / 機型 / 公司 / 國家 / 航線，click 個 popup 用
@@ -1904,6 +2003,170 @@ def query_live():
         'count_total': len(raw),
         'now': payload.get('now'),
     }
+
+
+def query_aircraft(icao):
+    # 單一架機嘅歷史：registry 資料 + aircraft_passes 聚合 + 每日出現 + passes 列表
+    icao = (icao or '').strip().lower()
+    if not icao:
+        return None
+    conn = connect()
+    cur = dict_cursor(conn)
+
+    cur.execute(
+        '''SELECT icao, registration, country, aircraft_type, operator,
+                  from_airport, to_airport, fr24_id
+           FROM aircraft_registry_cache WHERE icao = %s''',
+        (icao,),
+    )
+    info = cur.fetchone()
+
+    cur.execute(
+        '''SELECT COUNT(*) AS passes,
+                  COUNT(DISTINCT pass_date) AS days,
+                  MIN(first_seen) AS first_seen,
+                  MAX(last_seen) AS last_seen,
+                  MAX(max_alt_baro) AS peak_alt,
+                  MAX(max_gs) AS max_gs,
+                  COALESCE(SUM(samples), 0) AS samples
+           FROM aircraft_passes WHERE icao = %s''',
+        (icao,),
+    )
+    agg = cur.fetchone() or {}
+
+    cur.execute(
+        '''SELECT pass_date, COUNT(*) AS cnt
+           FROM aircraft_passes WHERE icao = %s
+           GROUP BY pass_date ORDER BY pass_date DESC LIMIT 30''',
+        (icao,),
+    )
+    daily = [{'day': r['pass_date'], 'count': r['cnt']} for r in cur.fetchall()][::-1]
+
+    cur.execute(
+        '''SELECT pass_date, flight, operator,
+                  first_seen, last_seen, samples, min_alt_baro, max_alt_baro
+           FROM aircraft_passes WHERE icao = %s
+           ORDER BY first_seen DESC LIMIT 300''',
+        (icao,),
+    )
+    passes = [{
+        'pass_date': r['pass_date'],
+        'flight': (r['flight'] or '').strip() or None,
+        'operator': (r['operator'] or '').strip() or None,
+        'first_seen': r['first_seen'],
+        'last_seen': r['last_seen'],
+        'samples': r['samples'],
+        'min_alt': r['min_alt_baro'],
+        'max_alt': r['max_alt_baro'],
+    } for r in cur.fetchall()]
+    conn.close()
+
+    def _c(v):
+        v = (v or '').strip() if isinstance(v, str) else v
+        return v if v and (not isinstance(v, str) or v.lower() != 'n/a') else None
+
+    return {
+        'icao': icao.upper(),
+        'registration': _c(info.get('registration')) if info else None,
+        'aircraft_type': _c(info.get('aircraft_type')) if info else None,
+        'operator': _c(info.get('operator')) if info else None,
+        'country': _c(info.get('country')) if info else None,
+        'from': _c(info.get('from_airport')) if info else None,
+        'to': _c(info.get('to_airport')) if info else None,
+        'total_passes': int(agg.get('passes') or 0),
+        'days': int(agg.get('days') or 0),
+        'first_seen': agg.get('first_seen'),
+        'last_seen': agg.get('last_seen'),
+        'peak_alt': float(agg['peak_alt']) if agg.get('peak_alt') is not None else None,
+        'max_gs': float(agg['max_gs']) if agg.get('max_gs') is not None else None,
+        'samples': int(agg.get('samples') or 0),
+        'daily': daily,
+        'passes': passes,
+    }
+
+
+# /coverage 全掃 sightings_raw 計 haversine，唔平，in-process 快取
+_COVERAGE_CACHE = {'at': 0.0, 'data': None}
+_COVERAGE_TTL = 600  # 秒
+
+
+def query_coverage():
+    import time
+    if _RX_LAT is None or _RX_LON is None:
+        return {'error': 'no_receiver_coords'}
+
+    now = time.time()
+    if _COVERAGE_CACHE['data'] is not None and (now - _COVERAGE_CACHE['at']) < _COVERAGE_TTL:
+        return _COVERAGE_CACHE['data']
+
+    conn = connect()
+    cur = dict_cursor(conn)
+    # haversine km + bearing(0-360)。限近 30 日（行 seen_at index，~2.5s）；
+    # cap 700km 隔走亂跳定位（ADS-B line-of-sight 最遠 ~400-700km，再遠多數係 bad decode）
+    window_days = 30
+    since = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
+    inner = '''
+        SELECT
+          6371 * 2 * ASIN(LEAST(1, SQRT(
+            POWER(SIN(RADIANS(lat - %(rlat)s) / 2), 2) +
+            COS(RADIANS(%(rlat)s)) * COS(RADIANS(lat)) *
+            POWER(SIN(RADIANS(lon - %(rlon)s) / 2), 2)
+          ))) AS dist_km,
+          MOD(DEGREES(ATAN2(
+            SIN(RADIANS(lon - %(rlon)s)) * COS(RADIANS(lat)),
+            COS(RADIANS(%(rlat)s)) * SIN(RADIANS(lat)) -
+            SIN(RADIANS(%(rlat)s)) * COS(RADIANS(lat)) * COS(RADIANS(lon - %(rlon)s))
+          )) + 360, 360) AS bearing,
+          icao
+        FROM sightings_raw
+        WHERE lat IS NOT NULL AND lon IS NOT NULL AND seen_at >= %(since)s
+    '''
+    params = {'rlat': _RX_LAT, 'rlon': _RX_LON, 'since': since}
+
+    # 一次 trig 全掃，攞返 sampled + capped 嘅行，喺 Python 聚合 sector / farthest
+    cur.execute(f'SELECT icao, dist_km, bearing FROM ({inner}) t WHERE dist_km <= 700', params)
+    by_sector = {}
+    far = None
+    for r in cur.fetchall():
+        d = float(r['dist_km'])
+        b = float(r['bearing'])
+        sec = int(b // 10) % 36
+        if d > by_sector.get(sec, 0.0):
+            by_sector[sec] = d
+        if far is None or d > far['dist_km']:
+            far = {'icao': r['icao'], 'dist_km': d, 'bearing': b}
+    sectors = [{'deg': i * 10, 'km': round(by_sector.get(i, 0.0), 1)} for i in range(36)]
+
+    far_info = None
+    if far:
+        cur.execute(
+            'SELECT registration, operator FROM aircraft_registry_cache WHERE icao = %s',
+            (far['icao'],),
+        )
+        far_info = cur.fetchone()
+
+    cur.execute('SELECT COUNT(DISTINCT icao) AS c FROM sightings_raw WHERE lat IS NOT NULL AND lon IS NOT NULL')
+    aircraft_with_pos = cur.fetchone()['c']
+    conn.close()
+
+    max_km = max((s['km'] for s in sectors), default=0.0)
+    data = {
+        'sectors': sectors,
+        'max_km': round(max_km, 1),
+        'max_nm': round(max_km / 1.852, 1),
+        'window_days': window_days,
+        'aircraft_with_pos': aircraft_with_pos,
+        'farthest': {
+            'icao': far['icao'].upper() if far else None,
+            'km': round(float(far['dist_km']), 1) if far else None,
+            'bearing': round(float(far['bearing'])) if far else None,
+            'registration': (far_info or {}).get('registration') if far_info else None,
+            'operator': (far_info or {}).get('operator') if far_info else None,
+        } if far else None,
+    }
+    _COVERAGE_CACHE['at'] = now
+    _COVERAGE_CACHE['data'] = data
+    return data
 
 
 _AUTH_LANG_SWITCH = '''<div class="lang-switch">
@@ -2862,7 +3125,7 @@ ABOUT_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -3017,7 +3280,15 @@ MAP_HTML = '''<!doctype html>
     .map-meta .ttl { font-size:11px; letter-spacing:2px; color:var(--amber); text-transform:uppercase; }
     .map-meta .ttl .diamond { margin-right:6px; }
     .map-meta .cnt { font-size:11px; letter-spacing:1px; color:var(--mint); }
-    .map-meta .note { font-size:10px; letter-spacing:0.5px; color:var(--x-muted); flex:1 1 240px; }
+    .map-meta .note { font-size:10px; letter-spacing:0.5px; color:var(--x-muted); flex:1 1 160px; }
+    .map-meta .emerg-cnt { font-size:11px; letter-spacing:1px; color:#ff5b5b; font-weight:700; }
+    .map-search { background:rgba(5,10,13,0.8); color:var(--mint); border:var(--border); border-radius:4px;
+      font:inherit; font-size:10px; letter-spacing:1px; padding:5px 9px; outline:none; width:150px; }
+    .map-search:focus { border-color:var(--mint); }
+    .map-legend { display:flex; align-items:center; gap:6px; font-size:9px; color:var(--x-muted); letter-spacing:0.5px; }
+    .map-legend .bar { width:120px; height:8px; border-radius:4px; border:var(--border);
+      background:linear-gradient(90deg, hsl(35,90%,55%), hsl(80,80%,50%), hsl(160,70%,50%), hsl(210,82%,58%), hsl(265,70%,62%)); }
+    @media (max-width:700px) { .map-legend, .map-meta .note { display:none; } .map-search { width:110px; } }
 
     #map { flex:1 1 auto; min-height:0; border:var(--border); border-radius:6px;
       background:#050a0d; }
@@ -3027,9 +3298,15 @@ MAP_HTML = '''<!doctype html>
     .leaflet-bar a { background:var(--card)!important; color:var(--mint)!important; border-color:rgba(127,255,212,0.2)!important; }
 
     .ac-icon { background:none; border:none; overflow:visible; }
-    .ac-wrap { position:relative; width:26px; height:26px; }
-    .ac { position:absolute; inset:0; transition:transform 0.4s linear; will-change:transform;
-      transform-origin:50% 50%; filter:drop-shadow(0 0 4px rgba(127,255,212,0.55)); }
+    .ac-wrap { position:relative; width:26px; height:26px; transition:opacity 0.5s linear; }
+    /* color = 按高度（altColor 設 inline），SVG path 用 currentColor，glow 跟色 */
+    .ac { position:absolute; inset:0; color:#7fffd4; transition:transform 0.4s linear, color 0.7s linear;
+      will-change:transform; transform-origin:50% 50%; filter:drop-shadow(0 0 3px currentColor); }
+    .ac-wrap.stale { opacity:0.38; }
+    .ac-wrap.dim { opacity:0.14; }
+    .ac-wrap.hit .ac { filter:drop-shadow(0 0 8px var(--amber)); }
+    .ac-wrap.emerg .ac { color:#ff3b3b !important; animation:emergpulse 1s infinite; }
+    @keyframes emergpulse { 0%,100% { filter:drop-shadow(0 0 3px #ff3b3b); } 50% { filter:drop-shadow(0 0 9px #ff3b3b); } }
     /* label 跟住架機走但唔會跟住轉 */
     .ac-lbl { position:absolute; left:28px; top:50%; transform:translateY(-50%);
       white-space:nowrap; line-height:1.15; pointer-events:none; }
@@ -3037,6 +3314,7 @@ MAP_HTML = '''<!doctype html>
       text-shadow:0 0 3px #050a0d, 0 0 2px #050a0d, 0 1px 2px #050a0d; }
     .ac-lbl .fl { font-size:10px; letter-spacing:0.5px; color:var(--mint-light); }
     .ac-lbl .al { font-size:9px; letter-spacing:0.5px; color:var(--amber); }
+    .ac-lbl .tag { font-size:8px; letter-spacing:1px; color:#ff5b5b; font-weight:700; }
     .ac-tip { background:rgba(5,10,13,0.92)!important; border:var(--border)!important;
       color:var(--mint)!important; font-size:10px; letter-spacing:0.5px; border-radius:4px; }
     .ac-tip::before { display:none!important; }
@@ -3086,6 +3364,9 @@ MAP_HTML = '''<!doctype html>
     <div class="map-meta">
       <span class="ttl"><span class="diamond">◆</span>{{T_map_hdr}}</span>
       <span class="cnt" id="cnt">— —</span>
+      <span class="emerg-cnt" id="emerg-cnt"></span>
+      <input class="map-search" id="search" type="search" placeholder="{{T_map_search}}" autocomplete="off">
+      <span class="map-legend"><span>{{T_map_low}}</span><span class="bar"></span><span>{{T_map_high}}</span></span>
       <span class="note">{{T_map_note}}</span>
     </div>
 
@@ -3123,7 +3404,7 @@ MAP_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -3135,36 +3416,62 @@ MAP_HTML = '''<!doctype html>
     renderNav();
 
     // ===== Leaflet 地圖 =====
+    // 初始視野用闊 Japan 中心（唔透露接收機位置），有 live 機就即刻 fitBounds
     const map = L.map('map', { zoomControl:true, attributionControl:true, worldCopyJump:true })
-      .setView([35.68, 139.76], 8);
+      .setView([37.5, 138.0], 5);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 18, subdomains:'abcd',
       attribution: '© OpenStreetMap © CARTO'
     }).addTo(map);
 
     // 俯視飛機剪影，機頭向上（track 0 = 北），rotate(track) 就啱
-    const PLANE_SVG = '<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#7fffd4" stroke="#031a14" stroke-width="0.7" d="M12 1.6 C12.6 1.6 13 2.4 13 4 L13 10.4 L21.6 15.4 L21.6 17.2 L13 14.6 L13 19.4 L15.2 21 L15.2 22.4 L12 21.4 L8.8 22.4 L8.8 21 L11 19.4 L11 14.6 L2.4 17.2 L2.4 15.4 L11 10.4 L11 4 C11 2.4 11.4 1.6 12 1.6 Z"/></svg>';
+    // ===== 高度色階 / icon / label helpers =====
+    function altColor(ft) {
+      if (ft == null) return '#9aa6a3';                 // 落地 / 無高度 = 灰
+      const t = Math.max(0, Math.min(1, ft / 40000));
+      return `hsl(${(35 + t * 230).toFixed(0)}, 85%, 58%)`;  // 35°橙 → 265°紫
+    }
+    function trendArrow(rate) {
+      if (rate == null) return ''; if (rate > 256) return ' ↑'; if (rate < -256) return ' ↓'; return '';
+    }
+    const PLANE_SVG = '<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="currentColor" stroke="#031a14" stroke-width="0.7" d="M12 1.6 C12.6 1.6 13 2.4 13 4 L13 10.4 L21.6 15.4 L21.6 17.2 L13 14.6 L13 19.4 L15.2 21 L15.2 22.4 L12 21.4 L8.8 22.4 L8.8 21 L11 19.4 L11 14.6 L2.4 17.2 L2.4 15.4 L11 10.4 L11 4 C11 2.4 11.4 1.6 12 1.6 Z"/></svg>';
+    const HELI_SVG = '<svg viewBox="0 0 24 24" width="100%" height="100%"><g fill="currentColor" stroke="#031a14" stroke-width="0.6"><rect x="2.5" y="11.1" width="19" height="1.8" rx="0.9"/><rect x="11.1" y="2.5" width="1.8" height="19" rx="0.9"/><circle cx="12" cy="12" r="3"/><rect x="11.3" y="14.4" width="1.4" height="6.4"/><rect x="9" y="19.6" width="6" height="1.5" rx="0.7"/></g></svg>';
+    function isHeli(p) { return p.category === 'A7'; }
+    function acScale(p) { if (isHeli(p)) return 0.95; if (p.category === 'A1') return 0.78; if (p.category === 'A5') return 1.22; return 1; }
+    function isEmerg(p) { return !!p.emergency || ['7500','7600','7700'].indexOf(p.squawk) >= 0; }
+    function emergTag(p) { if (p.squawk === '7500') return 'HIJACK'; if (p.squawk === '7600') return 'NORDO'; if (p.squawk === '7700' || p.emergency) return 'EMERG'; return T.map_emerg; }
     function nameOf(p) { return p.flight || (p.hex || '').toUpperCase(); }
     function altOf(p) { return (p.alt != null) ? Math.round(p.alt).toLocaleString() + ' ft' : '—'; }
+
     function makeIcon(p) {
       const rot = (p.track != null) ? p.track : 0;
-      const html = `<div class="ac-wrap"><div class="ac" style="transform:rotate(${rot}deg)">${PLANE_SVG}</div>`
-        + `<div class="ac-lbl"><span class="fl">${esc(nameOf(p))}</span><span class="al">${esc(altOf(p))}</span></div></div>`;
+      const tag = isEmerg(p) ? `<span class="tag">${esc(emergTag(p))}</span>` : '';
+      const html = `<div class="ac-wrap${isEmerg(p) ? ' emerg' : ''}">`
+        + `<div class="ac" style="color:${altColor(p.alt)};transform:rotate(${rot}deg) scale(${acScale(p)})">${isHeli(p) ? HELI_SVG : PLANE_SVG}</div>`
+        + `<div class="ac-lbl"><span class="fl">${esc(nameOf(p))}</span><span class="al">${esc(altOf(p))}${trendArrow(p.rate)}</span>${tag}</div></div>`;
       return L.divIcon({ className:'ac-icon', html, iconSize:[26,26], iconAnchor:[13,13] });
     }
     function syncLabel(p) {
-      // 航班號 + 機頭方向喺 poll 設定；高度由 animate loop 即時跳動
+      // poll 嗰陣更新：方向 / 高度色 / 便號 / 緊急 / stale；高度數字由 animate 即時跳
       const el = p.marker.getElement();
       if (!el) return;
       const ac = el.querySelector('.ac');
-      if (ac && p.track != null && p.rot !== p.track) { ac.style.transform = `rotate(${p.track}deg)`; p.rot = p.track; }
+      if (ac) {
+        ac.style.transform = `rotate(${p.track != null ? p.track : 0}deg) scale(${acScale(p)})`;
+        ac.style.color = altColor(p.alt);
+      }
       const fl = el.querySelector('.ac-lbl .fl'); if (fl) fl.textContent = nameOf(p);
+      const wrap = el.querySelector('.ac-wrap');
+      if (wrap) {
+        wrap.classList.toggle('emerg', isEmerg(p));
+        wrap.classList.toggle('stale', (p.seen != null && p.seen > 30));
+      }
     }
     function setAltLabel(p, ft) {
       const el = p.marker.getElement();
       if (!el) return;
       const al = el.querySelector('.ac-lbl .al');
-      if (al) al.textContent = (ft != null) ? ft.toLocaleString() + ' ft' : '—';
+      if (al) al.textContent = ((ft != null) ? ft.toLocaleString() + ' ft' : '—') + trendArrow(p.rate);
     }
     function tipHTML(p) {
       const spd = (p.gs != null) ? Math.round(p.gs) + ' kt' : '—';
@@ -3180,7 +3487,8 @@ MAP_HTML = '''<!doctype html>
       const route = (p.from || p.to) ? `${p.from || '—'} › ${p.to || '—'}` : null;
       const fr24 = p.reg ? `https://www.flightradar24.com/data/aircraft/${p.reg.toLowerCase()}`
                          : `https://www.flightradar24.com/data/aircraft/${p.hex}`;
-      let h = `<div class="pop"><div class="pop-h">${esc(nameOf(p))}</div>`;
+      const emTag = isEmerg(p) ? ` <span style="color:#ff5b5b;font-weight:700">⚠ ${esc(emergTag(p))}</span>` : '';
+      let h = `<div class="pop"><div class="pop-h"><a href="/aircraft?icao=${esc(p.hex)}" style="color:inherit;text-decoration:none">${esc(nameOf(p))} ›</a>${emTag}</div>`;
       h += prow(T.map_reg, p.reg);
       h += prow(T.map_type, p.type);
       h += prow(T.map_op, p.operator);
@@ -3190,6 +3498,7 @@ MAP_HTML = '''<!doctype html>
       h += prow(T.map_vs, vs);
       h += prow(T.map_spd, spd);
       h += prow(T.map_hdg, hdg);
+      h += prow('Squawk', p.squawk);
       h += prow('ICAO', (p.hex || '').toUpperCase());
       h += `<a class="pop-link" href="${fr24}" target="_blank" rel="noopener">${esc(T.map_fr24)} ↗</a>`;
       return h + '</div>';
@@ -3197,6 +3506,26 @@ MAP_HTML = '''<!doctype html>
 
     const planes = {};   // hex -> state
     let firstFit = true;
+    let followHex = null;     // 跟機（click 一架機）
+    let searchTerm = '';      // 搜尋 highlight
+    const TRAIL_MAX = 80;     // 航跡保留點數（~4 分鐘 @3s）
+
+    function matchSearch(p) {
+      if (!searchTerm) return null;             // 冇搜尋 → 唔 dim
+      const hay = [p.flight, p.reg, p.hex, p.operator].filter(Boolean).join(' ').toLowerCase();
+      return hay.indexOf(searchTerm) >= 0;       // true=命中, false=唔中
+    }
+    function applyFilter() {
+      for (const hex in planes) {
+        const el = planes[hex].marker && planes[hex].marker.getElement();
+        if (!el) continue;
+        const wrap = el.querySelector('.ac-wrap');
+        if (!wrap) continue;
+        const m = matchSearch(planes[hex]);
+        wrap.classList.toggle('dim', m === false);
+        wrap.classList.toggle('hit', m === true);
+      }
+    }
 
     function extrap(fix, dt) {
       const ms = (fix.gs || 0) * 0.514444;        // kt -> m/s
@@ -3222,35 +3551,49 @@ MAP_HTML = '''<!doctype html>
         let p = planes[a.hex];
         const fix = { lat:a.lat, lon:a.lon, track:a.track, gs:a.gs, t:now };
         if (!p) {
-          p = planes[a.hex] = { marker:null, fix, disp:{lat:a.lat, lon:a.lon},
+          p = planes[a.hex] = { marker:null, trailLine:null, trail:[[a.lat, a.lon]],
+            fix, disp:{lat:a.lat, lon:a.lon},
             hex:a.hex, lastSeen:now, rot:(a.track!=null?a.track:0),
             altFix:a.alt, rate:a.rate, altT:now, dispAlt:a.alt, altShown:null,
             flight:a.flight, alt:a.alt, gs:a.gs, track:a.track,
-            reg:a.reg, type:a.type, operator:a.operator, country:a.country, from:a.from, to:a.to };
+            reg:a.reg, type:a.type, operator:a.operator, country:a.country, from:a.from, to:a.to,
+            squawk:a.squawk, emergency:a.emergency, category:a.category, seen:a.seen };
+          p.trailLine = L.polyline(p.trail, { color:altColor(a.alt), weight:1.6, opacity:0.4, interactive:false }).addTo(map);
           p.marker = L.marker([a.lat, a.lon], { icon: makeIcon(p) })
             .bindTooltip('', { className:'ac-tip', direction:'top', offset:[0,-10], opacity:1 })
             .bindPopup('', { className:'ac-pop', maxWidth:280, autoPan:true })
             .addTo(map);
-          p.marker.on('click', () => { p.marker.setPopupContent(buildPopup(p)); p.marker.openPopup(); });
+          p.marker.on('click', () => { followHex = p.hex; p.marker.setPopupContent(buildPopup(p)); p.marker.openPopup(); });
         } else {
           p.fix = fix; p.lastSeen = now;
           p.altFix = a.alt; p.rate = a.rate; p.altT = now;
           if (p.dispAlt == null) p.dispAlt = a.alt;
           p.flight = a.flight; p.alt = a.alt; p.gs = a.gs; p.track = a.track;
           p.reg = a.reg; p.type = a.type; p.operator = a.operator; p.country = a.country; p.from = a.from; p.to = a.to;
+          p.squawk = a.squawk; p.emergency = a.emergency; p.category = a.category; p.seen = a.seen;
+          p.trail.push([a.lat, a.lon]);
+          if (p.trail.length > TRAIL_MAX) p.trail.shift();
+          if (p.trailLine) { p.trailLine.setLatLngs(p.trail); p.trailLine.setStyle({ color: altColor(a.alt) }); }
         }
         p.marker.setTooltipContent(tipHTML(p));
         syncLabel(p);
         if (p.marker.isPopupOpen()) p.marker.setPopupContent(buildPopup(p));
       }
-      // 移走已經出區（45 秒冇再見）嘅機
+      // 移走已經出區（45 秒冇再見）嘅機（連航跡）
       for (const hex in planes) {
         if (!seen.has(hex) && (now - planes[hex].lastSeen) > 45000) {
-          map.removeLayer(planes[hex].marker); delete planes[hex];
+          map.removeLayer(planes[hex].marker);
+          if (planes[hex].trailLine) map.removeLayer(planes[hex].trailLine);
+          if (followHex === hex) followHex = null;
+          delete planes[hex];
         }
       }
-      const n = Object.keys(planes).length;
+      const hexes = Object.keys(planes);
+      const n = hexes.length;
+      const emg = hexes.filter(h => isEmerg(planes[h])).length;
       document.getElementById('cnt').textContent = n ? (n + ' ' + T.map_unit) : T.map_empty;
+      document.getElementById('emerg-cnt').textContent = emg ? ('⚠ ' + emg + ' ' + T.map_emerg) : '';
+      applyFilter();
       if (firstFit && fitPts.length) { firstFit = false;
         try { map.fitBounds(fitPts, { padding:[40,40], maxZoom:10 }); } catch (e) {} }
     }
@@ -3276,9 +3619,326 @@ MAP_HTML = '''<!doctype html>
           if (r !== p.altShown) { p.altShown = r; setAltLabel(p, r); }
         }
       }
+      // 跟機：keep centered 喺被 click 嗰架
+      if (followHex && planes[followHex]) {
+        const d = planes[followHex].disp;
+        map.setView([d.lat, d.lon], map.getZoom(), { animate: false });
+      }
       requestAnimationFrame(animate);
     }
     requestAnimationFrame(animate);
+
+    // 搜尋：highlight 命中、其餘變淡
+    const searchBox = document.getElementById('search');
+    if (searchBox) searchBox.addEventListener('input', () => {
+      searchTerm = searchBox.value.trim().toLowerCase(); applyFilter();
+    });
+    // click 空白地圖 / 拖地圖 → 取消跟機
+    map.on('mousedown', () => { followHex = null; });
+  </script>
+</body>
+</html>'''
+
+
+# 共用 page shell CSS（header / nav / panel / footer / mobile），畀 /aircraft 同 /coverage 用
+_SHELL_CSS = '''
+    :root { --bg:#050a0d; --mint:#7fffd4; --mint-light:#aafff0; --amber:#f5d96f;
+      --muted:#4a8a7a; --x-muted:#3a6a5a; --card:rgba(15,31,34,0.7); --card-body:rgba(10,20,22,0.7);
+      --hdr-bar:rgba(15,31,34,0.85); --border:0.5px solid rgba(127,255,212,0.15);
+      --row-div:0.5px solid rgba(127,255,212,0.05); }
+    * { box-sizing:border-box; }
+    html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--mint);
+      font-family:'SF Mono','Menlo','Courier New',monospace; -webkit-font-smoothing:antialiased; }
+    body { overflow:hidden; }
+    .bg-vignette { position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:radial-gradient(ellipse at center, rgba(31,90,74,0.10) 0%, transparent 55%, rgba(5,10,13,0.9) 95%); }
+    .container { position:relative; z-index:2; height:100vh; height:100dvh; overflow-y:auto; overflow-x:hidden;
+      scrollbar-width:thin; scrollbar-color:var(--x-muted) transparent; }
+    .container::-webkit-scrollbar { width:6px; }
+    .container::-webkit-scrollbar-thumb { background:rgba(127,255,212,0.15); border-radius:3px; }
+    .inner { max-width:1320px; margin:0 auto; padding:24px 32px calc(80px + env(safe-area-inset-bottom)); }
+    header.page-hdr { padding-bottom:14px; margin-bottom:18px; border-bottom:1px solid rgba(127,255,212,0.15); }
+    .hdr-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .hdr-row.top { font-size:10px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; }
+    .hdr-row.top .dot { color:var(--mint); animation:blink 2s infinite; margin-right:4px; }
+    @keyframes blink { 50% { opacity:0.35 } }
+    .hdr-row.main { margin:6px 0 4px; }
+    .hdr-row.main .title { font-size:22px; letter-spacing:1px; color:var(--mint); font-weight:500; margin:0; }
+    .hdr-row.main .title a { color:inherit; text-decoration:none; }
+    .hdr-row.main .clock { font-size:16px; color:var(--mint); letter-spacing:1px; }
+    .hdr-row.sub { font-size:10px; letter-spacing:2px; color:var(--x-muted); }
+    .hdr-row.sub .coords { text-transform:uppercase; }
+    .tools { display:flex; gap:6px; align-items:center; }
+    .tools .nav a, .tools .nav button { background:rgba(15,31,34,0.6); color:var(--mint); border:var(--border);
+      border-radius:4px; font:inherit; font-size:10px; letter-spacing:1.5px; padding:6px 10px; cursor:pointer; text-decoration:none; }
+    .tools .nav a:hover, .tools .nav button:hover { border-color:var(--mint); }
+    .nav { display:flex; gap:4px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+    .nav form { display:inline; margin:0; }
+    .lang-switch { display:inline-flex; gap:2px; margin-right:4px; }
+    .lang-switch a { color:var(--muted); text-decoration:none; font-size:10px; padding:5px 8px;
+      border:var(--border); border-radius:4px; background:rgba(15,31,34,0.6); }
+    .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
+    section.panel { margin-bottom:18px; }
+    .panel-hdr { background:var(--hdr-bar); border:var(--border); border-radius:4px 4px 0 0;
+      padding:10px 14px; font-size:11px; letter-spacing:2px; color:var(--amber); text-transform:uppercase; }
+    .panel-hdr .diamond { color:var(--amber); margin-right:6px; }
+    .panel-body { background:var(--card-body); border:var(--border); border-top:0; border-radius:0 0 4px 4px; padding:14px 16px; }
+    .stats-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:18px; }
+    .stat-big { background:var(--card); border:var(--border); border-radius:4px; padding:14px 16px; }
+    .stat-big .lbl { font-size:10px; letter-spacing:2px; color:var(--muted); margin-bottom:7px; text-transform:uppercase; }
+    .stat-big .val { font-size:24px; font-weight:500; color:var(--mint); line-height:1; letter-spacing:1px; }
+    .stat-big .sub { font-size:10px; letter-spacing:0.5px; color:var(--x-muted); margin-top:6px; min-height:11px; }
+    .kv { display:flex; flex-direction:column; }
+    .kv .row { display:grid; grid-template-columns:130px 1fr; gap:12px; padding:9px 0; border-bottom:var(--row-div); font-size:12px; align-items:center; }
+    .kv .row:last-child { border-bottom:0; }
+    .kv .k { color:var(--muted); font-size:10px; letter-spacing:1.5px; text-transform:uppercase; }
+    .kv .v { color:var(--mint-light); }
+    .kv .v a { color:var(--amber); text-decoration:none; }
+    .loading { font-size:11px; color:var(--muted); letter-spacing:1.5px; padding:24px; text-align:center; }
+    .page-footer { margin-top:36px; padding-top:22px; border-top:var(--border); text-align:center;
+      font-size:9px; letter-spacing:3px; color:var(--x-muted); text-transform:uppercase; }
+    @media (max-width:700px) {
+      .inner { padding:18px 14px calc(90px + env(safe-area-inset-bottom)); }
+      .hdr-row.main .title { font-size:16px; } .hdr-row.sub .coords { display:none; }
+      .stats-grid { grid-template-columns:repeat(2, 1fr); }
+    }
+'''
+
+# 共用 page JS（clock / lang / nav）
+_SHELL_JS = '''
+    const pad = n => String(n).padStart(2, '0');
+    const esc = s => String(s ?? '').replace(/[&<>"\\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function getJST() { const n = new Date(); return new Date(n.getTime() + 9*3600*1000); }
+    function updateClock() {
+      const j = getJST();
+      document.getElementById('clock').textContent = `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:${pad(j.getUTCSeconds())} JPT`;
+      const wd = ['SUN','MON','TUE','WED','THU','FRI','SAT'][j.getUTCDay()];
+      document.getElementById('date').textContent = `${j.getUTCFullYear()}.${pad(j.getUTCMonth()+1)}.${pad(j.getUTCDate())} · ${wd}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+    function setLang(l) { document.cookie = `lang=${l}; Path=/; Max-Age=31536000; SameSite=Lax`; location.reload(); }
+    window.setLang = setLang;
+    function langSwitchHTML() {
+      const labels = { jp:'JP', hk:'HK', en:'EN' };
+      return '<span class="lang-switch">' + ['jp','hk','en'].map(l =>
+        `<a href="#" onclick="setLang('${l}');return false" class="${l===LANG?'on':''}">${labels[l]}</a>`).join('') + '</span>';
+    }
+    async function renderNav() {
+      const nav = document.getElementById('nav');
+      const ls = langSwitchHTML();
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      try {
+        const me = await (await fetch('/api/me')).json();
+        if (me.username) {
+          nav.innerHTML = ls + links + `<a href="/account">${esc(T.nav_account)}</a><form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
+        } else { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
+      } catch { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
+    }
+    renderNav();
+    function toJST(iso){ if(!iso) return null; const d=new Date(iso); return isNaN(d)?null:new Date(d.getTime()+9*3600*1000); }
+    function hm(iso){ const j=toJST(iso); return j ? pad(j.getUTCHours())+':'+pad(j.getUTCMinutes()) : '—'; }
+    function ymd(iso){ const j=toJST(iso); return j ? j.getUTCFullYear()+'-'+pad(j.getUTCMonth()+1)+'-'+pad(j.getUTCDate()) : '—'; }
+'''
+
+
+AIRCRAFT_HTML = '''<!doctype html>
+<html lang="{{HTML_LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{T_ac_title}}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>''' + _SHELL_CSS + '''
+    .ac-head { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; margin-bottom:18px; }
+    .hist { display:grid; grid-template-columns:repeat(30, 1fr); gap:2px; align-items:end; }
+    .hist .bar-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .hist .bar-area { width:100%; height:90px; display:flex; align-items:flex-end; }
+    .hist .bar { width:100%; min-height:2px; border-radius:2px 2px 0 0;
+      background:linear-gradient(180deg, var(--mint) 0%, rgba(127,255,212,0.35) 100%); }
+    .hist .day { font-size:7px; letter-spacing:0; color:var(--x-muted); }
+    .hist .val { font-size:7px; color:var(--mint); }
+    .ptable { width:100%; border-collapse:collapse; font-size:11px; }
+    .ptable th { text-align:left; font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+      text-transform:uppercase; padding:6px 8px; border-bottom:0.5px solid rgba(127,255,212,0.1); }
+    .ptable td { padding:6px 8px; border-bottom:var(--row-div); color:var(--mint-light); white-space:nowrap; }
+    .ptable td.r, .ptable th.r { text-align:right; }
+    @media (max-width:700px) { .ac-head { grid-template-columns:1fr; } .hist .day { display:none; } .hist .val { display:none; } }
+  </style>
+</head>
+<body>
+  <div class="bg-vignette"></div>
+  <div class="container"><div class="inner">
+    <header class="page-hdr">
+      <div class="hdr-row top"><span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span><span id="date">— — —</span></div>
+      <div class="hdr-row main"><h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1><span class="clock" id="clock">--:--:--</span></div>
+      <div class="hdr-row sub"><span class="coords">Powered by connie.hk</span><div class="tools"><div class="nav" id="nav"></div></div></div>
+    </header>
+    <div id="body"><div class="loading">{{T_loading}}</div></div>
+    <footer class="page-footer">尾久 SKYLEDGER · TOKYO</footer>
+  </div></div>
+  <script>
+    const T = {{T_JSDICT}};
+    const LANG = '{{LANG}}';''' + _SHELL_JS + '''
+    function statCard(lbl, val, sub) {
+      return `<div class="stat-big"><div class="lbl">${esc(lbl)}</div><div class="val">${esc(val)}</div><div class="sub">${esc(sub||'')}</div></div>`;
+    }
+    function kvRow(k, v) { return v ? `<div class="row"><div class="k">${esc(k)}</div><div class="v">${v}</div></div>` : ''; }
+    function renderHist(daily) {
+      if (!daily || !daily.length) return '<div class="loading">— —</div>';
+      const max = Math.max(1, ...daily.map(d => d.count));
+      return '<div class="hist">' + daily.map(d => {
+        const pct = (d.count / max * 100).toFixed(1);
+        return `<div class="bar-wrap"><div class="val">${d.count}</div><div class="bar-area"><div class="bar" style="height:${pct}%"></div></div><div class="day">${esc(d.day.slice(5))}</div></div>`;
+      }).join('') + '</div>';
+    }
+    async function load() {
+      const icao = new URLSearchParams(location.search).get('icao') || '';
+      const body = document.getElementById('body');
+      if (!icao) { body.innerHTML = `<div class="loading">${esc(T.ac_notfound)}</div>`; return; }
+      let a;
+      try { const r = await fetch('/api/aircraft?icao=' + encodeURIComponent(icao)); a = r.ok ? await r.json() : null; }
+      catch (e) { a = null; }
+      if (!a) { body.innerHTML = `<div class="loading">${esc(T.ac_notfound)}</div>`; return; }
+      const name = a.icao;
+      const subline = [a.aircraft_type, a.operator, a.country].filter(Boolean).join(' · ');
+      const route = (a.from || a.to) ? `${esc(a.from || '—')} › ${esc(a.to || '—')}` : null;
+      const fr24 = a.registration ? `https://www.flightradar24.com/data/aircraft/${a.registration.toLowerCase()}`
+                                  : `https://www.flightradar24.com/data/aircraft/${icao.toLowerCase()}`;
+      const peak = (a.peak_alt != null) ? Math.round(a.peak_alt).toLocaleString() + ' ft' : '—';
+      const spd = (a.max_gs != null) ? Math.round(a.max_gs) + ' kt' : '—';
+      body.innerHTML = `
+        <div class="ac-head">
+          <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(name)}</div>
+            <div class="panel-body"><div class="kv">
+              ${kvRow(T.map_reg, esc(a.registration))}
+              ${kvRow(T.map_type, esc(a.aircraft_type))}
+              ${kvRow(T.map_op, esc(a.operator))}
+              ${kvRow(T.map_country, esc(a.country))}
+              ${kvRow(T.map_route, route)}
+              ${kvRow('ICAO', esc(a.icao))}
+              <div class="row"><div class="k">FR24</div><div class="v"><a href="${fr24}" target="_blank" rel="noopener">${esc(T.map_fr24)} ↗</a></div></div>
+            </div></div>
+          </section>
+          <div><div class="stats-grid">
+            ${statCard(T.ac_total_passes, (a.total_passes||0).toLocaleString(), '')}
+            ${statCard(T.ac_days, a.days||0, '')}
+            ${statCard(T.ac_peak_alt, peak, '')}
+            ${statCard(T.ac_max_spd, spd, '')}
+            ${statCard(T.ac_first_seen, ymd(a.first_seen), hm(a.first_seen))}
+            ${statCard(T.ac_last_seen, ymd(a.last_seen), hm(a.last_seen))}
+          </div></div>
+        </div>
+        <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_daily_hdr)}</div>
+          <div class="panel-body">${renderHist(a.daily)}</div></section>
+        <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_passes_hdr)}</div>
+          <div class="panel-body" style="overflow-x:auto">
+            <table class="ptable"><thead><tr>
+              <th>${esc(T.ac_col_date)}</th><th>${esc(T.ac_col_time)}</th><th>${esc(T.ac_col_flight)}</th>
+              <th class="r">${esc(T.ac_col_alt)}</th><th class="r">${esc(T.ac_col_samples)}</th>
+            </tr></thead><tbody>
+            ${(a.passes||[]).map(p => {
+              const al = (p.min_alt!=null||p.max_alt!=null) ? `${p.min_alt!=null?Math.round(p.min_alt).toLocaleString():'—'}–${p.max_alt!=null?Math.round(p.max_alt).toLocaleString():'—'}` : '—';
+              return `<tr><td>${esc(p.pass_date)}</td><td>${hm(p.first_seen)}–${hm(p.last_seen)}</td><td>${esc(p.flight||'—')}</td><td class="r">${al}</td><td class="r">${p.samples}</td></tr>`;
+            }).join('')}
+            </tbody></table>
+          </div></section>`;
+    }
+    load();
+  </script>
+</body>
+</html>'''
+
+
+COVERAGE_HTML = '''<!doctype html>
+<html lang="{{HTML_LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{T_cov_title}}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>''' + _SHELL_CSS + '''
+    .radar-wrap { display:flex; justify-content:center; padding:8px; }
+    #radar-svg { width:100%; max-width:480px; height:auto; }
+    #radar-svg .ring { fill:none; stroke:rgba(127,255,212,0.14); stroke-width:0.8; }
+    #radar-svg .axis { stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+    #radar-svg .rlabel { fill:var(--x-muted); font-size:9px; font-family:inherit; }
+    #radar-svg .dir { fill:var(--muted); font-size:11px; font-family:inherit; letter-spacing:1px; }
+    #radar-svg .cov { fill:rgba(127,255,212,0.13); stroke:var(--mint); stroke-width:1.2; stroke-linejoin:round; }
+  </style>
+</head>
+<body>
+  <div class="bg-vignette"></div>
+  <div class="container"><div class="inner">
+    <header class="page-hdr">
+      <div class="hdr-row top"><span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span><span id="date">— — —</span></div>
+      <div class="hdr-row main"><h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1><span class="clock" id="clock">--:--:--</span></div>
+      <div class="hdr-row sub"><span class="coords">Powered by connie.hk</span><div class="tools"><div class="nav" id="nav"></div></div></div>
+    </header>
+    <div class="stats-grid">
+      <div class="stat-big"><div class="lbl">{{T_cov_max_range}}</div><div class="val" id="c-max">—</div><div class="sub" id="c-max-nm"></div></div>
+      <div class="stat-big"><div class="lbl">{{T_cov_farthest}}</div><div class="val" id="c-far" style="font-size:16px">—</div><div class="sub" id="c-far-sub"></div></div>
+      <div class="stat-big"><div class="lbl">{{T_cov_aircraft_seen}}</div><div class="val" id="c-ac">—</div><div class="sub"></div></div>
+    </div>
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="cov-hdr">{{T_cov_title}}</span></div>
+      <div class="panel-body">
+        <div class="radar-wrap" id="radar-wrap"><div class="loading">{{T_cov_loading}}</div></div>
+        <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:8px">{{T_cov_note}}</div>
+      </div>
+    </section>
+    <footer class="page-footer">尾久 SKYLEDGER · TOKYO</footer>
+  </div></div>
+  <script>
+    const T = {{T_JSDICT}};
+    const LANG = '{{LANG}}';''' + _SHELL_JS + '''
+    function compass(deg) { return ['N','NE','E','SE','S','SW','W','NW'][Math.round(deg/45)%8]; }
+    function niceMax(km) { if (km <= 0) return 100; const step = km > 400 ? 200 : 100; return Math.ceil(km/step)*step; }
+    function renderRadar(cov) {
+      const wrap = document.getElementById('radar-wrap');
+      const sectors = cov.sectors || [];
+      const maxScale = niceMax(cov.max_km || 0);
+      const S = 480, cx = S/2, cy = S/2, R = S/2 - 34;
+      const pt = (deg, km) => { const r = (km/maxScale)*R, a = deg*Math.PI/180;
+        return [cx + r*Math.sin(a), cy - r*Math.cos(a)]; };
+      let svg = `<svg id="radar-svg" viewBox="0 0 ${S} ${S}">`;
+      // range rings + labels
+      for (let i = 1; i <= 4; i++) {
+        const rr = R*i/4;
+        svg += `<circle class="ring" cx="${cx}" cy="${cy}" r="${rr.toFixed(1)}"/>`;
+        svg += `<text class="rlabel" x="${cx+3}" y="${(cy-rr+11).toFixed(1)}">${Math.round(maxScale*i/4)} km</text>`;
+      }
+      // N-S / E-W axes
+      svg += `<line class="axis" x1="${cx}" y1="${cy-R}" x2="${cx}" y2="${cy+R}"/>`;
+      svg += `<line class="axis" x1="${cx-R}" y1="${cy}" x2="${cx+R}" y2="${cy}"/>`;
+      // coverage polygon
+      const pts = sectors.map(s => pt(s.deg, s.km).map(n => n.toFixed(1)).join(',')).join(' ');
+      if (pts) svg += `<polygon class="cov" points="${pts}"/>`;
+      // compass labels
+      const dirs = [['N',0],['E',90],['S',180],['W',270]];
+      for (const [lab, deg] of dirs) { const [x,y] = pt(deg, maxScale*1.06);
+        svg += `<text class="dir" x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle">${lab}</text>`; }
+      svg += '</svg>';
+      wrap.innerHTML = svg;
+    }
+    async function load() {
+      let cov;
+      try { cov = await (await fetch('/api/coverage')).json(); } catch (e) { cov = {error:'fetch'}; }
+      if (cov.error === 'no_receiver_coords') {
+        document.getElementById('radar-wrap').innerHTML = `<div class="loading">${esc(T.cov_nocoords)}</div>`;
+        return;
+      }
+      document.getElementById('cov-hdr').textContent = (T.cov_hdr || '').replace('{n}', cov.window_days || 30);
+      document.getElementById('c-max').textContent = (cov.max_km != null) ? cov.max_km + ' km' : '—';
+      document.getElementById('c-max-nm').textContent = (cov.max_nm != null) ? cov.max_nm + ' nm' : '';
+      document.getElementById('c-ac').textContent = (cov.aircraft_with_pos != null) ? cov.aircraft_with_pos.toLocaleString() : '—';
+      const f = cov.farthest;
+      if (f) {
+        document.getElementById('c-far').textContent = f.registration || f.icao || '—';
+        document.getElementById('c-far-sub').textContent = [f.km != null ? f.km + ' km' : null, f.bearing != null ? compass(f.bearing) + ' ' + f.bearing + '°' : null, f.operator].filter(Boolean).join(' · ');
+      }
+      renderRadar(cov);
+    }
+    load();
   </script>
 </body>
 </html>'''
@@ -3354,6 +4014,38 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == '/api/live':
             payload = query_live()
+            body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == '/aircraft':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(_render(AIRCRAFT_HTML, lang).encode('utf-8'))
+            return
+        if parsed.path == '/api/aircraft':
+            qs = parse_qs(parsed.query)
+            icao = qs.get('icao', [''])[0]
+            payload = query_aircraft(icao)
+            body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            self.send_response(200 if payload else 404)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == '/coverage':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(_render(COVERAGE_HTML, lang).encode('utf-8'))
+            return
+        if parsed.path == '/api/coverage':
+            payload = query_coverage()
             body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
