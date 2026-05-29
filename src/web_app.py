@@ -1,9 +1,11 @@
 import html
 import json
 import re
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from http import cookies as http_cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import auth
@@ -14,6 +16,14 @@ PORT = 8765
 JST = timezone(timedelta(hours=9))
 # process 起身時間（supervisor 每次拉返起會 reset），/about 用嚟計 uptime
 _BOOT_AT = datetime.now(timezone.utc)
+
+# tar1090 aircraft.json URL（由 config 讀，/api/live 即時抓嚟畀地圖）
+try:
+    _SOURCE_URL = json.loads(
+        (Path(__file__).resolve().parent / 'config.json').read_text()
+    )['source']['aircraft_json_url']
+except Exception:
+    _SOURCE_URL = None
 ALLOWED_SORTS = {
     'last_seen': 'last_seen DESC',
     'country': 'country ASC, operator ASC, last_seen DESC',
@@ -84,6 +94,23 @@ STRINGS = {
         'about_lbl_api': 'API',
         'about_lbl_db': 'データベース',
         'about_lbl_records_today': '本日の記録数',
+        'nav_map': 'マップ',
+        'map_title': 'ライブマップ · plane-history',
+        'map_hdr': 'ライブマップ · 受信中',
+        'map_unit': '機',
+        'map_note': '受信機が今この瞬間に捉えている航空機を、速度と進路から滑らかに移動表示しています（tar1090 ライブ）。',
+        'map_empty': '// 測位情報のある航空機が今ありません',
+        'map_loading': '読み込み中...',
+        'map_alt': '高度',
+        'map_spd': '速度',
+        'map_reg': 'レジ',
+        'map_type': '機種',
+        'map_op': '運航会社',
+        'map_country': '国籍',
+        'map_route': '区間',
+        'map_vs': '昇降率',
+        'map_hdg': '進路',
+        'map_fr24': 'FR24 で見る',
         'loading': '読み込み中...',
         'no_data': '// 本日データなし',
         'cta_details': '▸  詳細ビューを開く  ▸',
@@ -173,6 +200,23 @@ STRINGS = {
         'about_lbl_api': 'API',
         'about_lbl_db': '資料庫',
         'about_lbl_records_today': '今日記錄數',
+        'nav_map': '地圖',
+        'map_title': '即時地圖 · plane-history',
+        'map_hdr': '即時地圖 · 接收中',
+        'map_unit': '架',
+        'map_note': '顯示接收機而家即時捉到嘅飛機，按速度同航向平滑移動（tar1090 live）。',
+        'map_empty': '// 而家冇有定位嘅飛機',
+        'map_loading': '載入中...',
+        'map_alt': '高度',
+        'map_spd': '速度',
+        'map_reg': '機牌',
+        'map_type': '機型',
+        'map_op': '航空公司',
+        'map_country': '註冊國',
+        'map_route': '航線',
+        'map_vs': '升降率',
+        'map_hdg': '航向',
+        'map_fr24': 'FR24 詳情',
         'loading': '載入中...',
         'no_data': '// 今日未有資料',
         'cta_details': '▸  開詳細表  ▸',
@@ -262,6 +306,23 @@ STRINGS = {
         'about_lbl_api': 'API',
         'about_lbl_db': 'Database',
         'about_lbl_records_today': 'Records today',
+        'nav_map': 'MAP',
+        'map_title': 'Live Map · plane-history',
+        'map_hdr': 'LIVE MAP · NOW SCANNING',
+        'map_unit': 'aircraft',
+        'map_note': 'Aircraft currently picked up by the receiver, animated smoothly from speed and heading (tar1090 live).',
+        'map_empty': '// no aircraft with position right now',
+        'map_loading': 'loading...',
+        'map_alt': 'ALT',
+        'map_spd': 'SPD',
+        'map_reg': 'REG',
+        'map_type': 'TYPE',
+        'map_op': 'OPERATOR',
+        'map_country': 'COUNTRY',
+        'map_route': 'ROUTE',
+        'map_vs': 'V/S',
+        'map_hdg': 'HDG',
+        'map_fr24': 'VIEW ON FR24',
         'loading': 'loading...',
         'no_data': '// no data today',
         'cta_details': '▸  OPEN DETAILED VIEW  ▸',
@@ -1249,7 +1310,7 @@ HOME_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
+      const links = `<a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -1773,6 +1834,76 @@ def query_health():
         'uptime_secs': int((datetime.now(timezone.utc) - _BOOT_AT).total_seconds()),
     }
     return payload, (200 if healthy else 503)
+
+
+def query_live():
+    # server 端即時抓 tar1090 aircraft.json，trim 返有定位嘅機畀地圖
+    if not _SOURCE_URL:
+        return {'aircraft': [], 'error': 'no source url', 'count_pos': 0, 'count_total': 0}
+    try:
+        with urllib.request.urlopen(_SOURCE_URL, timeout=8) as resp:
+            payload = json.loads(resp.read().decode('utf-8'))
+    except Exception as e:
+        return {'aircraft': [], 'error': str(e), 'count_pos': 0, 'count_total': 0}
+
+    raw = payload.get('aircraft', []) or []
+    out = []
+    for a in raw:
+        lat, lon = a.get('lat'), a.get('lon')
+        if lat is None or lon is None:
+            continue
+        alt = a.get('alt_baro')
+        if isinstance(alt, str):  # tar1090 落地會送 "ground"
+            alt = None
+        rate = a.get('baro_rate')
+        if rate is None:
+            rate = a.get('geom_rate')
+        out.append({
+            'hex': (a.get('hex') or '').strip().lower(),
+            'flight': (a.get('flight') or '').strip() or None,
+            'lat': lat,
+            'lon': lon,
+            'alt': alt,
+            'rate': rate,
+            'track': a.get('track'),
+            'gs': a.get('gs'),
+        })
+
+    # 由 registry cache 補返機牌 / 機型 / 公司 / 國家 / 航線，click 個 popup 用
+    def _clean(v):
+        v = (v or '').strip() if isinstance(v, str) else None
+        return v if v and v.lower() != 'n/a' else None
+    hexes = [o['hex'] for o in out if o['hex']]
+    if hexes:
+        try:
+            conn = connect()
+            cur = dict_cursor(conn)
+            ph = ','.join(['%s'] * len(hexes))
+            cur.execute(
+                f'''SELECT icao, registration, country, aircraft_type, operator, from_airport, to_airport
+                    FROM aircraft_registry_cache WHERE icao IN ({ph})''',
+                hexes,
+            )
+            reg = {r['icao']: r for r in cur.fetchall()}
+            conn.close()
+            for o in out:
+                m = reg.get(o['hex'])
+                if m:
+                    o['reg'] = _clean(m.get('registration'))
+                    o['type'] = _clean(m.get('aircraft_type'))
+                    o['operator'] = _clean(m.get('operator'))
+                    o['country'] = _clean(m.get('country'))
+                    o['from'] = _clean(m.get('from_airport'))
+                    o['to'] = _clean(m.get('to_airport'))
+        except Exception:
+            pass
+
+    return {
+        'aircraft': out,
+        'count_pos': len(out),
+        'count_total': len(raw),
+        'now': payload.get('now'),
+    }
 
 
 _AUTH_LANG_SWITCH = '''<div class="lang-switch">
@@ -2731,7 +2862,7 @@ ABOUT_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -2835,6 +2966,324 @@ ABOUT_HTML = '''<!doctype html>
 </html>'''
 
 
+MAP_HTML = '''<!doctype html>
+<html lang="{{HTML_LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{T_map_title}}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --bg:#050a0d; --mint:#7fffd4; --mint-light:#aafff0; --amber:#f5d96f;
+      --muted:#4a8a7a; --x-muted:#3a6a5a;
+      --card:rgba(15,31,34,0.85); --hdr-bar:rgba(15,31,34,0.85);
+      --border:0.5px solid rgba(127,255,212,0.15);
+    }
+    * { box-sizing:border-box; }
+    html, body { margin:0; padding:0; height:100%;
+      background:var(--bg); color:var(--mint);
+      font-family:'SF Mono','Menlo','Courier New',monospace;
+      -webkit-font-smoothing:antialiased; overflow:hidden; }
+    .wrap { display:flex; flex-direction:column; height:100vh; height:100dvh;
+      padding:18px 22px calc(14px + env(safe-area-inset-bottom)); }
+
+    header.page-hdr { padding-bottom:12px; margin-bottom:12px; flex:0 0 auto;
+      border-bottom:1px solid rgba(127,255,212,0.15); }
+    .hdr-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .hdr-row.top { font-size:10px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; }
+    .hdr-row.top .dot { color:var(--mint); animation:blink 2s infinite; margin-right:4px; }
+    @keyframes blink { 50% { opacity:0.35 } }
+    .hdr-row.main { margin:6px 0 4px; }
+    .hdr-row.main .title { font-size:20px; letter-spacing:1px; color:var(--mint); font-weight:500; margin:0; }
+    .hdr-row.main .title a { color:inherit; text-decoration:none; }
+    .hdr-row.main .clock { font-size:15px; color:var(--mint); letter-spacing:1px; }
+    .hdr-row.sub { font-size:10px; letter-spacing:2px; color:var(--x-muted); }
+    .tools { display:flex; gap:6px; align-items:center; }
+    .tools .nav a, .tools .nav button {
+      background:rgba(15,31,34,0.6); color:var(--mint); border:var(--border); border-radius:4px;
+      font:inherit; font-size:10px; letter-spacing:1.5px; padding:6px 10px; cursor:pointer; text-decoration:none; }
+    .tools .nav a:hover, .tools .nav button:hover { border-color:var(--mint); }
+    .nav { display:flex; gap:4px; align-items:center; }
+    .nav form { display:inline; margin:0; }
+    .lang-switch { display:inline-flex; gap:2px; margin-right:4px; }
+    .lang-switch a { color:var(--muted); text-decoration:none; font-size:10px;
+      padding:5px 8px; border:var(--border); border-radius:4px; background:rgba(15,31,34,0.6); }
+    .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
+
+    .map-meta { flex:0 0 auto; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+      margin-bottom:10px; }
+    .map-meta .ttl { font-size:11px; letter-spacing:2px; color:var(--amber); text-transform:uppercase; }
+    .map-meta .ttl .diamond { margin-right:6px; }
+    .map-meta .cnt { font-size:11px; letter-spacing:1px; color:var(--mint); }
+    .map-meta .note { font-size:10px; letter-spacing:0.5px; color:var(--x-muted); flex:1 1 240px; }
+
+    #map { flex:1 1 auto; min-height:0; border:var(--border); border-radius:6px;
+      background:#050a0d; }
+    .leaflet-container { background:#050a0d; font-family:inherit; }
+    .leaflet-control-attribution { background:rgba(5,10,13,0.7)!important; color:var(--x-muted)!important; font-size:9px; }
+    .leaflet-control-attribution a { color:var(--muted)!important; }
+    .leaflet-bar a { background:var(--card)!important; color:var(--mint)!important; border-color:rgba(127,255,212,0.2)!important; }
+
+    .ac-icon { background:none; border:none; overflow:visible; }
+    .ac-wrap { position:relative; width:26px; height:26px; }
+    .ac { position:absolute; inset:0; transition:transform 0.4s linear; will-change:transform;
+      transform-origin:50% 50%; filter:drop-shadow(0 0 4px rgba(127,255,212,0.55)); }
+    /* label 跟住架機走但唔會跟住轉 */
+    .ac-lbl { position:absolute; left:28px; top:50%; transform:translateY(-50%);
+      white-space:nowrap; line-height:1.15; pointer-events:none; }
+    .ac-lbl span { display:block;
+      text-shadow:0 0 3px #050a0d, 0 0 2px #050a0d, 0 1px 2px #050a0d; }
+    .ac-lbl .fl { font-size:10px; letter-spacing:0.5px; color:var(--mint-light); }
+    .ac-lbl .al { font-size:9px; letter-spacing:0.5px; color:var(--amber); }
+    .ac-tip { background:rgba(5,10,13,0.92)!important; border:var(--border)!important;
+      color:var(--mint)!important; font-size:10px; letter-spacing:0.5px; border-radius:4px; }
+    .ac-tip::before { display:none!important; }
+    .ac-tip b { color:var(--mint-light); }
+    .ac-tip .k { color:var(--x-muted); }
+
+    /* click 落去嘅詳細 popup */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background:rgba(8,16,18,0.97)!important; color:var(--mint)!important;
+      border:var(--border); box-shadow:0 4px 20px rgba(0,0,0,0.55); border-radius:6px; }
+    .leaflet-popup-content { margin:11px 13px; font-size:11px; line-height:1.3; min-width:190px; }
+    .leaflet-popup-close-button { color:var(--muted)!important; }
+    .pop-h { font-size:14px; color:var(--mint-light); letter-spacing:1px;
+      margin-bottom:8px; padding-bottom:7px; border-bottom:var(--border); }
+    .pop .pr { display:flex; justify-content:space-between; gap:16px; padding:3px 0; }
+    .pop .pk { color:var(--x-muted); letter-spacing:1px; text-transform:uppercase; font-size:9px; white-space:nowrap; }
+    .pop .pv { color:var(--mint-light); text-align:right; }
+    .pop-link { display:inline-block; margin-top:9px; color:var(--amber);
+      text-decoration:none; font-size:10px; letter-spacing:1px; }
+    .pop-link:hover { text-decoration:underline; }
+
+    @media (max-width:700px) {
+      .wrap { padding:14px 12px calc(10px + env(safe-area-inset-bottom)); }
+      .hdr-row.main .title { font-size:15px; }
+      .hdr-row.sub .coords { display:none; }
+      .map-meta .note { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="page-hdr">
+      <div class="hdr-row top">
+        <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
+        <span id="date">— — —</span>
+      </div>
+      <div class="hdr-row main">
+        <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
+        <span class="clock" id="clock">--:--:--</span>
+      </div>
+      <div class="hdr-row sub">
+        <span class="coords">Powered by connie.hk</span>
+        <div class="tools"><div class="nav" id="nav"></div></div>
+      </div>
+    </header>
+
+    <div class="map-meta">
+      <span class="ttl"><span class="diamond">◆</span>{{T_map_hdr}}</span>
+      <span class="cnt" id="cnt">— —</span>
+      <span class="note">{{T_map_note}}</span>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const T = {{T_JSDICT}};
+    const LANG = '{{LANG}}';
+    const pad = n => String(n).padStart(2, '0');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function getJST() { const n = new Date(); return new Date(n.getTime() + 9*3600*1000); }
+    function updateClock() {
+      const j = getJST();
+      document.getElementById('clock').textContent =
+        `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:${pad(j.getUTCSeconds())} JPT`;
+      const wd = ['SUN','MON','TUE','WED','THU','FRI','SAT'][j.getUTCDay()];
+      document.getElementById('date').textContent =
+        `${j.getUTCFullYear()}.${pad(j.getUTCMonth()+1)}.${pad(j.getUTCDate())} · ${wd}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    function setLang(l) {
+      document.cookie = `lang=${l}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      location.reload();
+    }
+    window.setLang = setLang;
+    function langSwitchHTML() {
+      const labels = { jp:'JP', hk:'HK', en:'EN' };
+      return '<span class="lang-switch">' +
+        ['jp','hk','en'].map(l => `<a href="#" onclick="setLang('${l}');return false" class="${l===LANG?'on':''}">${labels[l]}</a>`).join('') + '</span>';
+    }
+    async function renderNav() {
+      const nav = document.getElementById('nav');
+      const ls = langSwitchHTML();
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
+      try {
+        const me = await (await fetch('/api/me')).json();
+        if (me.username) {
+          nav.innerHTML = ls + links + `<a href="/account">${esc(T.nav_account)}</a>` +
+            `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
+        } else { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
+      } catch { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
+    }
+    renderNav();
+
+    // ===== Leaflet 地圖 =====
+    const map = L.map('map', { zoomControl:true, attributionControl:true, worldCopyJump:true })
+      .setView([35.68, 139.76], 8);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 18, subdomains:'abcd',
+      attribution: '© OpenStreetMap © CARTO'
+    }).addTo(map);
+
+    // 俯視飛機剪影，機頭向上（track 0 = 北），rotate(track) 就啱
+    const PLANE_SVG = '<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#7fffd4" stroke="#031a14" stroke-width="0.7" d="M12 1.6 C12.6 1.6 13 2.4 13 4 L13 10.4 L21.6 15.4 L21.6 17.2 L13 14.6 L13 19.4 L15.2 21 L15.2 22.4 L12 21.4 L8.8 22.4 L8.8 21 L11 19.4 L11 14.6 L2.4 17.2 L2.4 15.4 L11 10.4 L11 4 C11 2.4 11.4 1.6 12 1.6 Z"/></svg>';
+    function nameOf(p) { return p.flight || (p.hex || '').toUpperCase(); }
+    function altOf(p) { return (p.alt != null) ? Math.round(p.alt).toLocaleString() + ' ft' : '—'; }
+    function makeIcon(p) {
+      const rot = (p.track != null) ? p.track : 0;
+      const html = `<div class="ac-wrap"><div class="ac" style="transform:rotate(${rot}deg)">${PLANE_SVG}</div>`
+        + `<div class="ac-lbl"><span class="fl">${esc(nameOf(p))}</span><span class="al">${esc(altOf(p))}</span></div></div>`;
+      return L.divIcon({ className:'ac-icon', html, iconSize:[26,26], iconAnchor:[13,13] });
+    }
+    function syncLabel(p) {
+      // 航班號 + 機頭方向喺 poll 設定；高度由 animate loop 即時跳動
+      const el = p.marker.getElement();
+      if (!el) return;
+      const ac = el.querySelector('.ac');
+      if (ac && p.track != null && p.rot !== p.track) { ac.style.transform = `rotate(${p.track}deg)`; p.rot = p.track; }
+      const fl = el.querySelector('.ac-lbl .fl'); if (fl) fl.textContent = nameOf(p);
+    }
+    function setAltLabel(p, ft) {
+      const el = p.marker.getElement();
+      if (!el) return;
+      const al = el.querySelector('.ac-lbl .al');
+      if (al) al.textContent = (ft != null) ? ft.toLocaleString() + ' ft' : '—';
+    }
+    function tipHTML(p) {
+      const spd = (p.gs != null) ? Math.round(p.gs) + ' kt' : '—';
+      return `<b>${esc(nameOf(p))}</b><br><span class="k">${esc(T.map_alt)}</span> ${altOf(p)} · <span class="k">${esc(T.map_spd)}</span> ${spd}`;
+    }
+    function prow(k, v) {
+      return v ? `<div class="pr"><span class="pk">${esc(k)}</span><span class="pv">${esc(v)}</span></div>` : '';
+    }
+    function buildPopup(p) {
+      const spd = (p.gs != null) ? Math.round(p.gs) + ' kt' : null;
+      const vs = (p.rate != null) ? ((p.rate > 0 ? '+' : '') + Math.round(p.rate) + ' ft/min') : null;
+      const hdg = (p.track != null) ? (Math.round(p.track) + '°') : null;
+      const route = (p.from || p.to) ? `${p.from || '—'} › ${p.to || '—'}` : null;
+      const fr24 = p.reg ? `https://www.flightradar24.com/data/aircraft/${p.reg.toLowerCase()}`
+                         : `https://www.flightradar24.com/data/aircraft/${p.hex}`;
+      let h = `<div class="pop"><div class="pop-h">${esc(nameOf(p))}</div>`;
+      h += prow(T.map_reg, p.reg);
+      h += prow(T.map_type, p.type);
+      h += prow(T.map_op, p.operator);
+      h += prow(T.map_country, p.country);
+      h += prow(T.map_route, route);
+      h += prow(T.map_alt, (p.alt != null) ? Math.round(p.alt).toLocaleString() + ' ft' : null);
+      h += prow(T.map_vs, vs);
+      h += prow(T.map_spd, spd);
+      h += prow(T.map_hdg, hdg);
+      h += prow('ICAO', (p.hex || '').toUpperCase());
+      h += `<a class="pop-link" href="${fr24}" target="_blank" rel="noopener">${esc(T.map_fr24)} ↗</a>`;
+      return h + '</div>';
+    }
+
+    const planes = {};   // hex -> state
+    let firstFit = true;
+
+    function extrap(fix, dt) {
+      const ms = (fix.gs || 0) * 0.514444;        // kt -> m/s
+      const dist = ms * Math.min(dt, 30);         // cap 30s 防 poll 卡住飛走
+      const rad = (fix.track || 0) * Math.PI/180;
+      const dLat = (dist * Math.cos(rad)) / 111320;
+      const dLon = (dist * Math.sin(rad)) / (111320 * Math.cos(fix.lat * Math.PI/180));
+      return { lat: fix.lat + dLat, lon: fix.lon + dLon };
+    }
+
+    async function poll() {
+      let data;
+      try { data = await (await fetch('/api/live')).json(); }
+      catch (e) { return; }
+      const list = data.aircraft || [];
+      const now = performance.now();
+      const seen = new Set();
+      const fitPts = [];
+      for (const a of list) {
+        if (a.lat == null || a.lon == null) continue;
+        seen.add(a.hex);
+        fitPts.push([a.lat, a.lon]);
+        let p = planes[a.hex];
+        const fix = { lat:a.lat, lon:a.lon, track:a.track, gs:a.gs, t:now };
+        if (!p) {
+          p = planes[a.hex] = { marker:null, fix, disp:{lat:a.lat, lon:a.lon},
+            hex:a.hex, lastSeen:now, rot:(a.track!=null?a.track:0),
+            altFix:a.alt, rate:a.rate, altT:now, dispAlt:a.alt, altShown:null,
+            flight:a.flight, alt:a.alt, gs:a.gs, track:a.track,
+            reg:a.reg, type:a.type, operator:a.operator, country:a.country, from:a.from, to:a.to };
+          p.marker = L.marker([a.lat, a.lon], { icon: makeIcon(p) })
+            .bindTooltip('', { className:'ac-tip', direction:'top', offset:[0,-10], opacity:1 })
+            .bindPopup('', { className:'ac-pop', maxWidth:280, autoPan:true })
+            .addTo(map);
+          p.marker.on('click', () => { p.marker.setPopupContent(buildPopup(p)); p.marker.openPopup(); });
+        } else {
+          p.fix = fix; p.lastSeen = now;
+          p.altFix = a.alt; p.rate = a.rate; p.altT = now;
+          if (p.dispAlt == null) p.dispAlt = a.alt;
+          p.flight = a.flight; p.alt = a.alt; p.gs = a.gs; p.track = a.track;
+          p.reg = a.reg; p.type = a.type; p.operator = a.operator; p.country = a.country; p.from = a.from; p.to = a.to;
+        }
+        p.marker.setTooltipContent(tipHTML(p));
+        syncLabel(p);
+        if (p.marker.isPopupOpen()) p.marker.setPopupContent(buildPopup(p));
+      }
+      // 移走已經出區（45 秒冇再見）嘅機
+      for (const hex in planes) {
+        if (!seen.has(hex) && (now - planes[hex].lastSeen) > 45000) {
+          map.removeLayer(planes[hex].marker); delete planes[hex];
+        }
+      }
+      const n = Object.keys(planes).length;
+      document.getElementById('cnt').textContent = n ? (n + ' ' + T.map_unit) : T.map_empty;
+      if (firstFit && fitPts.length) { firstFit = false;
+        try { map.fitBounds(fitPts, { padding:[40,40], maxZoom:10 }); } catch (e) {} }
+    }
+    poll();
+    setInterval(poll, 3000);
+
+    // ===== 平滑移動（dead-reckoning + lerp，似 FR24）=====
+    function animate() {
+      const now = performance.now();
+      for (const hex in planes) {
+        const p = planes[hex];
+        const target = extrap(p.fix, (now - p.fix.t) / 1000);
+        p.disp.lat += (target.lat - p.disp.lat) * 0.12;
+        p.disp.lon += (target.lon - p.disp.lon) * 0.12;
+        p.marker.setLatLng([p.disp.lat, p.disp.lon]);
+
+        // 高度即時跳動：用 baro_rate 外推 + lerp，按 25ft 級更新個 label
+        if (p.altFix != null) {
+          const dtA = Math.min((now - p.altT) / 1000, 60);
+          const tgtAlt = p.altFix + (p.rate || 0) / 60 * dtA;   // rate ft/min -> ft/s
+          p.dispAlt += (tgtAlt - p.dispAlt) * 0.15;
+          const r = Math.round(p.dispAlt / 25) * 25;
+          if (r !== p.altShown) { p.altShown = r; setAltLabel(p, r); }
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>'''
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -2892,6 +3341,21 @@ class Handler(BaseHTTPRequestHandler):
             payload, status = query_health()
             body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
             self.send_response(status)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == '/map':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(_render(MAP_HTML, lang).encode('utf-8'))
+            return
+        if parsed.path == '/api/live':
+            payload = query_live()
+            body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
