@@ -226,9 +226,15 @@ with sync_playwright() as p:
                     )
                     cs_row = cur.fetchone()
                     callsign = cs_row[0].strip() if cs_row and cs_row[0] else None
-                    flight_code = (callsign or fr24_id or '').upper()
-                    is_uo = flight_code.startswith(('UO', 'HKE')) or operator == 'Hong Kong Express'
-                    if is_uo:
+                    # flight no 優先廣播 callsign；其次 live flight（fr24_id 撞到 aircraft 結果會係 hex，要排除）
+                    flight_code = (callsign or '').upper()
+                    if not flight_code and fr24_id and str(fr24_id).lower() != hex.lower():
+                        flight_code = str(fr24_id).upper()
+                    is_uo = (operator == 'Hong Kong Express') or flight_code.startswith(('UO', 'HKE'))
+                    if is_uo and not flight_code:
+                        # callsign 廣播未到，唔好 push hex；今鋪 skip 唔 set notified，下鋪有 callsign 先 push
+                        log_line({'event': 'push_hke_wait_callsign', 'icao': hex, 'registration': reg, 'operator': operator})
+                    elif is_uo:
                         today_jst = datetime.now(JST).strftime('%Y-%m-%d')
                         cur.execute("SELECT hke_notified_at FROM aircraft_registry_cache WHERE icao = %s", (hex,))
                         notify_row = cur.fetchone()
