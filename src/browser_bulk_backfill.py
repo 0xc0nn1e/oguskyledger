@@ -42,6 +42,20 @@ if 'hke_notified_at' not in column_set(conn, 'aircraft_registry_cache'):
     cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN hke_notified_at VARCHAR(40)")
     conn.commit()
 
+# snapshots 表：per-(icao, callsign) 嘅 route 史，俾 build_passes 揾返 per-pass route
+cur.execute('''
+    CREATE TABLE IF NOT EXISTS aircraft_route_snapshots (
+      snapshot_id    INT AUTO_INCREMENT PRIMARY KEY,
+      icao           VARCHAR(16) NOT NULL,
+      flight         VARCHAR(32) NOT NULL,
+      from_airport   VARCHAR(64),
+      to_airport     VARCHAR(64),
+      observed_at    VARCHAR(40) NOT NULL,
+      KEY idx_snap_icao_flight (icao, flight, observed_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+''')
+conn.commit()
+
 start_utc, end_utc = jst_today_utc_range()
 cur.execute(
     """
@@ -217,6 +231,20 @@ with sync_playwright() as p:
                     (hex, reg, country if country != 'n/a' else None, aircraft_type or None,
                      'tar1090-browser-bulk', now_iso, operator, fr24_id, from_airport, to_airport)
                 )
+
+                # 如果有 from/to + ADS-B callsign，記低一條 (icao, flight) → route snapshot
+                if (from_airport or to_airport):
+                    cur.execute(
+                        "SELECT flight FROM sightings_raw WHERE icao = %s AND COALESCE(flight, '') <> '' ORDER BY seen_at DESC LIMIT 1",
+                        (hex,),
+                    )
+                    snap_cs_row = cur.fetchone()
+                    snap_callsign = (snap_cs_row[0] or '').strip() if snap_cs_row else ''
+                    if snap_callsign:
+                        cur.execute(
+                            "INSERT INTO aircraft_route_snapshots (icao, flight, from_airport, to_airport, observed_at) VALUES (%s, %s, %s, %s, %s)",
+                            (hex, snap_callsign, from_airport, to_airport, now_iso),
+                        )
 
                 if push_secret and fr24_id and reg and from_airport and to_airport:
                     # 用 ADS-B 廣播 callsign（e.g. HKE651），唔好用 fr24_id（aircraft 結果係 hex）

@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-from db import connect, dict_cursor
+from db import connect, dict_cursor, column_set
 
 PASS_GAP_MINUTES = 20
 UTC = timezone.utc
@@ -10,7 +10,38 @@ JST = timezone(timedelta(hours=9))
 conn = connect()
 cur = dict_cursor(conn)
 
-# Schema + indexes already created by init_db.py / migration SQL.
+# 自我修復 schema：from/to column + snapshots 表
+_pass_cols = column_set(conn, 'aircraft_passes')
+if 'from_airport' not in _pass_cols:
+    cur.execute('ALTER TABLE aircraft_passes ADD COLUMN from_airport VARCHAR(64)')
+if 'to_airport' not in _pass_cols:
+    cur.execute('ALTER TABLE aircraft_passes ADD COLUMN to_airport VARCHAR(64)')
+cur.execute('''
+    CREATE TABLE IF NOT EXISTS aircraft_route_snapshots (
+      snapshot_id    INT AUTO_INCREMENT PRIMARY KEY,
+      icao           VARCHAR(16) NOT NULL,
+      flight         VARCHAR(32) NOT NULL,
+      from_airport   VARCHAR(64),
+      to_airport     VARCHAR(64),
+      observed_at    VARCHAR(40) NOT NULL,
+      KEY idx_snap_icao_flight (icao, flight, observed_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+''')
+conn.commit()
+
+# 拎每組 (icao, flight) 最新一條 route snapshot，俾起 pass 嗰陣 lookup 用
+cur.execute(
+    '''SELECT s.icao, s.flight, s.from_airport, s.to_airport
+       FROM aircraft_route_snapshots s
+       INNER JOIN (
+         SELECT icao, flight, MAX(observed_at) AS latest
+         FROM aircraft_route_snapshots
+         GROUP BY icao, flight
+       ) m ON m.icao = s.icao AND m.flight = s.flight AND m.latest = s.observed_at'''
+)
+snapshot_map = {(r['icao'], r['flight']): (r['from_airport'], r['to_airport'])
+                for r in cur.fetchall()}
+
 cur.execute('DELETE FROM aircraft_passes')
 
 cur.execute(
@@ -78,16 +109,25 @@ if current is not None:
 
 for p in passes:
     pass_date = datetime.fromisoformat(p['first_seen']).astimezone(JST).strftime('%Y-%m-%d')
+    # per-pass from/to：用 (icao, flight) 喺 snapshot map 揾返。冇 callsign 就唔填，唔好亂用 registry 嘅最新一條。
+    from_airport = None
+    to_airport = None
+    if p['flight']:
+        snap = snapshot_map.get((p['icao'], p['flight']))
+        if snap:
+            from_airport, to_airport = snap
     cur.execute(
         '''
         INSERT INTO aircraft_passes (
           pass_date, icao, flight, operator, country, category,
-          first_seen, last_seen, samples, min_alt_baro, max_alt_baro, min_gs, max_gs
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+          first_seen, last_seen, samples, min_alt_baro, max_alt_baro, min_gs, max_gs,
+          from_airport, to_airport
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''',
         (
             pass_date, p['icao'], p['flight'], p['operator'], p['country'], p['category'],
-            p['first_seen'], p['last_seen'], p['samples'], p['min_alt_baro'], p['max_alt_baro'], p['min_gs'], p['max_gs']
+            p['first_seen'], p['last_seen'], p['samples'], p['min_alt_baro'], p['max_alt_baro'], p['min_gs'], p['max_gs'],
+            from_airport, to_airport,
         )
     )
 

@@ -60,8 +60,21 @@ DDL = [
       max_alt_baro DOUBLE,
       min_gs       DOUBLE,
       max_gs       DOUBLE,
+      from_airport VARCHAR(64),
+      to_airport   VARCHAR(64),
       KEY idx_passes_date (pass_date),
       KEY idx_passes_icao_date (icao, pass_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS aircraft_route_snapshots (
+      snapshot_id    INT AUTO_INCREMENT PRIMARY KEY,
+      icao           VARCHAR(16) NOT NULL,
+      flight         VARCHAR(32) NOT NULL,
+      from_airport   VARCHAR(64),
+      to_airport     VARCHAR(64),
+      observed_at    VARCHAR(40) NOT NULL,
+      KEY idx_snap_icao_flight (icao, flight, observed_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
