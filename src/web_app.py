@@ -2164,8 +2164,17 @@ def query_health():
     return payload, (200 if healthy else 503)
 
 
+_LIVE_CACHE = {'at': 0.0, 'data': None}
+_LIVE_TTL = 1.0  # 秒：N 個 client polling 都最多每秒打 tar1090 + DB 一次
+
+
 def query_live():
     # server 端即時抓 tar1090 aircraft.json，trim 返有定位嘅機畀地圖
+    import time
+    now_t = time.time()
+    if _LIVE_CACHE['data'] is not None and (now_t - _LIVE_CACHE['at']) < _LIVE_TTL:
+        return _LIVE_CACHE['data']
+
     if not _SOURCE_URL:
         return {'aircraft': [], 'error': 'no source url', 'count_pos': 0, 'count_total': 0}
     try:
@@ -2233,12 +2242,15 @@ def query_live():
         except Exception:
             pass
 
-    return {
+    result = {
         'aircraft': out,
         'count_pos': len(out),
         'count_total': len(raw),
         'now': payload.get('now'),
     }
+    _LIVE_CACHE['at'] = now_t
+    _LIVE_CACHE['data'] = result
+    return result
 
 
 def query_aircraft(icao):
