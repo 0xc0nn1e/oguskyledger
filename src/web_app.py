@@ -553,6 +553,29 @@ FAVICON_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <circle cx="9"  cy="20" r="1"   fill="#f5d96f" opacity="0.5"/>
 </svg>'''
 
+
+# 共用 page header / footer。template 用 ''' + _page_header() + ''' 串入。
+# Title 永遠係 link；首頁撳到 no-op，無傷。HOME 個 .tools 入面有 search + date picker，
+# 所以 _page_header 收一個 extra_tools 字串塞喺 .nav 之前。
+def _page_header(extra_tools=''):
+    return '''<header class="page-hdr">
+      <div class="hdr-row top">
+        <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
+        <span id="date">— — —</span>
+      </div>
+      <div class="hdr-row main">
+        <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
+        <span class="clock" id="clock">--:--:--</span>
+      </div>
+      <div class="hdr-row sub">
+        <span class="coords">Powered by connie.hk</span>
+        <div class="tools">''' + extra_tools + '''<div class="nav" id="nav"></div></div>
+      </div>
+    </header>'''
+
+_PAGE_FOOTER = '''<footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>'''
+
+
 DETAILS_HTML = '''<!doctype html>
 <html lang="{{HTML_LANG}}">
 <head>
@@ -732,22 +755,7 @@ DETAILS_HTML = '''<!doctype html>
   <div class="bg-vignette"></div>
   <div class="container" id="container">
     <div class="inner">
-      <header class="page-hdr">
-        <div class="hdr-row top">
-          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
-          <span id="date">— — —</span>
-        </div>
-        <div class="hdr-row main">
-          <h1 class="title">尾久 SKYLEDGER · TOKYO</h1>
-          <span class="clock" id="clock">--:--:--</span>
-        </div>
-        <div class="hdr-row sub">
-          <span class="coords">Powered by connie.hk</span>
-          <div class="tools">
-            <div class="nav" id="nav"></div>
-          </div>
-        </div>
-      </header>
+''' + _page_header() + '''
 
       <p class="page-subtitle">{{T_details_note}}</p>
 
@@ -801,7 +809,7 @@ DETAILS_HTML = '''<!doctype html>
           <tbody id="rows"></tbody>
         </table>
       </div>
-      <footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>
+''' + _PAGE_FOOTER + '''
     </div>
   </div>
 
@@ -1257,24 +1265,7 @@ HOME_HTML = '''<!doctype html>
 
   <div class="container" id="container">
     <div class="inner">
-      <header class="page-hdr">
-        <div class="hdr-row top">
-          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
-          <span id="date">— — —</span>
-        </div>
-        <div class="hdr-row main">
-          <h1 class="title">尾久 SKYLEDGER · TOKYO</h1>
-          <span class="clock" id="clock">--:--:--</span>
-        </div>
-        <div class="hdr-row sub">
-          <span class="coords">Powered by connie.hk</span>
-          <div class="tools">
-            <input type="search" id="search" placeholder="{{T_search_placeholder}}" autocomplete="off">
-            <input type="date" id="datePicker">
-            <div class="nav" id="nav"></div>
-          </div>
-        </div>
-      </header>
+''' + _page_header(extra_tools='<input type="search" id="search" placeholder="{{T_search_placeholder}}" autocomplete="off"><input type="date" id="datePicker">') + '''
 
       <p class="page-subtitle">{{T_home_subtitle}}</p>
 
@@ -1306,7 +1297,7 @@ HOME_HTML = '''<!doctype html>
         <div class="loading">{{T_loading}}</div>
       </section>
 
-      <footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>
+''' + _PAGE_FOOTER + '''
     </div>
   </div>
 
@@ -2922,20 +2913,7 @@ STATS_HTML = '''<!doctype html>
   <div class="bg-vignette"></div>
   <div class="container">
     <div class="inner">
-      <header class="page-hdr">
-        <div class="hdr-row top">
-          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
-          <span id="date">— — —</span>
-        </div>
-        <div class="hdr-row main">
-          <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
-          <span class="clock" id="clock">--:--:--</span>
-        </div>
-        <div class="hdr-row sub">
-          <span class="coords">Powered by connie.hk</span>
-          <div class="tools"><div class="nav" id="nav"></div></div>
-        </div>
-      </header>
+''' + _page_header() + '''
 
       <p class="page-subtitle">{{T_stats_note}}</p>
 
@@ -3006,7 +2984,7 @@ STATS_HTML = '''<!doctype html>
         <div class="panel-body"><div class="top10 top10-icao" id="top-icao-7d"><div class="loading">{{T_loading}}</div></div></div>
       </section>
 
-      <footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>
+''' + _PAGE_FOOTER + '''
     </div>
   </div>
 
@@ -3367,20 +3345,7 @@ ABOUT_HTML = '''<!doctype html>
   <div class="bg-vignette"></div>
   <div class="container">
     <div class="inner">
-      <header class="page-hdr">
-        <div class="hdr-row top">
-          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
-          <span id="date">— — —</span>
-        </div>
-        <div class="hdr-row main">
-          <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
-          <span class="clock" id="clock">--:--:--</span>
-        </div>
-        <div class="hdr-row sub">
-          <span class="coords">Powered by connie.hk</span>
-          <div class="tools"><div class="nav" id="nav"></div></div>
-        </div>
-      </header>
+''' + _page_header() + '''
 
       <div class="about-grid">
         <section class="panel">
@@ -3464,7 +3429,7 @@ ABOUT_HTML = '''<!doctype html>
         </div>
       </section>
 
-      <footer class="page-footer">尾久 SKYLEDGER · TOKYO<br><span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span></footer>
+''' + _PAGE_FOOTER + '''
     </div>
   </div>
 
@@ -3723,20 +3688,7 @@ MAP_HTML = '''<!doctype html>
 </head>
 <body>
   <div class="wrap">
-    <header class="page-hdr">
-      <div class="hdr-row top">
-        <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
-        <span id="date">— — —</span>
-      </div>
-      <div class="hdr-row main">
-        <h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1>
-        <span class="clock" id="clock">--:--:--</span>
-      </div>
-      <div class="hdr-row sub">
-        <span class="coords">Powered by connie.hk</span>
-        <div class="tools"><div class="nav" id="nav"></div></div>
-      </div>
-    </header>
+''' + _page_header() + '''
 
     <div class="map-meta">
       <span class="ttl"><span class="diamond">◆</span>{{T_map_hdr}}</span>
@@ -4163,11 +4115,7 @@ DISCOVER_HTML = '''<!doctype html>
 <body>
   <div class="bg-vignette"></div>
   <div class="container"><div class="inner">
-    <header class="page-hdr">
-      <div class="hdr-row top"><span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span><span id="date">— — —</span></div>
-      <div class="hdr-row main"><h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1><span class="clock" id="clock">--:--:--</span></div>
-      <div class="hdr-row sub"><span class="coords">Powered by connie.hk</span><div class="tools"><div class="nav" id="nav"></div></div></div>
-    </header>
+''' + _page_header() + '''
     <p style="margin:0 0 18px;font-size:12px;line-height:1.7;letter-spacing:0.5px;color:var(--muted);max-width:720px">{{T_discover_note}}</p>
 
     <section class="panel">
@@ -4190,7 +4138,7 @@ DISCOVER_HTML = '''<!doctype html>
       <div class="panel-body" style="overflow-x:auto"><div id="rare-wrap"><div class="loading">{{T_loading}}</div></div></div>
     </section>
 
-    <footer class="page-footer">尾久 SKYLEDGER · TOKYO</footer>
+''' + _PAGE_FOOTER + '''
   </div></div>
   <script>
     const T = {{T_JSDICT}};
@@ -4358,13 +4306,9 @@ AIRCRAFT_HTML = '''<!doctype html>
 <body>
   <div class="bg-vignette"></div>
   <div class="container"><div class="inner">
-    <header class="page-hdr">
-      <div class="hdr-row top"><span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span><span id="date">— — —</span></div>
-      <div class="hdr-row main"><h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1><span class="clock" id="clock">--:--:--</span></div>
-      <div class="hdr-row sub"><span class="coords">Powered by connie.hk</span><div class="tools"><div class="nav" id="nav"></div></div></div>
-    </header>
+''' + _page_header() + '''
     <div id="body"><div class="loading">{{T_loading}}</div></div>
-    <footer class="page-footer">尾久 SKYLEDGER · TOKYO</footer>
+''' + _PAGE_FOOTER + '''
   </div></div>
   <script>
     const T = {{T_JSDICT}};
@@ -4563,11 +4507,7 @@ COVERAGE_HTML = '''<!doctype html>
 <body>
   <div class="bg-vignette"></div>
   <div class="container"><div class="inner">
-    <header class="page-hdr">
-      <div class="hdr-row top"><span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span><span id="date">— — —</span></div>
-      <div class="hdr-row main"><h1 class="title"><a href="/">尾久 SKYLEDGER · TOKYO</a></h1><span class="clock" id="clock">--:--:--</span></div>
-      <div class="hdr-row sub"><span class="coords">Powered by connie.hk</span><div class="tools"><div class="nav" id="nav"></div></div></div>
-    </header>
+''' + _page_header() + '''
     <div class="stats-grid">
       <div class="stat-big"><div class="lbl">{{T_cov_max_range}}</div><div class="val" id="c-max">—</div><div class="sub" id="c-max-nm"></div></div>
       <div class="stat-big"><div class="lbl">{{T_cov_farthest}}</div><div class="val" id="c-far" style="font-size:16px">—</div><div class="sub" id="c-far-sub"></div></div>
@@ -4580,7 +4520,7 @@ COVERAGE_HTML = '''<!doctype html>
         <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:8px">{{T_cov_note}}</div>
       </div>
     </section>
-    <footer class="page-footer">尾久 SKYLEDGER · TOKYO</footer>
+''' + _PAGE_FOOTER + '''
   </div></div>
   <script>
     const T = {{T_JSDICT}};
