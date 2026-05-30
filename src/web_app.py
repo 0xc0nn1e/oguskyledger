@@ -60,6 +60,7 @@ STRINGS = {
         'stats_hdr_7d_from': '直近7日 · 出発空港 TOP 10',
         'stats_hdr_7d_to': '直近7日 · 到着空港 TOP 10',
         'stats_hdr_7d_icao': '直近7日 · 機体 TOP 10',
+        'stats_hdr_db_icao': '全DB · 機体 TOP 10',
         'stats_hdr_db_total': '全DB · 累計便数',
         'stats_hdr_db_types': '全DB · 機種数',
         'stats_hdr_peak_alt': '全DB · 最高高度',
@@ -222,6 +223,7 @@ STRINGS = {
         'stats_hdr_7d_from': '近 7 日 · 出發地 TOP 10',
         'stats_hdr_7d_to': '近 7 日 · 目的地 TOP 10',
         'stats_hdr_7d_icao': '近 7 日 · 機體 TOP 10',
+        'stats_hdr_db_icao': '全 DB · 機體 TOP 10',
         'stats_hdr_db_total': '全 DB · 累計班次',
         'stats_hdr_db_types': '全 DB · 機型總數',
         'stats_hdr_peak_alt': '全 DB · 最高高度',
@@ -384,6 +386,7 @@ STRINGS = {
         'stats_hdr_7d_from': '7-DAY · TOP 10 FROM',
         'stats_hdr_7d_to': '7-DAY · TOP 10 TO',
         'stats_hdr_7d_icao': '7-DAY · TOP 10 AIRCRAFT',
+        'stats_hdr_db_icao': 'ALL-TIME · TOP 10 AIRCRAFT',
         'stats_hdr_db_total': 'ALL-TIME · TOTAL FLIGHTS',
         'stats_hdr_db_types': 'ALL-TIME · TOTAL TYPES',
         'stats_hdr_peak_alt': 'ALL-TIME · PEAK ALT',
@@ -1889,6 +1892,25 @@ def query_stats():
         for r in cur.fetchall()
     ]
 
+    # 全 DB 出現次數最多嘅 ICAO TOP 10
+    cur.execute(
+        '''SELECT p.icao,
+                  COALESCE(NULLIF(TRIM(c.registration), ''), '') AS reg,
+                  COALESCE(NULLIF(TRIM(c.aircraft_type), ''), '') AS type,
+                  COALESCE(NULLIF(TRIM(c.operator), ''), '') AS operator,
+                  COUNT(*) AS cnt
+           FROM aircraft_passes p
+           LEFT JOIN aircraft_registry_cache c ON c.icao = p.icao
+           GROUP BY p.icao, reg, type, operator
+           ORDER BY cnt DESC, p.icao ASC
+           LIMIT 10'''
+    )
+    top_icao_db = [
+        {'icao': r['icao'], 'reg': r['reg'], 'type': r['type'],
+         'operator': r['operator'], 'count': r['cnt']}
+        for r in cur.fetchall()
+    ]
+
     cur.execute('SELECT COUNT(*) AS t FROM aircraft_passes')
     db_total = cur.fetchone()['t']
 
@@ -1992,6 +2014,7 @@ def query_stats():
         'hourly': hourly,
         'heatmap': {'max': heat_max, 'cells': heat_cells},
         'top_icao_7d': top_icao_7d,
+        'top_icao_db': top_icao_db,
     }
 
 
@@ -2996,6 +3019,11 @@ STATS_HTML = '''<!doctype html>
         <div class="panel-body"><div class="top10 top10-icao" id="top-icao-7d"><div class="loading">{{T_loading}}</div></div></div>
       </section>
 
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_db_icao}}</div>
+        <div class="panel-body"><div class="top10 top10-icao" id="top-icao-db"><div class="loading">{{T_loading}}</div></div></div>
+      </section>
+
 ''' + _PAGE_FOOTER + '''
     </div>
   </div>
@@ -3162,6 +3190,7 @@ STATS_HTML = '''<!doctype html>
         renderTop('top-from', r.top_from);
         renderTop('top-to', r.top_to);
         renderTopIcao('top-icao-7d', r.top_icao_7d);
+        renderTopIcao('top-icao-db', r.top_icao_db);
       } catch (e) {
         document.getElementById('hist').innerHTML = '<div class="loading">error: ' + esc(String(e)) + '</div>';
       }
