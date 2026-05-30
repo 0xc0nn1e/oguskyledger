@@ -246,23 +246,20 @@ with sync_playwright() as p:
                             (hex, snap_callsign, from_airport, to_airport, now_iso),
                         )
 
-                if push_secret and fr24_id and reg and from_airport and to_airport:
-                    # 用 ADS-B 廣播 callsign（e.g. HKE651），唔好用 fr24_id（aircraft 結果係 hex）
+                if push_secret and reg and from_airport and to_airport:
+                    # Push 條件：最近一條 sightings_raw 嘅 callsign 必須係 HKE/UO（即係廣播確認），
+                    # 唔再用 operator path / fr24_id 補位（兩者都會出 hex-like string）。
                     cur.execute(
                         "SELECT flight FROM sightings_raw WHERE icao = %s AND COALESCE(flight, '') <> '' ORDER BY seen_at DESC LIMIT 1",
                         (hex,),
                     )
                     cs_row = cur.fetchone()
-                    callsign = cs_row[0].strip() if cs_row and cs_row[0] else None
-                    # flight no 優先廣播 callsign；其次 live flight（fr24_id 撞到 aircraft 結果會係 hex，要排除）
-                    flight_code = (callsign or '').upper()
-                    if not flight_code and fr24_id and str(fr24_id).lower() != hex.lower():
-                        flight_code = str(fr24_id).upper()
-                    is_uo = (operator == 'Hong Kong Express') or flight_code.startswith(('UO', 'HKE'))
-                    if is_uo and not flight_code:
-                        # callsign 廣播未到，唔好 push hex；今鋪 skip 唔 set notified，下鋪有 callsign 先 push
-                        log_line({'event': 'push_hke_wait_callsign', 'icao': hex, 'registration': reg, 'operator': operator})
-                    elif is_uo:
+                    callsign = cs_row[0].strip().upper() if cs_row and cs_row[0] else None
+                    is_uo = bool(callsign and (callsign.startswith('HKE') or callsign.startswith('UO')))
+                    if not is_uo:
+                        # callsign 仲未廣播 HKE/UO，唔 push；下個 cycle ingest 補到 callsign 自己會 trigger
+                        log_line({'event': 'push_hke_wait_callsign', 'icao': hex, 'registration': reg, 'operator': operator, 'last_callsign': callsign})
+                    else:
                         today_jst = datetime.now(JST).strftime('%Y-%m-%d')
                         cur.execute("SELECT hke_notified_at FROM aircraft_registry_cache WHERE icao = %s", (hex,))
                         notify_row = cur.fetchone()
@@ -275,12 +272,12 @@ with sync_playwright() as p:
                             except Exception:
                                 already_notified_today = False
                         if not already_notified_today:
-                            msg = f"HKE confirm: {flight_code} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
+                            msg = f"HKE confirm: {callsign} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
                             status = send_push(push_secret, msg)
                             cur.execute("UPDATE aircraft_registry_cache SET hke_notified_at = %s WHERE icao = %s", (now_iso, hex))
-                            log_line({'event': 'push_hke_confirm', 'icao': hex, 'flight_code': flight_code, 'registration': reg, 'from_airport': from_airport, 'to_airport': to_airport, 'status': status, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
+                            log_line({'event': 'push_hke_confirm', 'icao': hex, 'flight_code': callsign, 'registration': reg, 'from_airport': from_airport, 'to_airport': to_airport, 'status': status, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
                         else:
-                            log_line({'event': 'push_hke_skipped_already_notified', 'icao': hex, 'flight_code': flight_code, 'registration': reg, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
+                            log_line({'event': 'push_hke_skipped_already_notified', 'icao': hex, 'flight_code': callsign, 'registration': reg, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
 
                 conn.commit()
                 updated += 1

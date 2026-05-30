@@ -41,9 +41,8 @@ def ingest_once():
 
     inserted = 0
 
-    # Send one sample message on first sighting today (JST)
+    # HKE / Hong Kong Express push：今日（JST）第一次見到 HKE callsign + 已 enrich reg 才送
     today_jst = datetime.now(JST).strftime('%Y-%m-%d')
-    today_start_utc, today_end_utc = jst_today_utc_range()
     push_secret = CONFIG.get('push', {}).get('secret')
 
     for a in aircraft:
@@ -58,58 +57,62 @@ def ingest_once():
             alt_baro = None
 
         if push_secret:
-            cur.execute(
-                "SELECT registration, country, operator, aircraft_type, from_airport, to_airport FROM aircraft_registry_cache WHERE icao = %s",
-                (icao,),
-            )
-            reg_row = cur.fetchone()
-            registration = reg_row[0] if reg_row and reg_row[0] else None
-            country = reg_row[1] if reg_row and reg_row[1] else None
-            operator = reg_row[2] if reg_row and reg_row[2] else None
-            aircraft_type = reg_row[3] if reg_row and reg_row[3] else None
-            from_airport = reg_row[4] if reg_row and reg_row[4] else None
-            to_airport = reg_row[5] if reg_row and reg_row[5] else None
-
-            is_hke = bool((flight and flight.startswith('HKE')) or operator == 'Hong Kong Express')
+            # Push 條件：ADS-B 廣播 callsign 係 HKE/UO（即係今鋪真係見到佢報自己係 HK Express），
+            # 而且 aircraft_registry_cache 已經補到 registration（避免 push hex）。
+            # Dedup：用 aircraft_registry_cache.hke_notified_at（同 browser_bulk_backfill 一致）。
+            is_hke = bool(flight and (flight.startswith('HKE') or flight.startswith('UO')))
             if is_hke:
                 cur.execute(
-                    """
-                    SELECT 1 FROM sightings_raw
-                    WHERE icao = %s
-                      AND seen_at >= %s AND seen_at < %s
-                      AND (
-                        (flight IS NOT NULL AND flight LIKE 'HKE%%')
-                        OR icao IN (SELECT icao FROM aircraft_registry_cache WHERE operator = 'Hong Kong Express')
-                      )
-                    LIMIT 1
-                    """,
-                    (icao, today_start_utc, today_end_utc),
+                    "SELECT registration, from_airport, to_airport, hke_notified_at FROM aircraft_registry_cache WHERE icao = %s",
+                    (icao,),
                 )
-                already_confirmed_today = cur.fetchone() is not None
-                if not already_confirmed_today:
-                    # 格式：HKE confirm: HKE625 | B-LEL | Tokyo (HND)>Hong Kong (HKG)
-                    flight_label = (flight or '').strip() or icao.upper()
-                    reg_label = registration or icao.upper()
-                    parts = [f"HKE confirm: {flight_label}", reg_label]
-                    if from_airport and to_airport:
-                        parts.append(f"{from_airport}>{to_airport}")
-                    elif from_airport:
-                        parts.append(from_airport)
-                    elif to_airport:
-                        parts.append(to_airport)
+                reg_row = cur.fetchone()
+                registration = reg_row[0] if reg_row and reg_row[0] else None
+                from_airport = reg_row[1] if reg_row and reg_row[1] else None
+                to_airport = reg_row[2] if reg_row and reg_row[2] else None
+                hke_notified_at = reg_row[3] if reg_row and reg_row[3] else None
 
-                    link_target = (registration or icao).lower()
-                    msg = " | ".join(parts) + f"\nhttps://www.flightradar24.com/data/aircraft/{link_target}"
-                    status = send_push(push_secret, msg)
+                if not registration:
+                    # callsign 廣播咗 HKE/UO，但 reg 仲未 enrich → skip，等下個 cycle 補到再 push
                     print(json.dumps({
-                        'event': 'push_hke_confirm',
+                        'event': 'push_hke_wait_reg',
                         'icao': icao,
                         'flight': flight,
-                        'registration': registration,
-                        'from_airport': from_airport,
-                        'to_airport': to_airport,
-                        'status': status,
                     }, ensure_ascii=False), flush=True)
+                else:
+                    already_notified_today = False
+                    if hke_notified_at:
+                        try:
+                            last_jst = datetime.fromisoformat(hke_notified_at).astimezone(JST).strftime('%Y-%m-%d')
+                            already_notified_today = (last_jst == today_jst)
+                        except (ValueError, TypeError):
+                            already_notified_today = False
+                    if not already_notified_today:
+                        # 格式：HKE confirm: HKE625 | B-LEL | Tokyo (HND)>Hong Kong (HKG)
+                        flight_label = flight.strip()
+                        parts = [f"HKE confirm: {flight_label}", registration]
+                        if from_airport and to_airport:
+                            parts.append(f"{from_airport}>{to_airport}")
+                        elif from_airport:
+                            parts.append(from_airport)
+                        elif to_airport:
+                            parts.append(to_airport)
+
+                        msg = " | ".join(parts) + f"\nhttps://www.flightradar24.com/data/aircraft/{registration.lower()}"
+                        status = send_push(push_secret, msg)
+                        cur.execute(
+                            "UPDATE aircraft_registry_cache SET hke_notified_at = %s WHERE icao = %s",
+                            (now, icao),
+                        )
+                        print(json.dumps({
+                            'event': 'push_hke_confirm',
+                            'icao': icao,
+                            'flight': flight,
+                            'registration': registration,
+                            'from_airport': from_airport,
+                            'to_airport': to_airport,
+                            'status': status,
+                        }, ensure_ascii=False), flush=True)
 
         cur.execute(
             '''
