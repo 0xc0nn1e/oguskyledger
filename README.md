@@ -12,8 +12,7 @@
 - Web dashboard（SKYLEDGER 雷達主題）多頁：
   - `/`：首頁，recent contacts + 今日 aircraft table
   - `/details`：歷史飛機接觸搜尋 / filter（公司・機型・航線・國家・高度）+ sort
-  - `/stats`：7 日每日班次、近 24 小時逐鐘 histogram、**近 30 日 weekday × hour heatmap**、TOP 10（機型 / 公司 / 出發 / 目的地 / **ICAO**）、peak altitude、busiest hour
-  - `/discover`：累計 unique ICAO 發現曲線、全 DB ICAO TOP 10、最高高度分佈 histogram、罕見機 list（只見過 1–2 次嘅 ICAO）
+  - `/stats`：7 日每日班次、近 24 小時逐鐘 histogram、**近 30 日 weekday × hour heatmap**、TOP 10（機型 / 公司 / 出發 / 目的地 / **ICAO** 7 日 + 全 DB）、peak altitude、busiest hour；**長窗口段**：累計 unique ICAO 發現曲線、最高高度分佈 histogram、罕見機 list（只見過 1–2 次嘅 ICAO）。`/discover` 舊 URL 301 redirect 入嚟
   - `/map`：即時地圖，tar1090 live 位置，FR24 式平滑移動，click 出詳細 popup（`/api/live` 有 1 秒 TTL cache，N 個 client 共用同一 fetch）
   - `/coverage`：接收覆蓋極座標雷達圖（近 30 日，每方位最遠距離）+ max range / 最遠機體
   - `/aircraft?icao=<hex>`：單機歷史（聚合統計、每日出現、**SVG 速度·高度 dual-axis profile chart**、經過記錄含 per-pass FROM / TO）—— 喺 `/`、`/details`、`/map` 撳機入
@@ -119,11 +118,11 @@ launchctl kickstart -k gui/$(id -u)/com.connie.plane-history.supervisor
 python3 src/web_app.py
 ```
 
-頁面：`/`（首頁）、`/details`（搜尋 / filter / sort）、`/stats`（統計）、`/discover`（長窗口發現）、`/map`（即時地圖）、`/coverage`（覆蓋雷達）、`/aircraft?icao=`（單機歷史）、`/about`（關於 / 系統健康）。三語切換（日 / 廣東話 / 英文）。
+頁面：`/`（首頁）、`/details`（搜尋 / filter / sort）、`/stats`（統計 + 長窗口發現）、`/map`（即時地圖）、`/coverage`（覆蓋雷達）、`/aircraft?icao=`（單機歷史）、`/about`（關於 / 系統健康）。三語切換（日 / 廣東話 / 英文）。
 
 JSON API：
 - `/api/stats`：統計數據（7 日 / 24h histogram、heatmap、top 10、peak alt、busiest hour）
-- `/api/discover`：discovery curve、rare finds、altitude 分佈、全 DB top 10 ICAO
+- `/api/discover`：discovery curve、rare finds、altitude 分佈、全 DB top 10 ICAO（`/stats` 頁同時 fetch 呢條同 `/api/stats`）
 - `/api/live`：tar1090 即時飛機（地圖用，含 registry enrichment，1 秒 TTL cache）
 - `/api/aircraft?icao=`：單機歷史（registry + passes 聚合，含 per-pass FROM / TO）
 - `/api/aircraft/track?icao=&from=&to=`：單一 pass 嘅 sightings_raw 軌跡（畫 alt + gs profile chart 用）

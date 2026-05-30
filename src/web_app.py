@@ -178,13 +178,10 @@ STRINGS = {
         'err_pw_short': 'パスワードは6文字以上必要です',
         'ok_pw_updated': '✓ パスワードを更新しました',
         'search_placeholder': '/ で検索',
-        'nav_discover': '発見',
         'stats_hdr_heatmap': '直近30日 · 曜日×時間帯ヒートマップ (JST)',
         'stats_heatmap_wd': ['月','火','水','木','金','土','日'],
         'stats_heatmap_low': '少',
         'stats_heatmap_high': '多',
-        'discover_title': '発見 · plane-history',
-        'discover_note': '全期間のADS-B履歴から発掘する珍しい機体・全体の傾向。',
         'discover_hdr_curve': '累計ユニーク ICAO',
         'discover_hdr_rare': 'レアな機体 (1–2回のみ)',
         'discover_hdr_alt': '全DB · 最高高度の分布',
@@ -341,13 +338,10 @@ STRINGS = {
         'err_pw_short': '新密碼至少 6 個字',
         'ok_pw_updated': '✓ 密碼已更新',
         'search_placeholder': '/ 搜尋',
-        'nav_discover': '發現',
         'stats_hdr_heatmap': '近 30 日 · 星期 × 鐘數熱圖 (JST)',
         'stats_heatmap_wd': ['一','二','三','四','五','六','日'],
         'stats_heatmap_low': '少',
         'stats_heatmap_high': '多',
-        'discover_title': '發現 · plane-history',
-        'discover_note': '由全段歷史 ADS-B 記錄度出嚟嘅罕見機種同整體趨勢。',
         'discover_hdr_curve': '累計 unique ICAO',
         'discover_hdr_rare': '罕見機 (得 1–2 次)',
         'discover_hdr_alt': '全 DB · 最高高度分佈',
@@ -504,13 +498,10 @@ STRINGS = {
         'err_pw_short': 'Password must be at least 6 characters',
         'ok_pw_updated': '✓ Password updated',
         'search_placeholder': '/ to search',
-        'nav_discover': 'DISCOVER',
         'stats_hdr_heatmap': 'LAST 30D · WEEKDAY × HOUR HEATMAP (JST)',
         'stats_heatmap_wd': ['MON','TUE','WED','THU','FRI','SAT','SUN'],
         'stats_heatmap_low': 'LOW',
         'stats_heatmap_high': 'HIGH',
-        'discover_title': 'Discover · plane-history',
-        'discover_note': 'Surface rare aircraft and overall distributions from the full ADS-B history.',
         'discover_hdr_curve': 'CUMULATIVE UNIQUE ICAO',
         'discover_hdr_rare': 'RARE FINDS (1–2 PASSES ONLY)',
         'discover_hdr_alt': 'ALL-DB · MAX ALT DISTRIBUTION',
@@ -1003,7 +994,7 @@ DETAILS_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -1495,7 +1486,7 @@ HOME_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
+      const links = `<a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a><a href="/about">${esc(T.nav_about)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -2941,6 +2932,26 @@ STATS_HTML = '''<!doctype html>
       .heatmap .hr-lbl { font-size:7px; }
       .heatmap .wd-lbl { font-size:8px; padding-right:2px; }
     }
+
+    /* discover sections: curve / alt / rare */
+    .curve-wrap, .alt-wrap { width:100%; }
+    #curve-svg, #alt-svg { width:100%; height:auto; display:block; }
+    #curve-svg .axis, #alt-svg .axis { stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+    #curve-svg .tick, #alt-svg .tick, #alt-svg .bar-lbl { fill:var(--x-muted); font-size:8px; font-family:inherit; }
+    #curve-svg .line { fill:none; stroke:var(--mint); stroke-width:1.5; }
+    #curve-svg .area { fill:rgba(127,255,212,0.10); }
+    #alt-svg .bar { fill:var(--mint); }
+    #alt-svg .bar-lbl { fill:var(--mint-light); font-size:9px; text-anchor:middle; }
+    .rtable { width:100%; border-collapse:collapse; font-size:11px; }
+    .rtable th { text-align:left; font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+      text-transform:uppercase; padding:6px 8px; border-bottom:0.5px solid rgba(127,255,212,0.1); }
+    .rtable td { padding:6px 8px; border-bottom:var(--row-div); color:var(--mint-light); white-space:nowrap; }
+    .rtable td.r, .rtable th.r { text-align:right; }
+    .rtable a { color:var(--mint-light); text-decoration:none; }
+    .rtable a:hover { color:var(--amber); text-decoration:underline; }
+    @media (max-width:700px) {
+      .rtable td, .rtable th { font-size:10px; padding:4px 6px; }
+    }
   </style>
 </head>
 <body>
@@ -2995,6 +3006,11 @@ STATS_HTML = '''<!doctype html>
         </div>
       </section>
 
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_curve}}</div>
+        <div class="panel-body"><div class="curve-wrap" id="curve-wrap"><div class="loading">{{T_loading}}</div></div></div>
+      </section>
+
       <div class="row-2col">
         <section class="panel">
           <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_7d_types}}</div>
@@ -3022,6 +3038,16 @@ STATS_HTML = '''<!doctype html>
       <section class="panel">
         <div class="panel-hdr"><span class="diamond">◆</span>{{T_stats_hdr_db_icao}}</div>
         <div class="panel-body"><div class="top10 top10-icao" id="top-icao-db"><div class="loading">{{T_loading}}</div></div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_alt}}</div>
+        <div class="panel-body"><div class="alt-wrap" id="alt-wrap"><div class="loading">{{T_loading}}</div></div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_rare}}</div>
+        <div class="panel-body" style="overflow-x:auto"><div id="rare-wrap"><div class="loading">{{T_loading}}</div></div></div>
       </section>
 
 ''' + _PAGE_FOOTER + '''
@@ -3062,7 +3088,7 @@ STATS_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -3194,7 +3220,100 @@ STATS_HTML = '''<!doctype html>
       } catch (e) {
         document.getElementById('hist').innerHTML = '<div class="loading">error: ' + esc(String(e)) + '</div>';
       }
+      try {
+        const d = await (await fetch('/api/discover')).json();
+        renderCurve(d.discovery_curve);
+        renderAlt(d.altitude_dist);
+        renderRare(d.rare_finds);
+      } catch (e) {
+        document.getElementById('curve-wrap').innerHTML = '<div class="loading">error: ' + esc(String(e)) + '</div>';
+      }
     }
+
+    function renderCurve(curve) {
+      const wrap = document.getElementById('curve-wrap');
+      if (!curve || !curve.length) { wrap.innerHTML = '<div class="loading">— —</div>'; return; }
+      const W = 720, H = 240, padL = 44, padR = 16, padT = 16, padB = 28;
+      const maxT = curve[curve.length-1].total;
+      const minD = curve[0].date, maxD = curve[curve.length-1].date;
+      const toX = i => padL + (curve.length<=1?0:i*(W-padL-padR)/(curve.length-1));
+      const toY = v => padT + (H-padT-padB)*(1 - v/Math.max(1,maxT));
+      const pts = curve.map((p, i) => `${toX(i).toFixed(1)},${toY(p.total).toFixed(1)}`).join(' ');
+      const area = `${padL},${(H-padB).toFixed(1)} ${pts} ${(W-padR).toFixed(1)},${(H-padB).toFixed(1)}`;
+      let yticks = '';
+      for (let i = 0; i <= 4; i++) {
+        const v = Math.round(maxT * i/4);
+        const y = toY(v);
+        yticks += `<line class="axis" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/>`;
+        yticks += `<text class="tick" x="${padL-4}" y="${y+3}" text-anchor="end">${v}</text>`;
+      }
+      const xidx = curve.length <= 3 ? curve.map((_,i)=>i) : [0, Math.floor(curve.length/2), curve.length-1];
+      const xlabels = xidx.map(i => {
+        const p = curve[i];
+        return `<text class="tick" x="${toX(i)}" y="${H-padB+14}" text-anchor="middle">${esc(p.date.slice(5))}</text>`;
+      }).join('');
+      wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" id="curve-svg" preserveAspectRatio="xMidYMid meet">
+        ${yticks}<polygon class="area" points="${area}"/><polyline class="line" points="${pts}"/>${xlabels}
+      </svg>
+      <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:6px">${maxT.toLocaleString()} ${esc(T.discover_curve_total_lbl)} · ${esc(minD)} → ${esc(maxD)}</div>`;
+    }
+
+    function renderAlt(dist) {
+      const wrap = document.getElementById('alt-wrap');
+      if (!dist || !dist.length) { wrap.innerHTML = '<div class="loading">— —</div>'; return; }
+      const W = 720, H = 200, padL = 44, padR = 16, padT = 16, padB = 32;
+      const maxC = Math.max(1, ...dist.map(d => d.count));
+      const n = dist.length;
+      const bw = (W - padL - padR) / n;
+      let bars = '';
+      for (let i = 0; i < n; i++) {
+        const c = dist[i].count;
+        const h = (H - padT - padB) * (c / maxC);
+        const x = padL + i*bw + 2;
+        const y = (H - padB) - h;
+        bars += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${h.toFixed(1)}"/>`;
+        if (c > 0) bars += `<text class="bar-lbl" x="${(x + (bw-4)/2).toFixed(1)}" y="${(y-3).toFixed(1)}">${c}</text>`;
+        const lbl = dist[i].hi ? `${dist[i].lo/1000}–${dist[i].hi/1000}k` : `${dist[i].lo/1000}k+`;
+        bars += `<text class="tick" x="${(x + (bw-4)/2).toFixed(1)}" y="${H-padB+14}" text-anchor="middle">${lbl}</text>`;
+      }
+      let yticks = '';
+      for (let i = 0; i <= 4; i++) {
+        const v = Math.round(maxC * i/4);
+        const y = padT + (H-padT-padB)*(1 - i/4);
+        yticks += `<line class="axis" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/>`;
+        yticks += `<text class="tick" x="${padL-4}" y="${y+3}" text-anchor="end">${v}</text>`;
+      }
+      wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" id="alt-svg" preserveAspectRatio="xMidYMid meet">${yticks}${bars}</svg>
+        <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:6px">${esc(T.discover_alt_unit)}</div>`;
+    }
+
+    function toJSTDate(iso){ if(!iso) return null; const d=new Date(iso); return isNaN(d)?null:new Date(d.getTime()+9*3600*1000); }
+    function ymdJST(iso){ const j=toJSTDate(iso); return j ? j.getUTCFullYear()+'-'+pad(j.getUTCMonth()+1)+'-'+pad(j.getUTCDate()) : '—'; }
+    function hmJST(iso){ const j=toJSTDate(iso); return j ? pad(j.getUTCHours())+':'+pad(j.getUTCMinutes()) : '—'; }
+
+    function renderRare(rare) {
+      const wrap = document.getElementById('rare-wrap');
+      if (!rare || !rare.length) { wrap.innerHTML = `<div class="loading">${esc(T.discover_no_rare)}</div>`; return; }
+      wrap.innerHTML = `<table class="rtable"><thead><tr>
+        <th>ICAO / ${esc(T.discover_col_reg)}</th>
+        <th>${esc(T.discover_col_type)}</th>
+        <th>${esc(T.discover_col_op)}</th>
+        <th class="r">${esc(T.discover_col_passes)}</th>
+        <th>${esc(T.discover_col_first_seen)}</th>
+        <th>${esc(T.discover_col_last_seen)}</th>
+      </tr></thead><tbody>${rare.map(r => {
+        const label = r.reg || r.icao.toUpperCase();
+        return `<tr>
+          <td><a href="/aircraft?icao=${esc(r.icao)}" title="${esc(r.icao.toUpperCase())}">${esc(label)}</a></td>
+          <td>${esc(r.type || '—')}</td>
+          <td>${esc(r.operator || '—')}</td>
+          <td class="r">${r.count}</td>
+          <td>${ymdJST(r.first_seen)}</td>
+          <td>${ymdJST(r.last_seen)} ${hmJST(r.last_seen)}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+    }
+
     load();
 
     // ===== radar background =====
@@ -3505,7 +3624,7 @@ ABOUT_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -3771,7 +3890,7 @@ MAP_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -4093,7 +4212,7 @@ _SHELL_JS = '''
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
@@ -4108,197 +4227,6 @@ _SHELL_JS = '''
 '''
 
 
-DISCOVER_HTML = '''<!doctype html>
-<html lang="{{HTML_LANG}}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{T_discover_title}}</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <style>''' + _SHELL_CSS + '''
-    .curve-wrap, .alt-wrap { width:100%; }
-    #curve-svg, #alt-svg { width:100%; height:auto; display:block; }
-    #curve-svg .axis, #alt-svg .axis { stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
-    #curve-svg .tick, #alt-svg .tick, #alt-svg .bar-lbl { fill:var(--x-muted); font-size:8px; font-family:inherit; }
-    #curve-svg .line { fill:none; stroke:var(--mint); stroke-width:1.5; }
-    #curve-svg .area { fill:rgba(127,255,212,0.10); }
-    #alt-svg .bar { fill:var(--mint); }
-    #alt-svg .bar-lbl { fill:var(--mint-light); font-size:9px; text-anchor:middle; }
-    .rtable { width:100%; border-collapse:collapse; font-size:11px; }
-    .rtable th { text-align:left; font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
-      text-transform:uppercase; padding:6px 8px; border-bottom:0.5px solid rgba(127,255,212,0.1); }
-    .rtable td { padding:6px 8px; border-bottom:var(--row-div); color:var(--mint-light); white-space:nowrap; }
-    .rtable td.r, .rtable th.r { text-align:right; }
-    .rtable a { color:var(--mint-light); text-decoration:none; }
-    .rtable a:hover { color:var(--amber); text-decoration:underline; }
-    .top10 { display:flex; flex-direction:column; }
-    .top10 .row, .top10 .cols {
-      display:grid; grid-template-columns:24px 90px 60px 1fr 50px; gap:10px;
-      padding:7px 0; font-size:11px; align-items:center; border-bottom:var(--row-div);
-    }
-    .top10 .cols { font-size:9px; letter-spacing:1.5px; color:var(--x-muted); text-transform:uppercase;
-      padding:6px 0; border-bottom:0.5px solid rgba(127,255,212,0.1); }
-    .top10 .rank { color:var(--x-muted); font-size:10px; text-align:right; }
-    .top10 .name a { color:var(--mint-light); text-decoration:none; }
-    .top10 .name a:hover { color:var(--amber); text-decoration:underline; }
-    .top10 .type, .top10 .op { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .top10 .cnt { color:var(--amber); text-align:right; }
-    @media (max-width:700px) {
-      .top10 .row, .top10 .cols { grid-template-columns:20px 80px 1fr 40px; }
-      .top10 .type { display:none; }
-      .rtable td, .rtable th { font-size:10px; padding:4px 6px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="bg-vignette"></div>
-  <div class="container"><div class="inner">
-''' + _page_header() + '''
-    <p style="margin:0 0 18px;font-size:12px;line-height:1.7;letter-spacing:0.5px;color:var(--muted);max-width:720px">{{T_discover_note}}</p>
-
-    <section class="panel">
-      <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_curve}}</div>
-      <div class="panel-body"><div class="curve-wrap" id="curve-wrap"><div class="loading">{{T_loading}}</div></div></div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_top_icao}}</div>
-      <div class="panel-body"><div class="top10" id="top-icao-db"><div class="loading">{{T_loading}}</div></div></div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_alt}}</div>
-      <div class="panel-body"><div class="alt-wrap" id="alt-wrap"><div class="loading">{{T_loading}}</div></div></div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-hdr"><span class="diamond">◆</span>{{T_discover_hdr_rare}}</div>
-      <div class="panel-body" style="overflow-x:auto"><div id="rare-wrap"><div class="loading">{{T_loading}}</div></div></div>
-    </section>
-
-''' + _PAGE_FOOTER + '''
-  </div></div>
-  <script>
-    const T = {{T_JSDICT}};
-    const LANG = '{{LANG}}';''' + _SHELL_JS + '''
-
-    function renderCurve(curve) {
-      const wrap = document.getElementById('curve-wrap');
-      if (!curve || !curve.length) { wrap.innerHTML = '<div class="loading">— —</div>'; return; }
-      const W = 720, H = 240, padL = 44, padR = 16, padT = 16, padB = 28;
-      const maxT = curve[curve.length-1].total;
-      const minD = curve[0].date, maxD = curve[curve.length-1].date;
-      const toX = i => padL + (curve.length<=1?0:i*(W-padL-padR)/(curve.length-1));
-      const toY = v => padT + (H-padT-padB)*(1 - v/Math.max(1,maxT));
-      const pts = curve.map((p, i) => `${toX(i).toFixed(1)},${toY(p.total).toFixed(1)}`).join(' ');
-      const area = `${padL},${(H-padB).toFixed(1)} ${pts} ${(W-padR).toFixed(1)},${(H-padB).toFixed(1)}`;
-      let yticks = '';
-      for (let i = 0; i <= 4; i++) {
-        const v = Math.round(maxT * i/4);
-        const y = toY(v);
-        yticks += `<line class="axis" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/>`;
-        yticks += `<text class="tick" x="${padL-4}" y="${y+3}" text-anchor="end">${v}</text>`;
-      }
-      const xidx = curve.length <= 3 ? curve.map((_,i)=>i) : [0, Math.floor(curve.length/2), curve.length-1];
-      const xlabels = xidx.map(i => {
-        const p = curve[i];
-        return `<text class="tick" x="${toX(i)}" y="${H-padB+14}" text-anchor="middle">${esc(p.date.slice(5))}</text>`;
-      }).join('');
-      wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" id="curve-svg" preserveAspectRatio="xMidYMid meet">
-        ${yticks}<polygon class="area" points="${area}"/><polyline class="line" points="${pts}"/>${xlabels}
-      </svg>
-      <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:6px">${maxT.toLocaleString()} ${esc(T.discover_curve_total_lbl)} · ${esc(minD)} → ${esc(maxD)}</div>`;
-    }
-
-    function renderTopIcaoDB(items) {
-      const el = document.getElementById('top-icao-db');
-      if (!items || !items.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
-      const cols = `<div class="cols">
-        <div style="text-align:right">${esc(T.stats_col_rank)}</div>
-        <div>${esc(T.discover_col_reg)}</div>
-        <div class="type">${esc(T.discover_col_type)}</div>
-        <div>${esc(T.discover_col_op)}</div>
-        <div style="text-align:right">${esc(T.stats_col_aircraft)}</div>
-      </div>`;
-      el.innerHTML = cols + items.map((it, i) => {
-        const label = it.reg || it.icao.toUpperCase();
-        return `<div class="row">
-          <div class="rank">${i+1}</div>
-          <div class="name"><a href="/aircraft?icao=${esc(it.icao)}" title="${esc(it.icao.toUpperCase())}">${esc(label)}</a></div>
-          <div class="type" title="${esc(it.type)}">${esc(it.type || '—')}</div>
-          <div class="op" title="${esc(it.operator)}">${esc(it.operator || '—')}</div>
-          <div class="cnt">${it.count}</div>
-        </div>`;
-      }).join('');
-    }
-
-    function renderAlt(dist) {
-      const wrap = document.getElementById('alt-wrap');
-      if (!dist || !dist.length) { wrap.innerHTML = '<div class="loading">— —</div>'; return; }
-      const W = 720, H = 200, padL = 44, padR = 16, padT = 16, padB = 32;
-      const maxC = Math.max(1, ...dist.map(d => d.count));
-      const n = dist.length;
-      const bw = (W - padL - padR) / n;
-      let bars = '';
-      for (let i = 0; i < n; i++) {
-        const c = dist[i].count;
-        const h = (H - padT - padB) * (c / maxC);
-        const x = padL + i*bw + 2;
-        const y = (H - padB) - h;
-        bars += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${h.toFixed(1)}"/>`;
-        if (c > 0) bars += `<text class="bar-lbl" x="${(x + (bw-4)/2).toFixed(1)}" y="${(y-3).toFixed(1)}">${c}</text>`;
-        const lbl = dist[i].hi ? `${dist[i].lo/1000}–${dist[i].hi/1000}k` : `${dist[i].lo/1000}k+`;
-        bars += `<text class="tick" x="${(x + (bw-4)/2).toFixed(1)}" y="${H-padB+14}" text-anchor="middle">${lbl}</text>`;
-      }
-      let yticks = '';
-      for (let i = 0; i <= 4; i++) {
-        const v = Math.round(maxC * i/4);
-        const y = padT + (H-padT-padB)*(1 - i/4);
-        yticks += `<line class="axis" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/>`;
-        yticks += `<text class="tick" x="${padL-4}" y="${y+3}" text-anchor="end">${v}</text>`;
-      }
-      wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" id="alt-svg" preserveAspectRatio="xMidYMid meet">${yticks}${bars}</svg>
-        <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:6px">${esc(T.discover_alt_unit)}</div>`;
-    }
-
-    function renderRare(rare) {
-      const wrap = document.getElementById('rare-wrap');
-      if (!rare || !rare.length) { wrap.innerHTML = `<div class="loading">${esc(T.discover_no_rare)}</div>`; return; }
-      wrap.innerHTML = `<table class="rtable"><thead><tr>
-        <th>ICAO / ${esc(T.discover_col_reg)}</th>
-        <th>${esc(T.discover_col_type)}</th>
-        <th>${esc(T.discover_col_op)}</th>
-        <th class="r">${esc(T.discover_col_passes)}</th>
-        <th>${esc(T.discover_col_first_seen)}</th>
-        <th>${esc(T.discover_col_last_seen)}</th>
-      </tr></thead><tbody>${rare.map(r => {
-        const label = r.reg || r.icao.toUpperCase();
-        return `<tr>
-          <td><a href="/aircraft?icao=${esc(r.icao)}" title="${esc(r.icao.toUpperCase())}">${esc(label)}</a></td>
-          <td>${esc(r.type || '—')}</td>
-          <td>${esc(r.operator || '—')}</td>
-          <td class="r">${r.count}</td>
-          <td>${ymd(r.first_seen)}</td>
-          <td>${ymd(r.last_seen)} ${hm(r.last_seen)}</td>
-        </tr>`;
-      }).join('')}</tbody></table>`;
-    }
-
-    async function load() {
-      try {
-        const r = await (await fetch('/api/discover')).json();
-        renderCurve(r.discovery_curve);
-        renderTopIcaoDB(r.top_icao_db);
-        renderAlt(r.altitude_dist);
-        renderRare(r.rare_finds);
-      } catch (e) {
-        document.getElementById('curve-wrap').innerHTML = '<div class="loading">error: ' + esc(String(e)) + '</div>';
-      }
-    }
-    load();
-  </script>
-</body>
-</html>'''
 
 
 AIRCRAFT_HTML = '''<!doctype html>
@@ -4655,10 +4583,11 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         if parsed.path == '/discover':
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            # 而家整合咗落 /stats，舊 URL 永久重定向
+            self.send_response(301)
+            self.send_header('Location', '/stats')
+            self.send_header('Content-Length', '0')
             self.end_headers()
-            self.wfile.write(_render(DISCOVER_HTML, lang).encode('utf-8'))
             return
         if parsed.path == '/api/discover':
             payload = query_discover()
