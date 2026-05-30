@@ -1,11 +1,11 @@
 {
   "receiver": {
-    "name": "wing-readsb-home",
+    "name": "my-readsb",
     "lat": 0.0,
     "lon": 0.0
   },
   "source": {
-    "name": "tar1090-macmini",
+    "name": "tar1090-host",
     "aircraft_json_url": "http://192.168.x.x:8080/data/aircraft.json"
   },
   "db": {

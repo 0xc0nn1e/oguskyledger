@@ -38,12 +38,6 @@ cp src/config.example.json src/config.json
 #                     mysql.password、push.secret、
 ```
 
-## 專案位置
-
-```bash
-cd ~/plane-history
-```
-
 ## Quick start
 
 ```bash
