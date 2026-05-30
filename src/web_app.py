@@ -1000,17 +1000,15 @@ DETAILS_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const back = `<a href="/">${esc(T.link_back_home)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
-          nav.innerHTML = back + ls + `<span style="font-size:10px;letter-spacing:1px;color:var(--muted)">👤 ${esc(me.username)}</span>
-            <a href="/account">${esc(T.nav_account)}</a>
-            <form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
+          nav.innerHTML = ls + links + `<a href="/account">${esc(T.nav_account)}</a><form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
         } else {
-          nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`;
+          nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`;
         }
-      } catch { nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`; }
+      } catch { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
     }
 
     const todayJST = getJST();
@@ -1087,6 +1085,8 @@ HOME_HTML = '''<!doctype html>
     .hdr-row.main .title {
       font-size: 22px; letter-spacing: 1px; color: var(--mint); font-weight: 500; margin: 0;
     }
+    .hdr-row.main .title a { color: inherit; text-decoration: none; }
+    .hdr-row.main .title a:hover { color: var(--mint-light); }
     .hdr-row.main .clock { font-size: 16px; color: var(--mint); letter-spacing: 1px; }
     .hdr-row.sub { font-size:10px; letter-spacing:2px; color: var(--x-muted); }
     .hdr-row.sub .coords { text-transform: uppercase; }
@@ -3022,18 +3022,15 @@ STATS_HTML = '''<!doctype html>
     async function renderNav() {
       const nav = document.getElementById('nav');
       const ls = langSwitchHTML();
-      const back = `<a href="/">${esc(T.link_back_home)}</a>`;
+      const links = `<a href="/">${esc(T.link_back_home)}</a><a href="/map">${esc(T.nav_map)}</a><a href="/stats">${esc(T.nav_stats)}</a><a href="/discover">${esc(T.nav_discover)}</a><a href="/coverage">${esc(T.nav_coverage)}</a><a href="/details">${esc(T.nav_details)}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
-          nav.innerHTML = back + ls +
-            `<span style="font-size:10px;letter-spacing:1px;color:var(--muted)">👤 ${esc(me.username)}</span>` +
-            `<a href="/account">${esc(T.nav_account)}</a>` +
-            `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
+          nav.innerHTML = ls + links + `<a href="/account">${esc(T.nav_account)}</a><form method="post" action="/logout"><button type="submit">${esc(T.nav_logout)}</button></form>`;
         } else {
-          nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`;
+          nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`;
         }
-      } catch { nav.innerHTML = back + ls + `<a href="/login">${esc(T.nav_login)}</a>`; }
+      } catch { nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login)}</a>`; }
     }
     renderNav();
 
