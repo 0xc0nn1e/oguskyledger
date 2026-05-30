@@ -2884,16 +2884,17 @@ STATS_HTML = '''<!doctype html>
     }
     .top10 .cols .r { text-align:right; }
     .top10 .cols .c { text-align:right; }
-    /* icao top 10 列：rank | icao link | type | operator | count */
+    /* icao top 10 列：rank | icao hex | reg | type | operator | count */
     .top10-icao .row, .top10-icao .cols {
-      grid-template-columns:24px 90px 60px 1fr 50px;
+      grid-template-columns:24px 72px 80px 60px 1fr 50px;
     }
-    .top10-icao .name a { color:var(--mint-light); text-decoration:none; }
-    .top10-icao .name a:hover { color:var(--amber); text-decoration:underline; }
+    .top10-icao .icao a { color:var(--mint-light); text-decoration:none; font-variant-numeric:tabular-nums; letter-spacing:0.5px; }
+    .top10-icao .icao a:hover { color:var(--amber); text-decoration:underline; }
+    .top10-icao .name { color:var(--mint-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .top10-icao .type { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .top10-icao .op { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     @media (max-width:700px) {
-      .top10-icao .row, .top10-icao .cols { grid-template-columns:20px 80px 1fr 40px; }
+      .top10-icao .row, .top10-icao .cols { grid-template-columns:20px 64px 72px 1fr 40px; }
       .top10-icao .type { display:none; }
     }
 
@@ -3117,16 +3118,18 @@ STATS_HTML = '''<!doctype html>
       if (!items || !items.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
       const colsHTML = `<div class="cols">
         <div class="r">${esc(T.stats_col_rank)}</div>
+        <div>ICAO</div>
         <div>${esc(T.discover_col_reg)}</div>
         <div class="type">${esc(T.discover_col_type)}</div>
         <div>${esc(T.discover_col_op)}</div>
         <div class="c">${esc(T.stats_col_aircraft)}</div>
       </div>`;
       el.innerHTML = colsHTML + items.map((it, i) => {
-        const label = it.reg || it.icao.toUpperCase();
+        const hex = it.icao.toUpperCase();
         return `<div class="row">
           <div class="rank">${i+1}</div>
-          <div class="name"><a href="/aircraft?icao=${esc(it.icao)}" title="${esc(it.icao.toUpperCase())}">${esc(label)}</a></div>
+          <div class="icao"><a href="/aircraft?icao=${esc(it.icao)}">${esc(hex)}</a></div>
+          <div class="name">${esc(it.reg || '—')}</div>
           <div class="type" title="${esc(it.type)}">${esc(it.type || '—')}</div>
           <div class="op" title="${esc(it.operator)}">${esc(it.operator || '—')}</div>
           <div class="cnt">${it.count}</div>
