@@ -23,9 +23,10 @@ urlpatterns = [
     path('stats/', views.StatsView.as_view(), name='stats'),
     path('details/', views.DetailsView.as_view(), name='details'),
     path('map/', views.MapView.as_view(), name='map'),
-    path('coverage/', views.CoverageView.as_view(), name='coverage'),
     path('about/', views.AboutView.as_view(), name='about'),
     path('aircraft/<str:icao>/', views.AircraftDetailView.as_view(), name='aircraft-detail'),
+    # /coverage 已 cut，舊 link 永久 301 → home
+    path('coverage/', lambda r: HttpResponseRedirect('/'), name='coverage-legacy'),
     # legacy compat：舊 ?icao= query string 入面接住 redirect
     path('aircraft', _aircraft_legacy_redirect, name='aircraft-legacy'),
     # /discover 整合咗落 /stats，永久 301

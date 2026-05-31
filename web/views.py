@@ -50,10 +50,6 @@ class MapView(PlaneHistoryBaseMixin, TemplateView):
     template_name = 'web/map.html'
 
 
-class CoverageView(PlaneHistoryBaseMixin, TemplateView):
-    template_name = 'web/coverage.html'
-
-
 class AircraftDetailView(PlaneHistoryBaseMixin, TemplateView):
     """單機歷史 page — 純 client-side render。
 

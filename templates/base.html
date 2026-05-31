@@ -98,7 +98,6 @@
       const links = `<a href="/">${esc(T.link_back_home || 'HOME')}</a>`
                   + `<a href="/map">${esc(T.nav_map || 'MAP')}</a>`
                   + `<a href="/stats">${esc(T.nav_stats || 'STATS')}</a>`
-                  + `<a href="/coverage">${esc(T.nav_coverage || 'COVERAGE')}</a>`
                   + `<a href="/details">${esc(T.nav_details || 'DETAILS')}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();

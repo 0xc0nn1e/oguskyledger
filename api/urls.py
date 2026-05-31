@@ -16,7 +16,6 @@ urlpatterns = [
     path('live', views.live, name='api-live'),
     path('aircraft', views.aircraft, name='api-aircraft'),
     path('aircraft/track', views.aircraft_track, name='api-aircraft-track'),
-    path('coverage', views.coverage, name='api-coverage'),
     path('today', views.today, name='api-today'),
     path('summary', views.summary, name='api-summary'),
 ]

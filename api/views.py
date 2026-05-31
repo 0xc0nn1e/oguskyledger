@@ -70,12 +70,6 @@ def live(request):
 
 
 @api_view(['GET'])
-def coverage(request):
-    """/api/coverage：近 30 日 polar coverage（每 10° 最遠距離）+ 最遠機體，10 分鐘 cache。"""
-    return Response(queries.query_coverage())
-
-
-@api_view(['GET'])
 def aircraft(request):
     """/api/aircraft?icao=<hex>：單機歷史（registry + passes 聚合 + per-pass FROM/TO）。"""
     icao = request.GET.get('icao', '')

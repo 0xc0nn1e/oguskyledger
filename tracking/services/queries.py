@@ -51,16 +51,9 @@ _BOOT_AT = datetime.now(timezone.utc)
 # Module-level cache：process-local，restart 即清，唔需要 Redis。
 _LIVE_CACHE = {'at': 0.0, 'data': None}
 _LIVE_TTL = 1.0  # 秒：N 個 client polling 都最多每秒打 tar1090 + DB 一次
-_COVERAGE_CACHE = {'at': 0.0, 'data': None}
-_COVERAGE_TTL = 600  # 秒：10 分鐘 cache，coverage 圖唔需要實時
 
-# 由 settings.PLANE_HISTORY 讀 tar1090 source URL + 接收機座標
+# 由 settings.PLANE_HISTORY 讀 tar1090 source URL
 _SOURCE_URL = (settings.PLANE_HISTORY.get('source') or {}).get('aircraft_json_url')
-try:
-    _RX_LAT = float((settings.PLANE_HISTORY.get('receiver') or {}).get('lat'))
-    _RX_LON = float((settings.PLANE_HISTORY.get('receiver') or {}).get('lon'))
-except (TypeError, ValueError):
-    _RX_LAT = _RX_LON = None
 
 
 def _dict_cursor(cur):
@@ -481,88 +474,6 @@ def query_live():
     _LIVE_CACHE['at'] = now_t
     _LIVE_CACHE['data'] = result
     return result
-
-
-def query_coverage():
-    """近 30 日 sightings_raw 嘅 polar coverage：每 10° 方位最遠距離 + 最遠機體。
-
-    Cache 10 分鐘：coverage 圖唔需要實時，重 SQL（trig + full scan）。
-    """
-    if _RX_LAT is None or _RX_LON is None:
-        return {'error': 'no_receiver_coords'}
-
-    now = time.time()
-    if _COVERAGE_CACHE['data'] is not None and (now - _COVERAGE_CACHE['at']) < _COVERAGE_TTL:
-        return _COVERAGE_CACHE['data']
-
-    # haversine km + bearing(0-360)。限近 30 日（行 seen_at index）；
-    # cap 700 km 隔走亂跳定位（ADS-B line-of-sight 上限 ~400-700 km，再遠多數 bad decode）
-    window_days = 30
-    since = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
-    inner = """
-        SELECT
-          6371 * 2 * ASIN(LEAST(1, SQRT(
-            POWER(SIN(RADIANS(lat - %(rlat)s) / 2), 2) +
-            COS(RADIANS(%(rlat)s)) * COS(RADIANS(lat)) *
-            POWER(SIN(RADIANS(lon - %(rlon)s) / 2), 2)
-          ))) AS dist_km,
-          MOD(DEGREES(ATAN2(
-            SIN(RADIANS(lon - %(rlon)s)) * COS(RADIANS(lat)),
-            COS(RADIANS(%(rlat)s)) * SIN(RADIANS(lat)) -
-            SIN(RADIANS(%(rlat)s)) * COS(RADIANS(lat)) * COS(RADIANS(lon - %(rlon)s))
-          )) + 360, 360) AS bearing,
-          icao
-        FROM sightings_raw
-        WHERE lat IS NOT NULL AND lon IS NOT NULL AND seen_at >= %(since)s
-    """
-    params = {'rlat': _RX_LAT, 'rlon': _RX_LON, 'since': since}
-
-    with connection.cursor() as cur:
-        cur.execute(f'SELECT icao, dist_km, bearing FROM ({inner}) t WHERE dist_km <= 700', params)
-        by_sector = {}
-        far = None
-        for r in _dict_cursor(cur):
-            d = float(r['dist_km'])
-            b = float(r['bearing'])
-            sec = int(b // 10) % 36
-            if d > by_sector.get(sec, 0.0):
-                by_sector[sec] = d
-            if far is None or d > far['dist_km']:
-                far = {'icao': r['icao'], 'dist_km': d, 'bearing': b}
-
-        sectors = [{'deg': i * 10, 'km': round(by_sector.get(i, 0.0), 1)} for i in range(36)]
-
-        far_info = None
-        if far:
-            cur.execute(
-                'SELECT registration, operator FROM aircraft_registry_cache WHERE icao = %s',
-                [far['icao']],
-            )
-            far_info = _dict_one(cur)
-
-        cur.execute(
-            'SELECT COUNT(DISTINCT icao) AS c FROM sightings_raw WHERE lat IS NOT NULL AND lon IS NOT NULL'
-        )
-        aircraft_with_pos = _dict_one(cur)['c']
-
-    max_km = max((s['km'] for s in sectors), default=0.0)
-    data = {
-        'sectors': sectors,
-        'max_km': round(max_km, 1),
-        'max_nm': round(max_km / 1.852, 1),
-        'window_days': window_days,
-        'aircraft_with_pos': aircraft_with_pos,
-        'farthest': {
-            'icao': far['icao'].upper() if far else None,
-            'km': round(float(far['dist_km']), 1) if far else None,
-            'bearing': round(float(far['bearing'])) if far else None,
-            'registration': (far_info or {}).get('registration') if far_info else None,
-            'operator': (far_info or {}).get('operator') if far_info else None,
-        } if far else None,
-    }
-    _COVERAGE_CACHE['at'] = now
-    _COVERAGE_CACHE['data'] = data
-    return data
 
 
 def query_aircraft(icao):
