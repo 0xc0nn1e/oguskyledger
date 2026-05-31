@@ -1,0 +1,85 @@
+/* /details page — 由舊 DETAILS_HTML inline <style> 抽出。
+   控制列 + sticky-header table + Three.js radar 背景。 */
+
+#radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
+.bg-vignette {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 35%, rgba(5,10,13,0.85) 95%);
+}
+.inner { max-width:1400px; }
+
+.page-subtitle {
+  margin:0 0 16px; font-size:12px; line-height:1.7;
+  letter-spacing:0.5px; color:var(--muted); max-width:760px;
+}
+
+/* 控制 dropdown 行 */
+.controls {
+  display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;
+  margin-bottom:14px; padding:12px 14px;
+  background:var(--card); border:var(--border); border-radius:4px;
+}
+.controls label {
+  display:flex; flex-direction:column; gap:4px;
+  font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase;
+}
+.controls input, .controls select {
+  background:rgba(10,20,22,0.8); color:var(--mint);
+  border:var(--border); border-radius:4px;
+  font:inherit; font-size:11px; padding:5px 8px; outline:none;
+}
+.controls input[type="date"] { color-scheme:dark; }
+.controls input:focus, .controls select:focus { border-color:var(--mint); }
+.controls button {
+  background:rgba(127,255,212,0.08); color:var(--mint);
+  border:var(--border); border-radius:4px;
+  font:inherit; font-size:10px; letter-spacing:1.5px;
+  padding:6px 14px; cursor:pointer; align-self:flex-end;
+  text-transform:uppercase;
+}
+.controls button:hover { background:rgba(127,255,212,0.15); }
+
+.meta {
+  font-size:10px; letter-spacing:1.5px; color:var(--muted);
+  text-transform:uppercase; margin-bottom:10px;
+}
+
+/* 大 table wrapper */
+.wrap {
+  overflow:auto; border:var(--border); border-radius:4px;
+  background:var(--card-body);
+  max-height:calc(100vh - 280px);
+}
+.wrap::-webkit-scrollbar { width:6px; height:6px; }
+.wrap::-webkit-scrollbar-thumb { background:rgba(127,255,212,0.15); border-radius:3px; }
+
+table { width:100%; border-collapse:collapse; font-size:11px; }
+th {
+  position:sticky; top:0;
+  background:var(--hdr-bar); backdrop-filter:blur(8px);
+  font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+  text-transform:uppercase; padding:8px;
+  border-bottom:0.5px solid rgba(127,255,212,0.1);
+  white-space:nowrap;
+}
+td {
+  padding:7px 8px; color:var(--mint);
+  border-bottom:0.5px solid rgba(127,255,212,0.05);
+  white-space:nowrap;
+}
+tr:last-child td { border-bottom:0; }
+tr:hover td { background:rgba(127,255,212,0.02); }
+td a.ac-link { color:var(--mint-light); text-decoration:none; }
+td a.ac-link:hover { color:var(--mint); text-decoration:underline; }
+td a {
+  color:var(--mint-light); text-decoration:none;
+  border-bottom:0.5px dotted rgba(170,255,240,0.4);
+}
+td a:hover { color:var(--mint); }
+
+@media (max-width:700px) {
+  .controls { padding:10px; gap:6px; }
+  .controls label { font-size:8px; }
+  .wrap { max-height:none; overflow-y:visible; overflow-x:auto; }
+  th, td { padding:6px; font-size:10px; }
+}

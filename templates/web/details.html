@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.details_title|default:"詳情 · plane-history" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/details.css' %}">
+{% endblock %}
+
+{# Three.js radar canvas 取代 .bg-vignette #}
+{% block radar_bg %}
+<canvas id="radar"></canvas>
+<div class="bg-vignette"></div>
+{% endblock %}
+
+{% block content %}
+  <p class="page-subtitle" id="details-note"></p>
+
+  <div class="controls">
+    <label><span id="lbl-date"></span>
+      <input type="date" id="day">
+    </label>
+    <label><span id="lbl-sort"></span>
+      <select id="sort">
+        <option value="last_seen">last_seen</option>
+        <option value="country">country</option>
+        <option value="operator">operator</option>
+        <option value="type">type</option>
+      </select>
+    </label>
+    <label><span id="lbl-country"></span>
+      <select id="countryFilter"><option value="" id="opt-all-country"></option></select>
+    </label>
+    <label><span id="lbl-operator"></span>
+      <select id="operatorFilter"><option value="" id="opt-all-operator"></option></select>
+    </label>
+    <label><span id="lbl-type"></span>
+      <select id="typeFilter"><option value="" id="opt-all-type"></option></select>
+    </label>
+    <label><span id="lbl-from"></span>
+      <select id="fromFilter"><option value="" id="opt-all-from"></option></select>
+    </label>
+    <label><span id="lbl-to"></span>
+      <select id="toFilter"><option value="" id="opt-all-to"></option></select>
+    </label>
+    <button id="load"><span id="btn-update"></span></button>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ICAO</th><th>FLIGHT</th><th>FROM</th><th>TO</th><th>OPERATOR</th>
+          <th>REG</th><th>TYPE</th><th>COUNTRY</th><th>CAT</th>
+          <th>ALT_MIN</th><th>ALT_MAX</th><th>SAMPLES</th>
+          <th>FIRST_SEEN</th><th>LAST_SEEN</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setTxt(id, key, fallback) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = T[key] || fallback || '';
+  }
+  setTxt('details-note', 'details_note');
+  setTxt('lbl-date', 'lbl_date');
+  setTxt('lbl-sort', 'lbl_sort');
+  setTxt('lbl-country', 'lbl_country');
+  setTxt('lbl-operator', 'lbl_operator');
+  setTxt('lbl-type', 'lbl_type');
+  setTxt('lbl-from', 'lbl_from');
+  setTxt('lbl-to', 'lbl_to');
+  setTxt('btn-update', 'btn_update');
+  setTxt('meta', 'loading');
+  ['opt-all-country','opt-all-operator','opt-all-type','opt-all-from','opt-all-to']
+    .forEach(id => setTxt(id, 'lbl_all', 'ALL'));
+</script>
+<script type="module" src="{% static 'js/details.js' %}"></script>
+{% endblock %}

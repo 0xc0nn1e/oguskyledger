@@ -1,0 +1,58 @@
+/* /aircraft/<icao>/ page — 由舊 AIRCRAFT_HTML inline <style> 抽出。
+   Stats grid + 30 日 histogram + SVG dual-axis profile chart + 通過履歴 table。 */
+
+.ac-head {
+  display:grid; grid-template-columns:1fr 1fr; gap:18px;
+  align-items:start; margin-bottom:18px;
+}
+
+/* 30 日 daily histogram */
+.hist { display:grid; grid-template-columns:repeat(30, 1fr); gap:2px; align-items:end; }
+.hist .bar-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.hist .bar-area { width:100%; height:90px; display:flex; align-items:flex-end; }
+.hist .bar {
+  width:100%; min-height:2px; border-radius:2px 2px 0 0;
+  background:linear-gradient(180deg, var(--mint) 0%, rgba(127,255,212,0.35) 100%);
+}
+.hist .day { font-size:7px; letter-spacing:0; color:var(--x-muted); }
+.hist .val { font-size:7px; color:var(--mint); }
+
+/* 通過履歴 table */
+.ptable { width:100%; border-collapse:collapse; font-size:11px; }
+.ptable th {
+  text-align:left; font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+  text-transform:uppercase; padding:6px 8px; border-bottom:0.5px solid rgba(127,255,212,0.1);
+}
+.ptable td { padding:6px 8px; border-bottom:var(--row-div); color:var(--mint-light); white-space:nowrap; }
+.ptable td.r, .ptable th.r { text-align:right; }
+.ptable tr.pickable { cursor:pointer; }
+.ptable tr.pickable:hover { background:rgba(127,255,212,0.05); }
+.ptable tr.pickable.on { background:rgba(245,217,111,0.08); }
+.ptable tr.pickable.on td:first-child::before { content:'◆ '; color:var(--amber); }
+
+/* SVG dual-axis profile chart */
+.profile-bar {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin-bottom:10px; font-size:11px;
+}
+.profile-bar label { color:var(--muted); letter-spacing:1px; text-transform:uppercase; font-size:9px; }
+.profile-bar select {
+  background:rgba(15,31,34,0.6); color:var(--mint); border:var(--border); border-radius:4px;
+  font:inherit; font-size:11px; padding:5px 8px; max-width:100%;
+}
+.profile-bar .legend { display:inline-flex; gap:14px; margin-left:auto; }
+.profile-bar .legend span {
+  display:inline-flex; align-items:center; gap:5px; font-size:10px; letter-spacing:0.5px; color:var(--x-muted);
+}
+.profile-bar .legend i { width:12px; height:2px; display:inline-block; }
+#profile-svg { width:100%; height:auto; display:block; }
+#profile-svg .axis { stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+#profile-svg .tick { fill:var(--x-muted); font-size:8px; font-family:inherit; }
+#profile-svg .alt-line { fill:none; stroke:var(--mint); stroke-width:1.5; }
+#profile-svg .gs-line { fill:none; stroke:var(--amber); stroke-width:1.5; }
+
+@media (max-width:700px) {
+  .ac-head { grid-template-columns:1fr; }
+  .hist .day { display:none; }
+  .hist .val { display:none; }
+}

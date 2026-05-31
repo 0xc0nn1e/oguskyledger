@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "About · plane-history" %}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span>{% trans "System health" %}</div>
+    <div class="panel-body">
+      <div class="kv" id="about-kv">
+        <div class="row"><div class="k">{% trans "status" %}</div><div class="v" id="about-status">{% trans "loading…" %}</div></div>
+        <div class="row"><div class="k">{% trans "receiver" %}</div><div class="v" id="about-receiver">—</div></div>
+        <div class="row"><div class="k">{% trans "feed" %}</div><div class="v" id="about-feed">—</div></div>
+        <div class="row"><div class="k">{% trans "last update" %}</div><div class="v" id="about-last">—</div></div>
+        <div class="row"><div class="k">{% trans "records today" %}</div><div class="v" id="about-today">—</div></div>
+        <div class="row"><div class="k">{% trans "uptime" %}</div><div class="v" id="about-uptime">—</div></div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // gettext() 由 base.html 嘅 jsi18n catalog 提供（global function）。
+  // 同 base.html 入面舊 `const T = ...` 可以共存：呢個 page 用 gettext，舊 page 仍 use T。
+  async function loadAbout() {
+    try {
+      const r = await fetch('/api/about').then(x => x.json());
+      document.getElementById('about-status').textContent = gettext('ok');
+      document.getElementById('about-receiver').textContent = r.receiver || '—';
+      document.getElementById('about-feed').textContent = r.feed_health || '—';
+      document.getElementById('about-last').textContent =
+        r.last_update_secs == null ? '—' : interpolate(gettext('%(s)ss ago'), {s: r.last_update_secs}, true);
+      document.getElementById('about-today').textContent = r.records_today ?? '—';
+      const u = r.uptime_secs || 0;
+      const h = Math.floor(u/3600), m = Math.floor((u%3600)/60), s = u%60;
+      document.getElementById('about-uptime').textContent = `${h}h ${m}m ${s}s`;
+    } catch (e) {
+      document.getElementById('about-status').textContent = 'error: ' + String(e);
+    }
+  }
+  loadAbout();
+</script>
+{% endblock %}

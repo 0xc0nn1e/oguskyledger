@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.cov_title|default:"覆蓋 · plane-history" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/coverage.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="stats-grid">
+    <div class="stat-big">
+      <div class="lbl" id="lbl-max-range"></div>
+      <div class="val" id="c-max">—</div>
+      <div class="sub" id="c-max-nm"></div>
+    </div>
+    <div class="stat-big">
+      <div class="lbl" id="lbl-farthest"></div>
+      <div class="val" id="c-far" style="font-size:16px">—</div>
+      <div class="sub" id="c-far-sub"></div>
+    </div>
+    <div class="stat-big">
+      <div class="lbl" id="lbl-aircraft-seen"></div>
+      <div class="val" id="c-ac">—</div>
+      <div class="sub"></div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="cov-hdr"></span></div>
+    <div class="panel-body">
+      <div class="radar-wrap" id="radar-wrap"><div class="loading" id="cov-loading"></div></div>
+      <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:8px" id="cov-note"></div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setTxt(id, key, fallback) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = T[key] || fallback || '';
+  }
+  setTxt('lbl-max-range', 'cov_max_range');
+  setTxt('lbl-farthest', 'cov_farthest');
+  setTxt('lbl-aircraft-seen', 'cov_aircraft_seen');
+  setTxt('cov-loading', 'cov_loading');
+  setTxt('cov-note', 'cov_note');
+</script>
+<script src="{% static 'js/coverage.js' %}"></script>
+{% endblock %}

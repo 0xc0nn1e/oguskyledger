@@ -1,0 +1,123 @@
+/* /stats page-specific style — 由舊 STATS_HTML inline <style> 抽出。
+   Three.js radar canvas + heatmap + histogram + top10 + discover sections。 */
+
+#radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
+.bg-vignette {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 35%, rgba(5,10,13,0.85) 95%);
+}
+
+.page-subtitle {
+  margin:0 0 18px; font-size:12px; line-height:1.7;
+  letter-spacing:0.5px; color:var(--muted); max-width:720px;
+}
+
+/* summary tiles（覆寫 base.css 嘅 stats-grid，改 2 column） */
+.summary { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:18px; }
+.summary .stat-big { backdrop-filter:blur(8px); padding:16px 18px; }
+.summary .stat-big .val { font-size:32px; }
+
+/* panel backdrop blur（覆寫 base.css） */
+.panel-hdr, .panel-body { backdrop-filter:blur(8px); }
+
+/* 7 日 histogram */
+.hist { display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; align-items:end; }
+.hist .bar-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.hist .bar-area { width:100%; height:140px; display:flex; align-items:flex-end; }
+.hist .bar {
+  width:100%; min-height:2px; border-radius:2px 2px 0 0;
+  background:linear-gradient(180deg, var(--mint) 0%, rgba(127,255,212,0.35) 100%);
+}
+.hist .day { font-size:9px; letter-spacing:1px; color:var(--x-muted); text-transform:uppercase; }
+.hist .val { font-size:11px; color:var(--mint); }
+
+/* 24h histogram */
+.hist24 { grid-template-columns:repeat(24, 1fr); gap:2px; }
+.hist24 .bar-wrap { gap:4px; }
+.hist24 .bar-area { height:110px; }
+.hist24 .val { font-size:8px; letter-spacing:0; }
+.hist24 .day { font-size:8px; letter-spacing:0; }
+.hist24 .bar.now { background:linear-gradient(180deg, var(--amber) 0%, rgba(245,217,111,0.35) 100%); }
+.hist24 .bar-wrap.now .day, .hist24 .bar-wrap.now .val { color:var(--amber); }
+
+/* weekday × hour heatmap */
+.heatmap { display:grid; grid-template-columns:32px repeat(24, 1fr); gap:2px; align-items:center; }
+.heatmap .wd-lbl, .heatmap .hr-lbl { font-size:8px; letter-spacing:0.5px; color:var(--x-muted); text-align:center; }
+.heatmap .wd-lbl { text-align:right; padding-right:4px; }
+.heatmap .cell { height:18px; border-radius:1px; background:rgba(127,255,212,0.04); }
+.heatmap .cell.hover, .heatmap .cell:hover { outline:1px solid var(--amber); }
+.heatmap-legend {
+  display:flex; align-items:center; justify-content:flex-end; gap:6px;
+  font-size:8px; letter-spacing:1px; color:var(--x-muted); margin-top:8px;
+}
+.heatmap-legend .scale { display:inline-flex; gap:1px; }
+.heatmap-legend .scale span { width:14px; height:8px; border-radius:1px; }
+
+/* top-10 lists */
+.row-2col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.row-2col section.panel { margin-bottom:0; }
+.top10 { display:flex; flex-direction:column; }
+.top10 .row {
+  display:grid; grid-template-columns:24px 1fr 60px;
+  gap:10px; align-items:center;
+  padding:7px 0; font-size:11px; border-bottom:var(--row-div);
+}
+.top10 .row:last-child { border-bottom:0; }
+.top10 .rank { color:var(--x-muted); font-size:10px; text-align:right; }
+.top10 .name { color:var(--mint-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.top10 .cnt { color:var(--amber); text-align:right; }
+.top10 .cols {
+  display:grid; grid-template-columns:24px 1fr 60px;
+  gap:10px; font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+  padding:6px 0; border-bottom:0.5px solid rgba(127,255,212,0.1);
+  text-transform:uppercase;
+}
+.top10 .cols .r { text-align:right; }
+.top10 .cols .c { text-align:right; }
+
+/* icao top-10 6 columns：rank | icao hex | reg | type | operator | count */
+.top10-icao .row, .top10-icao .cols { grid-template-columns:24px 72px 80px 60px 1fr 50px; }
+.top10-icao .icao a {
+  color:var(--mint-light); text-decoration:none;
+  font-variant-numeric:tabular-nums; letter-spacing:0.5px;
+}
+.top10-icao .icao a:hover { color:var(--amber); text-decoration:underline; }
+.top10-icao .type { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.top10-icao .op { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* discover sections：discovery curve / altitude histogram / rare finds */
+.curve-wrap, .alt-wrap { width:100%; }
+#curve-svg, #alt-svg { width:100%; height:auto; display:block; }
+#curve-svg .axis, #alt-svg .axis { stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+#curve-svg .tick, #alt-svg .tick, #alt-svg .bar-lbl { fill:var(--x-muted); font-size:8px; font-family:inherit; }
+#curve-svg .line { fill:none; stroke:var(--mint); stroke-width:1.5; }
+#curve-svg .area { fill:rgba(127,255,212,0.10); }
+#alt-svg .bar { fill:var(--mint); }
+#alt-svg .bar-lbl { fill:var(--mint-light); font-size:9px; text-anchor:middle; }
+.rtable { width:100%; border-collapse:collapse; font-size:11px; }
+.rtable th {
+  text-align:left; font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+  text-transform:uppercase; padding:6px 8px; border-bottom:0.5px solid rgba(127,255,212,0.1);
+}
+.rtable td { padding:6px 8px; border-bottom:var(--row-div); color:var(--mint-light); white-space:nowrap; }
+.rtable td.r, .rtable th.r { text-align:right; }
+.rtable a { color:var(--mint-light); text-decoration:none; }
+.rtable a:hover { color:var(--amber); text-decoration:underline; }
+
+/* mobile */
+@media (max-width:700px) {
+  .summary { grid-template-columns:1fr; }
+  .summary .stat-big .val { font-size:24px; }
+  .row-2col { grid-template-columns:1fr; }
+  .hist .bar-area { height:100px; }
+  .hist .day { font-size:8px; letter-spacing:0; }
+  .hist24 .val { display:none; }
+  .hist24 .bar-area { height:80px; }
+  .heatmap { grid-template-columns:24px repeat(24, 1fr); gap:1px; }
+  .heatmap .cell { height:13px; }
+  .heatmap .hr-lbl { font-size:7px; }
+  .heatmap .wd-lbl { font-size:8px; padding-right:2px; }
+  .top10-icao .row, .top10-icao .cols { grid-template-columns:20px 64px 72px 1fr 40px; }
+  .top10-icao .type { display:none; }
+  .rtable td, .rtable th { font-size:10px; padding:4px 6px; }
+}

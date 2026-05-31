@@ -1,0 +1,149 @@
+/* / home page — 由舊 HOME_HTML inline <style> 抽出。
+   Recent contacts + 4-stat tiles + operator groups（每個 collapsible）+ Three.js radar 背景。 */
+
+#radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
+.bg-vignette {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 35%, rgba(5,10,13,0.85) 95%);
+}
+
+/* tools input（search + datePicker），sit 入 header_tools block */
+.tools input {
+  background:rgba(15,31,34,0.6); color:var(--mint);
+  border:var(--border); border-radius:4px;
+  font:inherit; font-size:10px; padding:6px 10px;
+  outline:none; min-width:0;
+}
+.tools input[type="search"] { width:130px; }
+.tools input[type="date"] { color-scheme:dark; }
+.tools input:focus { border-color:var(--mint); }
+
+.page-subtitle {
+  margin:0 0 18px; font-size:12px; line-height:1.7;
+  letter-spacing:0.5px; color:var(--muted); max-width:720px;
+}
+
+/* recent contacts panel — flight 行用 8 column grid */
+.recent-contacts { margin-bottom:14px; }
+.recent-contacts .flight-cols,
+.recent-contacts .flight {
+  grid-template-columns:60px 1fr 80px 70px 50px 110px 2fr 60px;
+}
+.recent-contacts .flight .op-name {
+  color:var(--amber); font-size:10px; letter-spacing:0.5px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* 4 stat tiles */
+.stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:22px; }
+.stat {
+  background:var(--card); backdrop-filter:blur(8px);
+  border:var(--border); border-radius:4px; padding:10px 12px;
+}
+.stat .lbl { font-size:9px; letter-spacing:1.5px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; }
+.stat .val { font-size:20px; font-weight:500; color:var(--mint); line-height:1; }
+.stat .val.amber { color:var(--amber); }
+
+/* operator groups — 2 column desktop, 1 column mobile */
+section.groups { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+.group {
+  opacity:0; transform:translateY(20px);
+  transition:opacity 0.6s ease, transform 0.6s ease;
+}
+.group.in { opacity:1; transform:translateY(0); }
+
+.group-hdr {
+  background:var(--hdr-bar); backdrop-filter:blur(8px);
+  border:var(--border); border-radius:4px 4px 0 0;
+  padding:10px 14px;
+  display:flex; justify-content:space-between; align-items:center;
+  cursor:pointer; user-select:none; transition:background 0.15s;
+}
+.group-hdr:hover { background:rgba(15,31,34,0.95); }
+.group-hdr .left { display:flex; align-items:baseline; gap:10px; }
+.group-hdr .op {
+  font-size:11px; letter-spacing:2px; color:var(--amber); font-weight:500; text-transform:uppercase;
+}
+.group-hdr .op .diamond { color:var(--amber); margin-right:6px; }
+.group-hdr .country { font-size:10px; color:var(--x-muted); letter-spacing:1.5px; }
+.group-hdr .meta {
+  font-size:10px; color:var(--muted); letter-spacing:1.5px;
+  display:flex; gap:16px; text-transform:uppercase;
+}
+.group.collapsed .group-body { display:none; }
+.group.collapsed .group-hdr { border-radius:4px; border-bottom:var(--border); }
+
+.group-body {
+  background:var(--card-body); backdrop-filter:blur(8px);
+  border:var(--border); border-top:0; border-radius:0 0 4px 4px;
+  padding:0 14px 4px; overflow-x:auto;
+}
+
+/* flight row — 7 column inside group, 8 column inside recent-contacts (override above) */
+.flight-cols, .flight {
+  display:grid;
+  grid-template-columns:60px 80px 70px 50px 110px 1fr 60px;
+  gap:10px; align-items:center;
+}
+.flight-cols {
+  font-size:9px; letter-spacing:1.5px; color:var(--x-muted);
+  padding:8px 0; border-bottom:0.5px solid rgba(127,255,212,0.1);
+  text-transform:uppercase;
+}
+.flight {
+  font-size:11px; padding:7px 0;
+  border-bottom:var(--row-div);
+  border-left:2px solid transparent;
+  padding-left:8px; margin-left:-10px;
+  transition:border-color 0.15s, background 0.15s;
+}
+.flight:last-child { border-bottom:0; }
+.flight:hover { border-left-color:var(--mint); background:rgba(127,255,212,0.02); }
+.flight .icao { color:var(--muted); }
+.flight .icao a { color:inherit; text-decoration:none; }
+.flight .icao a:hover { color:var(--mint); text-decoration:underline; }
+.flight .flight-no { color:var(--amber); font-weight:500; }
+.flight .reg { color:var(--mint-light); }
+.flight .reg a { color:inherit; text-decoration:none; border-bottom:0.5px dotted rgba(170,255,240,0.4); }
+.flight .reg a:hover { color:var(--mint); }
+.flight .type { color:var(--mint); }
+.flight .route { color:var(--mint-light); display:flex; align-items:center; gap:6px; }
+.flight .route .arrow { color:var(--x-muted); }
+.flight .alt { display:flex; align-items:center; gap:8px; }
+.flight .alt .bar {
+  flex:1; height:3px; border-radius:2px;
+  background:rgba(127,255,212,0.08); position:relative; overflow:hidden;
+}
+.flight .alt .bar div { position:absolute; left:0; top:0; bottom:0; border-radius:2px; }
+.flight .alt .alt-label { width:32px; text-align:right; font-size:11px; }
+.flight .last { color:var(--muted); font-size:10px; text-align:right; }
+.flight.hidden { display:none; }
+
+.loading, .empty {
+  font-size:11px; color:var(--muted); letter-spacing:1.5px;
+  text-align:center; padding:40px;
+}
+
+@media (max-width:700px) {
+  section.groups { grid-template-columns:1fr; }
+  .stats { grid-template-columns:repeat(2, 1fr); }
+  .recent-contacts .flight-cols,
+  .recent-contacts .flight { grid-template-columns:55px 1fr 65px 55px; gap:6px; }
+  .recent-contacts .flight-cols div:nth-child(n+5),
+  .recent-contacts .flight > div:nth-child(n+5) { display:none; }
+  section.groups .group-body { padding:0 10px 4px; }
+  section.groups .flight-cols,
+  section.groups .flight { grid-template-columns:55px 1fr 65px 70px; gap:6px; }
+  section.groups .flight { padding-left:6px; margin-left:-8px; }
+  section.groups .flight-cols > div:nth-child(4),
+  section.groups .flight-cols > div:nth-child(6),
+  section.groups .flight-cols > div:nth-child(7),
+  section.groups .flight > div:nth-child(4),
+  section.groups .flight > div:nth-child(6),
+  section.groups .flight > div:nth-child(7) { display:none; }
+  .group-hdr { align-items:flex-start; gap:10px; }
+  .group-hdr .left { flex-direction:column; align-items:flex-start; gap:3px; min-width:0; flex:1; }
+  .group-hdr .left .op { white-space:normal; word-break:break-word; line-height:1.3; }
+  .tools input[type="search"] { width:110px; flex:0 1 auto; }
+  .tools input[type="date"] { flex:0 1 auto; }
+}

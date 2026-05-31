@@ -1,0 +1,111 @@
+/* /map page-specific style — 由舊 MAP_HTML inline <style> 抽出。
+   Leaflet 全屏地圖 + 飛機 SVG icon + altitude colour scale + popup。 */
+
+/* 全屏 flex column wrapper（覆寫 base.css 嘅 .container 模式） */
+body { overflow:hidden; }
+.wrap {
+  display:flex; flex-direction:column;
+  height:100vh; height:100dvh;
+  padding:18px 22px calc(14px + env(safe-area-inset-bottom));
+}
+.wrap header.page-hdr { flex:0 0 auto; padding-bottom:12px; margin-bottom:12px; }
+.wrap header.page-hdr .hdr-row.main .title { font-size:20px; }
+.wrap header.page-hdr .hdr-row.main .clock { font-size:15px; }
+
+/* meta bar 喺 map 上面 */
+.map-meta {
+  flex:0 0 auto; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.map-meta .ttl { font-size:11px; letter-spacing:2px; color:var(--amber); text-transform:uppercase; }
+.map-meta .ttl .diamond { margin-right:6px; }
+.map-meta .cnt { font-size:11px; letter-spacing:1px; color:var(--mint); }
+.map-meta .note { font-size:10px; letter-spacing:0.5px; color:var(--x-muted); flex:1 1 160px; }
+.map-meta .emerg-cnt { font-size:11px; letter-spacing:1px; color:#ff5b5b; font-weight:700; }
+.map-search {
+  background:rgba(5,10,13,0.8); color:var(--mint); border:var(--border); border-radius:4px;
+  font:inherit; font-size:10px; letter-spacing:1px; padding:5px 9px; outline:none; width:150px;
+}
+.map-search:focus { border-color:var(--mint); }
+.map-legend { display:flex; align-items:center; gap:6px; font-size:9px; color:var(--x-muted); letter-spacing:0.5px; }
+.map-legend .bar {
+  width:120px; height:8px; border-radius:4px; border:var(--border);
+  background:linear-gradient(90deg, hsl(35,90%,55%), hsl(80,80%,50%), hsl(160,70%,50%), hsl(210,82%,58%), hsl(265,70%,62%));
+}
+@media (max-width:700px) {
+  .map-legend, .map-meta .note { display:none; }
+  .map-search { width:110px; }
+  .wrap { padding:14px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .wrap header.page-hdr .hdr-row.main .title { font-size:15px; }
+}
+
+/* Leaflet map */
+#map { flex:1 1 auto; min-height:0; border:var(--border); border-radius:6px; background:#050a0d; }
+.leaflet-container { background:#050a0d; font-family:inherit; }
+.leaflet-control-attribution {
+  background:rgba(5,10,13,0.7)!important; color:var(--x-muted)!important; font-size:9px;
+}
+.leaflet-control-attribution a { color:var(--muted)!important; }
+.leaflet-bar a {
+  background:var(--card)!important; color:var(--mint)!important;
+  border-color:rgba(127,255,212,0.2)!important;
+}
+
+/* 飛機 icon */
+.ac-icon { background:none; border:none; overflow:visible; }
+.ac-wrap { position:relative; width:26px; height:26px; transition:opacity 0.5s linear; }
+.ac {
+  position:absolute; inset:0; color:#7fffd4;
+  transition:transform 0.4s linear, color 0.7s linear;
+  will-change:transform; transform-origin:50% 50%;
+  filter:drop-shadow(0 0 3px currentColor);
+}
+.ac-wrap.stale { opacity:0.38; }
+.ac-wrap.dim { opacity:0.14; }
+.ac-wrap.hit .ac { filter:drop-shadow(0 0 8px var(--amber)); }
+.ac-wrap.emerg .ac { color:#ff3b3b !important; animation:emergpulse 1s infinite; }
+@keyframes emergpulse {
+  0%,100% { filter:drop-shadow(0 0 3px #ff3b3b); }
+  50%     { filter:drop-shadow(0 0 9px #ff3b3b); }
+}
+
+/* label 跟住架機走但唔轉 */
+.ac-lbl {
+  position:absolute; left:28px; top:50%; transform:translateY(-50%);
+  white-space:nowrap; line-height:1.15; pointer-events:none;
+}
+.ac-lbl span {
+  display:block;
+  text-shadow:0 0 3px #050a0d, 0 0 2px #050a0d, 0 1px 2px #050a0d;
+}
+.ac-lbl .fl { font-size:10px; letter-spacing:0.5px; color:var(--mint-light); }
+.ac-lbl .al { font-size:9px; letter-spacing:0.5px; color:var(--amber); }
+.ac-lbl .tag { font-size:8px; letter-spacing:1px; color:#ff5b5b; font-weight:700; }
+
+/* tooltip + popup */
+.ac-tip {
+  background:rgba(5,10,13,0.92)!important; border:var(--border)!important;
+  color:var(--mint)!important; font-size:10px; letter-spacing:0.5px; border-radius:4px;
+}
+.ac-tip::before { display:none!important; }
+.ac-tip b { color:var(--mint-light); }
+.ac-tip .k { color:var(--x-muted); }
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background:rgba(8,16,18,0.97)!important; color:var(--mint)!important;
+  border:var(--border); box-shadow:0 4px 20px rgba(0,0,0,0.55); border-radius:6px;
+}
+.leaflet-popup-content { margin:11px 13px; font-size:11px; line-height:1.3; min-width:190px; }
+.leaflet-popup-close-button { color:var(--muted)!important; }
+.pop-h {
+  font-size:14px; color:var(--mint-light); letter-spacing:1px;
+  margin-bottom:8px; padding-bottom:7px; border-bottom:var(--border);
+}
+.pop .pr { display:flex; justify-content:space-between; gap:16px; padding:3px 0; }
+.pop .pk { color:var(--x-muted); letter-spacing:1px; text-transform:uppercase; font-size:9px; white-space:nowrap; }
+.pop .pv { color:var(--mint-light); text-align:right; }
+.pop-link {
+  display:inline-block; margin-top:9px; color:var(--amber);
+  text-decoration:none; font-size:10px; letter-spacing:1px;
+}
+.pop-link:hover { text-decoration:underline; }

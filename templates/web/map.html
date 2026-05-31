@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.map_title|default:"即時地圖 · plane-history" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="{% static 'css/map.css' %}">
+{% endblock %}
+
+{# Map page 全屏 flex column，唔用 base.html default .container > .inner frame。
+   Header inline（duplicate base.html 嘅 markup，因為 nested layout 唔同）。 #}
+{% block radar_bg %}{% endblock %}
+{% block frame %}
+<div class="wrap">
+  <header class="page-hdr">
+    <div class="hdr-row top">
+      <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
+      <span id="date">— — —</span>
+    </div>
+    <div class="hdr-row main">
+      <h1 class="title"><a href="{% url 'home' %}">尾久 SKYLEDGER · TOKYO</a></h1>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+    <div class="hdr-row sub">
+      <span class="coords">Powered by connie.hk</span>
+      <div class="tools"><div class="nav" id="nav"></div></div>
+    </div>
+  </header>
+
+  <div class="map-meta">
+    <span class="ttl"><span class="diamond">◆</span><span id="map-hdr"></span></span>
+    <span class="cnt" id="cnt">— —</span>
+    <span class="emerg-cnt" id="emerg-cnt"></span>
+    <input class="map-search" id="search" type="search" autocomplete="off" placeholder="search">
+    <span class="map-legend"><span id="map-low"></span><span class="bar"></span><span id="map-high"></span></span>
+    <span class="note" id="map-note"></span>
+  </div>
+
+  <div id="map"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setTxt(id, key, fallback) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = T[key] || fallback || '';
+  }
+  function setAttr(id, attr, key) {
+    const el = document.getElementById(id);
+    if (el && T[key]) el.setAttribute(attr, T[key]);
+  }
+  setTxt('map-hdr', 'map_hdr');
+  setTxt('map-low', 'map_low');
+  setTxt('map-high', 'map_high');
+  setTxt('map-note', 'map_note');
+  setAttr('search', 'placeholder', 'map_search');
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'js/map.js' %}"></script>
+{% endblock %}

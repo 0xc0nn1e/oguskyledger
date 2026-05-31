@@ -29,10 +29,12 @@ def connect(autocommit=False):
         database=cfg["database"],
         charset="utf8mb4",
         autocommit=autocommit,
-        # Reasonable defaults for this LAN-only single-machine workload
+        # Reasonable defaults for this LAN-only single-machine workload。
+        # read_timeout 5 分鐘：build_passes.py 全 sightings_raw scan + DELETE+INSERT
+        # 可以跑 1-2 分鐘（~500k rows），30 秒會打斷。
         connect_timeout=10,
-        read_timeout=30,
-        write_timeout=30,
+        read_timeout=300,
+        write_timeout=300,
     )
 
 

@@ -1,0 +1,501 @@
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-31 14:41+0000\n"
+"Language: ja\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Aviation Radar · plane-history"
+msgstr "航空レーダー · plane-history"
+
+msgid "About · plane-history"
+msgstr "関於 · plane-history"
+
+msgid "System health"
+msgstr "システム健康度"
+
+msgid "status"
+msgstr "状態"
+
+msgid "loading…"
+msgstr "読込中…"
+
+msgid "receiver"
+msgstr "受信機"
+
+msgid "feed"
+msgstr "フィード"
+
+msgid "last update"
+msgstr "最終更新"
+
+msgid "records today"
+msgstr "今日の記録"
+
+msgid "uptime"
+msgstr "稼働時間"
+
+#~ msgid "Details · plane-history"
+#~ msgstr "詳細 · plane-history"
+
+#~ msgid "Sign in · plane-history"
+#~ msgstr "ログイン · plane-history"
+
+#~ msgid "Change password · plane-history"
+#~ msgstr "パスワード変更 · plane-history"
+
+#~ msgid "DETAILS"
+#~ msgstr "詳細"
+
+#~ msgid "STATS"
+#~ msgstr "統計"
+
+#~ msgid "← HOME"
+#~ msgstr "← トップ"
+
+#~ msgid "SIGN IN"
+#~ msgstr "ログイン"
+
+#~ msgid "SIGN OUT"
+#~ msgstr "ログアウト"
+
+#~ msgid "ACCOUNT"
+#~ msgstr "アカウント"
+
+#~ msgid "Stats · plane-history"
+#~ msgstr "統計 · plane-history"
+
+#~ msgid "7-DAY · DAILY FLIGHTS"
+#~ msgstr "直近7日 · 便数推移"
+
+#~ msgid "LAST 24H · FLIGHTS BY HOUR (JST)"
+#~ msgstr "直近24時間 · 時間帯別便数 (JST)"
+
+#~ msgid "7-DAY · TOP 10 TYPES"
+#~ msgstr "直近7日 · 機種 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 OPERATORS"
+#~ msgstr "直近7日 · 運航会社 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 FROM"
+#~ msgstr "直近7日 · 出発空港 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 TO"
+#~ msgstr "直近7日 · 到着空港 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 AIRCRAFT"
+#~ msgstr "直近7日 · 機体 TOP 10"
+
+#~ msgid "ALL-TIME · TOP 10 AIRCRAFT"
+#~ msgstr "全DB · 機体 TOP 10"
+
+#~ msgid "ALL-TIME · TOTAL FLIGHTS"
+#~ msgstr "全DB · 累計便数"
+
+#~ msgid "ALL-TIME · TOTAL TYPES"
+#~ msgstr "全DB · 機種数"
+
+#~ msgid "ALL-TIME · PEAK ALT"
+#~ msgstr "全DB · 最高高度"
+
+#~ msgid "ALL-TIME · BUSIEST HOUR (JST)"
+#~ msgstr "全DB · 繁忙時間帯 (JST)"
+
+#~ msgid "FLIGHTS"
+#~ msgstr "便数"
+
+#~ msgid "#"
+#~ msgstr "順位"
+
+#~ msgid "ABOUT"
+#~ msgstr "概要"
+
+#~ msgid "RECEIVER STATUS"
+#~ msgstr "受信機ステータス"
+
+#~ msgid "ABOUT THIS PROJECT"
+#~ msgstr "このプロジェクト"
+
+#~ msgid "ARCHITECTURE"
+#~ msgstr "アーキテクチャ"
+
+#~ msgid "Source"
+#~ msgstr "ソース"
+
+#~ msgid "OK"
+#~ msgstr "OK · 正常"
+
+#~ msgid "DELAYED"
+#~ msgstr "遅延"
+
+#~ msgid "DOWN"
+#~ msgstr "停止"
+
+#~ msgid "{n} {u} ago"
+#~ msgstr "{n}{u}前"
+
+#~ msgid "sec"
+#~ msgstr "秒"
+
+#~ msgid "min"
+#~ msgstr "分"
+
+#~ msgid "hr"
+#~ msgstr "時間"
+
+#~ msgid "day"
+#~ msgstr "日"
+
+#~ msgid ""
+#~ "This project collects ADS-B aircraft data from a self-hosted receiver, "
+#~ "stores historical contacts in MySQL, and visualizes recent aircraft "
+#~ "activity through a Python backend (stdlib http.server) and web dashboard."
+#~ msgstr ""
+#~ "自宅に設置したADS-B受信機から航空機データを取得し、MySQLに履歴を保存したう"
+#~ "えで、Python（標準ライブラリの http.server）によるAPIとWebダッシュボードで"
+#~ "可視化しています。"
+
+#~ msgid ""
+#~ "Personal ADS-B flight data dashboard powered by a self-hosted receiver in "
+#~ "Oku, Tokyo."
+#~ msgstr ""
+#~ "東京・尾久の自宅受信機で取得した航空機データを記録・可視化する個人開発プロ"
+#~ "ジェクトです。"
+
+#~ msgid ""
+#~ "These statistics are calculated from historical aircraft contacts stored "
+#~ "in MySQL."
+#~ msgstr ""
+#~ "これらの統計は MySQL に保存された過去の航空機コンタクトから算出していま"
+#~ "す。"
+
+#~ msgid ""
+#~ "Search and filter historical aircraft contacts by operator, aircraft "
+#~ "type, route, country and altitude range."
+#~ msgstr ""
+#~ "運航会社・機種・航路・国・高度レンジで過去の航空機コンタクトを検索・絞り込"
+#~ "みできます。"
+
+#~ msgid "TECH STACK"
+#~ msgstr "技術スタック"
+
+#~ msgid "SYSTEM HEALTH"
+#~ msgstr "システムヘルス"
+
+#~ msgid "Frontend"
+#~ msgstr "フロントエンド"
+
+#~ msgid "Backend"
+#~ msgstr "バックエンド"
+
+#~ msgid "Database"
+#~ msgstr "データベース"
+
+#~ msgid "Deployment"
+#~ msgstr "デプロイ"
+
+#~ msgid "Notification"
+#~ msgstr "通知"
+
+#~ msgid "API"
+#~ msgstr "API"
+
+#~ msgid "MAP"
+#~ msgstr "マップ"
+
+#~ msgid "Live Map · plane-history"
+#~ msgstr "ライブマップ · plane-history"
+
+#~ msgid "LIVE MAP · NOW SCANNING"
+#~ msgstr "ライブマップ · 受信中"
+
+#~ msgid "aircraft"
+#~ msgstr "機"
+
+#~ msgid ""
+#~ "Aircraft currently picked up by the receiver, animated smoothly from "
+#~ "speed and heading (tar1090 live)."
+#~ msgstr ""
+#~ "受信機が今この瞬間に捉えている航空機を、速度と進路から滑らかに移動表示して"
+#~ "います（tar1090 ライブ）。"
+
+#~ msgid "// no aircraft with position right now"
+#~ msgstr "// 測位情報のある航空機が今ありません"
+
+#~ msgid "ALT"
+#~ msgstr "高度"
+
+#~ msgid "SPD"
+#~ msgstr "速度"
+
+#~ msgid "REG"
+#~ msgstr "レジ"
+
+#~ msgid "TYPE"
+#~ msgstr "機種"
+
+#~ msgid "OPERATOR"
+#~ msgstr "運航会社"
+
+#~ msgid "COUNTRY"
+#~ msgstr "国籍"
+
+#~ msgid "ROUTE"
+#~ msgstr "区間"
+
+#~ msgid "V/S"
+#~ msgstr "昇降率"
+
+#~ msgid "HDG"
+#~ msgstr "進路"
+
+#~ msgid "VIEW ON FR24"
+#~ msgstr "FR24 で見る"
+
+#~ msgid "search flight / reg"
+#~ msgstr "便名 / レジ で検索"
+
+#~ msgid "LOW"
+#~ msgstr "低"
+
+#~ msgid "HIGH"
+#~ msgstr "高"
+
+#~ msgid "EMERGENCY"
+#~ msgstr "緊急"
+
+#~ msgid "COVERAGE"
+#~ msgstr "カバレッジ"
+
+#~ msgid "Aircraft · plane-history"
+#~ msgstr "機体履歴 · plane-history"
+
+#~ msgid "Total passes"
+#~ msgstr "通過回数"
+
+#~ msgid "Days seen"
+#~ msgstr "出現日数"
+
+#~ msgid "First seen"
+#~ msgstr "初観測"
+
+#~ msgid "Last seen"
+#~ msgstr "最終観測"
+
+#~ msgid "Peak altitude"
+#~ msgstr "最高高度"
+
+#~ msgid "Max speed"
+#~ msgstr "最高速度"
+
+#~ msgid "RECENT · DAILY APPEARANCES"
+#~ msgstr "直近 · 日別出現"
+
+#~ msgid "PASS HISTORY"
+#~ msgstr "通過履歴"
+
+#~ msgid "DATE"
+#~ msgstr "日付"
+
+#~ msgid "TIME (JST)"
+#~ msgstr "時刻 (JST)"
+
+#~ msgid "FLIGHT"
+#~ msgstr "便"
+
+#~ msgid "FROM"
+#~ msgstr "出発"
+
+#~ msgid "TO"
+#~ msgstr "到着"
+
+#~ msgid "SAMPLES"
+#~ msgstr "samples"
+
+#~ msgid "// no records for this ICAO"
+#~ msgstr "// この ICAO の記録がありません"
+
+#~ msgid "Coverage · plane-history"
+#~ msgstr "カバレッジ · plane-history"
+
+#~ msgid "RECEIVER COVERAGE · LAST {n}D (JST)"
+#~ msgstr "受信カバレッジ · 直近 {n} 日 (JST)"
+
+#~ msgid "Max range"
+#~ msgstr "最大受信距離"
+
+#~ msgid "Farthest aircraft"
+#~ msgstr "最遠の機体"
+
+#~ msgid "Aircraft with position"
+#~ msgstr "測位できた機体数"
+
+#~ msgid ""
+#~ "Max reception distance per compass bearing. Receiver exact location "
+#~ "hidden — relative ranges only."
+#~ msgstr "各方位で受信できた最大距離。受信機の真位置は非表示、相対距離のみ。"
+
+#~ msgid "// set receiver.lat / lon in config.json"
+#~ msgstr "// config.json に receiver.lat / lon を設定してください"
+
+#~ msgid "crunching… (heavy, hang on)"
+#~ msgstr "集計中…（重いので少々お待ちを）"
+
+#~ msgid "// no data today"
+#~ msgstr "// 本日データなし"
+
+#~ msgid "▸  OPEN DETAILED VIEW  ▸"
+#~ msgstr "▸  詳細ビューを開く  ▸"
+
+#~ msgid "{day} JST · {total} aircraft · {ops} operators"
+#~ msgstr "{day} JST · {total}機 · {ops}社"
+
+#~ msgid "AIRCRAFT"
+#~ msgstr "AIRCRAFT"
+
+#~ msgid "Date"
+#~ msgstr "日付"
+
+#~ msgid "Sort"
+#~ msgstr "ソート"
+
+#~ msgid "Country"
+#~ msgstr "国"
+
+#~ msgid "Operator"
+#~ msgstr "運航会社"
+
+#~ msgid "Type"
+#~ msgstr "機種"
+
+#~ msgid "From"
+#~ msgstr "出発"
+
+#~ msgid "To"
+#~ msgstr "到着"
+
+#~ msgid "all"
+#~ msgstr "すべて"
+
+#~ msgid "Update"
+#~ msgstr "更新"
+
+#~ msgid "Day: {day} | Aircraft: {count} | Sort: {sort}"
+#~ msgstr "Day: {day} | Aircraft: {count} | Sort: {sort}"
+
+#~ msgid "Sign in to plane-history"
+#~ msgstr "ログイン"
+
+#~ msgid "Username"
+#~ msgstr "ユーザー名"
+
+#~ msgid "Password"
+#~ msgstr "パスワード"
+
+#~ msgid "Sign in"
+#~ msgstr "ログイン"
+
+#~ msgid "Wrong username or password"
+#~ msgstr "ユーザー名またはパスワードが違います"
+
+#~ msgid "← Back to home"
+#~ msgstr "← トップに戻る"
+
+#~ msgid "Change password"
+#~ msgstr "パスワード変更"
+
+#~ msgid "Current password"
+#~ msgstr "現在のパスワード"
+
+#~ msgid "New password"
+#~ msgstr "新しいパスワード"
+
+#~ msgid "Confirm new password"
+#~ msgstr "もう一度入力"
+
+#~ msgid "Update password"
+#~ msgstr "パスワードを更新"
+
+#~ msgid "Current password is wrong"
+#~ msgstr "現在のパスワードが違います"
+
+#~ msgid "New passwords do not match"
+#~ msgstr "新しいパスワードが一致しません"
+
+#~ msgid "Password must be at least 6 characters"
+#~ msgstr "パスワードは6文字以上必要です"
+
+#~ msgid "✓ Password updated"
+#~ msgstr "✓ パスワードを更新しました"
+
+#~ msgid "/ to search"
+#~ msgstr "/ で検索"
+
+#~ msgid "LAST 30D · WEEKDAY × HOUR HEATMAP (JST)"
+#~ msgstr "直近30日 · 曜日×時間帯ヒートマップ (JST)"
+
+#~ msgid "MON"
+#~ msgstr "月"
+
+#~ msgid "TUE"
+#~ msgstr "火"
+
+#~ msgid "WED"
+#~ msgstr "水"
+
+#~ msgid "THU"
+#~ msgstr "木"
+
+#~ msgid "FRI"
+#~ msgstr "金"
+
+#~ msgid "SAT"
+#~ msgstr "土"
+
+#~ msgid "SUN"
+#~ msgstr "日"
+
+#~ msgid "CUMULATIVE UNIQUE ICAO"
+#~ msgstr "累計ユニーク ICAO"
+
+#~ msgid "RARE FINDS (1–2 PASSES ONLY)"
+#~ msgstr "レアな機体 (1–2回のみ)"
+
+#~ msgid "ALL-DB · MAX ALT DISTRIBUTION"
+#~ msgstr "全DB · 最高高度の分布"
+
+#~ msgid "ALL-DB · TOP 10 AIRCRAFT"
+#~ msgstr "全DB · 機体 TOP 10"
+
+#~ msgid "FIRST SEEN"
+#~ msgstr "初観測"
+
+#~ msgid "LAST SEEN"
+#~ msgstr "最終観測"
+
+#~ msgid "N"
+#~ msgstr "回"
+
+#~ msgid "unique ICAO"
+#~ msgstr "ユニーク ICAO"
+
+#~ msgid "ft"
+#~ msgstr "ft"
+
+#~ msgid "// no matches"
+#~ msgstr "// 該当する機体がありません"
+
+#~ msgid "SPEED · ALTITUDE PROFILE"
+#~ msgstr "速度・高度プロファイル"
+
+#~ msgid "pick pass"
+#~ msgstr "pass を選択"
+
+#~ msgid "ALT (ft)"
+#~ msgstr "高度 (ft)"
+
+#~ msgid "GS (kt)"
+#~ msgstr "速度 (kt)"
+
+#~ msgid "// no track points for this pass"
+#~ msgstr "// このpassのトラックデータがありません"

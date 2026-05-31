@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.site_title|default:"plane-history" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
+{% block radar_bg %}
+<canvas id="radar"></canvas>
+<div class="bg-vignette"></div>
+{% endblock %}
+
+{% block header_tools %}
+<input type="search" id="search" autocomplete="off">
+<input type="date" id="datePicker">
+{% endblock %}
+
+{% block content %}
+  <p class="page-subtitle" id="home-subtitle"></p>
+
+  <section class="recent-contacts">
+    <div class="group">
+      <div class="group-hdr">
+        <div class="left">
+          <span class="op"><span class="dot" style="margin-right:6px">◉</span>RECENT CONTACTS</span>
+        </div>
+        <div class="meta"><span id="rc-count">—</span></div>
+      </div>
+      <div class="group-body">
+        <div class="flight-cols">
+          <div>ICAO</div><div>OPERATOR</div><div>FLIGHT</div><div>REG</div>
+          <div>TYPE</div><div>ROUTE</div><div>ALTITUDE</div><div>LAST</div>
+        </div>
+        <div id="rc-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="lbl">TODAY</div><div class="val" id="s-today">—</div></div>
+    <div class="stat"><div class="lbl">OPERATORS</div><div class="val" id="s-ops">—</div></div>
+    <div class="stat"><div class="lbl">PEAK ALT</div><div class="val amber" id="s-peak">—</div></div>
+    <div class="stat"><div class="lbl">ROUTES</div><div class="val" id="s-routes">—</div></div>
+  </section>
+
+  <section class="groups" id="groups">
+    <div class="loading" id="groups-loading"></div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setTxt(id, key, fallback) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = T[key] || fallback || '';
+  }
+  function setAttr(id, attr, key) {
+    const el = document.getElementById(id);
+    if (el && T[key]) el.setAttribute(attr, T[key]);
+  }
+  setTxt('home-subtitle', 'home_subtitle');
+  setTxt('groups-loading', 'loading');
+  setAttr('search', 'placeholder', 'search_placeholder');
+</script>
+<script type="module" src="{% static 'js/home.js' %}"></script>
+{% endblock %}

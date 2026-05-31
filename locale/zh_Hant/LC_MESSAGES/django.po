@@ -1,0 +1,495 @@
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-31 14:41+0000\n"
+"Language: zh_Hant\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Aviation Radar · plane-history"
+msgstr "航空雷達 · plane-history"
+
+msgid "About · plane-history"
+msgstr "關於 · plane-history"
+
+msgid "System health"
+msgstr "系統健康"
+
+msgid "status"
+msgstr "狀態"
+
+msgid "loading…"
+msgstr "載入中…"
+
+msgid "receiver"
+msgstr "接收機"
+
+msgid "feed"
+msgstr "訊號"
+
+msgid "last update"
+msgstr "最後更新"
+
+msgid "records today"
+msgstr "今日記錄"
+
+msgid "uptime"
+msgstr "已運行"
+
+#~ msgid "Details · plane-history"
+#~ msgstr "詳細 · plane-history"
+
+#~ msgid "Sign in · plane-history"
+#~ msgstr "登入 · plane-history"
+
+#~ msgid "Change password · plane-history"
+#~ msgstr "改密碼 · plane-history"
+
+#~ msgid "DETAILS"
+#~ msgstr "詳細"
+
+#~ msgid "STATS"
+#~ msgstr "統計"
+
+#~ msgid "← HOME"
+#~ msgstr "← 首頁"
+
+#~ msgid "SIGN IN"
+#~ msgstr "登入"
+
+#~ msgid "SIGN OUT"
+#~ msgstr "登出"
+
+#~ msgid "ACCOUNT"
+#~ msgstr "改密碼"
+
+#~ msgid "Stats · plane-history"
+#~ msgstr "統計 · plane-history"
+
+#~ msgid "7-DAY · DAILY FLIGHTS"
+#~ msgstr "近 7 日 · 每日班次"
+
+#~ msgid "LAST 24H · FLIGHTS BY HOUR (JST)"
+#~ msgstr "近 24 小時 · 每小時班次 (JST)"
+
+#~ msgid "7-DAY · TOP 10 TYPES"
+#~ msgstr "近 7 日 · 機型 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 OPERATORS"
+#~ msgstr "近 7 日 · 航空公司 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 FROM"
+#~ msgstr "近 7 日 · 出發地 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 TO"
+#~ msgstr "近 7 日 · 目的地 TOP 10"
+
+#~ msgid "7-DAY · TOP 10 AIRCRAFT"
+#~ msgstr "近 7 日 · 機體 TOP 10"
+
+#~ msgid "ALL-TIME · TOP 10 AIRCRAFT"
+#~ msgstr "全 DB · 機體 TOP 10"
+
+#~ msgid "ALL-TIME · TOTAL FLIGHTS"
+#~ msgstr "全 DB · 累計班次"
+
+#~ msgid "ALL-TIME · TOTAL TYPES"
+#~ msgstr "全 DB · 機型總數"
+
+#~ msgid "ALL-TIME · PEAK ALT"
+#~ msgstr "全 DB · 最高高度"
+
+#~ msgid "ALL-TIME · BUSIEST HOUR (JST)"
+#~ msgstr "全 DB · 最繁忙時段 (JST)"
+
+#~ msgid "FLIGHTS"
+#~ msgstr "班次"
+
+#~ msgid "#"
+#~ msgstr "排名"
+
+#~ msgid "ABOUT"
+#~ msgstr "關於"
+
+#~ msgid "RECEIVER STATUS"
+#~ msgstr "接收機狀態"
+
+#~ msgid "ABOUT THIS PROJECT"
+#~ msgstr "關於呢個 project"
+
+#~ msgid "ARCHITECTURE"
+#~ msgstr "系統架構"
+
+#~ msgid "Source"
+#~ msgstr "來源"
+
+#~ msgid "OK"
+#~ msgstr "OK · 正常"
+
+#~ msgid "DELAYED"
+#~ msgstr "延遲"
+
+#~ msgid "DOWN"
+#~ msgstr "停咗"
+
+#~ msgid "{n} {u} ago"
+#~ msgstr "{n} {u}前"
+
+#~ msgid "sec"
+#~ msgstr "秒"
+
+#~ msgid "min"
+#~ msgstr "分"
+
+#~ msgid "hr"
+#~ msgstr "小時"
+
+#~ msgid "day"
+#~ msgstr "日"
+
+#~ msgid ""
+#~ "This project collects ADS-B aircraft data from a self-hosted receiver, "
+#~ "stores historical contacts in MySQL, and visualizes recent aircraft "
+#~ "activity through a Python backend (stdlib http.server) and web dashboard."
+#~ msgstr ""
+#~ "呢個 project 由自己 host 嘅 ADS-B 接收機收集飛機數據，將歷史接觸記錄存入 "
+#~ "MySQL，再透過 Python（stdlib http.server）後端 API 同 Web dashboard 將近期"
+#~ "飛機活動視覺化。"
+
+#~ msgid ""
+#~ "Personal ADS-B flight data dashboard powered by a self-hosted receiver in "
+#~ "Oku, Tokyo."
+#~ msgstr "由東京尾久自宅接收機收集飛機數據、記錄同視覺化嘅個人 project。"
+
+#~ msgid ""
+#~ "These statistics are calculated from historical aircraft contacts stored "
+#~ "in MySQL."
+#~ msgstr "呢啲統計係由 MySQL 入面儲存嘅歷史飛機接觸記錄計出嚟。"
+
+#~ msgid ""
+#~ "Search and filter historical aircraft contacts by operator, aircraft "
+#~ "type, route, country and altitude range."
+#~ msgstr ""
+#~ "可以按航空公司、機型、航線、國家同高度範圍搜尋同篩選歷史飛機接觸記錄。"
+
+#~ msgid "TECH STACK"
+#~ msgstr "技術 Stack"
+
+#~ msgid "SYSTEM HEALTH"
+#~ msgstr "系統健康"
+
+#~ msgid "Frontend"
+#~ msgstr "前端"
+
+#~ msgid "Backend"
+#~ msgstr "後端"
+
+#~ msgid "Database"
+#~ msgstr "資料庫"
+
+#~ msgid "Deployment"
+#~ msgstr "部署"
+
+#~ msgid "Notification"
+#~ msgstr "通知"
+
+#~ msgid "API"
+#~ msgstr "API"
+
+#~ msgid "MAP"
+#~ msgstr "地圖"
+
+#~ msgid "Live Map · plane-history"
+#~ msgstr "即時地圖 · plane-history"
+
+#~ msgid "LIVE MAP · NOW SCANNING"
+#~ msgstr "即時地圖 · 接收中"
+
+#~ msgid "aircraft"
+#~ msgstr "架"
+
+#~ msgid ""
+#~ "Aircraft currently picked up by the receiver, animated smoothly from "
+#~ "speed and heading (tar1090 live)."
+#~ msgstr ""
+#~ "顯示接收機而家即時捉到嘅飛機，按速度同航向平滑移動（tar1090 live）。"
+
+#~ msgid "// no aircraft with position right now"
+#~ msgstr "// 而家冇有定位嘅飛機"
+
+#~ msgid "ALT"
+#~ msgstr "高度"
+
+#~ msgid "SPD"
+#~ msgstr "速度"
+
+#~ msgid "REG"
+#~ msgstr "機牌"
+
+#~ msgid "TYPE"
+#~ msgstr "機型"
+
+#~ msgid "OPERATOR"
+#~ msgstr "航空公司"
+
+#~ msgid "COUNTRY"
+#~ msgstr "註冊國"
+
+#~ msgid "ROUTE"
+#~ msgstr "航線"
+
+#~ msgid "V/S"
+#~ msgstr "升降率"
+
+#~ msgid "HDG"
+#~ msgstr "航向"
+
+#~ msgid "VIEW ON FR24"
+#~ msgstr "FR24 詳情"
+
+#~ msgid "search flight / reg"
+#~ msgstr "搜尋 航班 / 機牌"
+
+#~ msgid "LOW"
+#~ msgstr "低"
+
+#~ msgid "HIGH"
+#~ msgstr "高"
+
+#~ msgid "EMERGENCY"
+#~ msgstr "緊急"
+
+#~ msgid "COVERAGE"
+#~ msgstr "覆蓋"
+
+#~ msgid "Aircraft · plane-history"
+#~ msgstr "機歷 · plane-history"
+
+#~ msgid "Total passes"
+#~ msgstr "經過次數"
+
+#~ msgid "Days seen"
+#~ msgstr "出現日數"
+
+#~ msgid "First seen"
+#~ msgstr "首次見到"
+
+#~ msgid "Last seen"
+#~ msgstr "最後見到"
+
+#~ msgid "Peak altitude"
+#~ msgstr "最高高度"
+
+#~ msgid "Max speed"
+#~ msgstr "最高速度"
+
+#~ msgid "RECENT · DAILY APPEARANCES"
+#~ msgstr "近期 · 每日出現"
+
+#~ msgid "PASS HISTORY"
+#~ msgstr "經過記錄"
+
+#~ msgid "DATE"
+#~ msgstr "日期"
+
+#~ msgid "TIME (JST)"
+#~ msgstr "時間 (JST)"
+
+#~ msgid "FLIGHT"
+#~ msgstr "航班"
+
+#~ msgid "FROM"
+#~ msgstr "出發"
+
+#~ msgid "TO"
+#~ msgstr "目的"
+
+#~ msgid "SAMPLES"
+#~ msgstr "samples"
+
+#~ msgid "// no records for this ICAO"
+#~ msgstr "// 冇呢個 ICAO 嘅記錄"
+
+#~ msgid "Coverage · plane-history"
+#~ msgstr "覆蓋 · plane-history"
+
+#~ msgid "RECEIVER COVERAGE · LAST {n}D (JST)"
+#~ msgstr "接收覆蓋 · 近 {n} 日 (JST)"
+
+#~ msgid "Max range"
+#~ msgstr "最遠接收距離"
+
+#~ msgid "Farthest aircraft"
+#~ msgstr "最遠嗰架機"
+
+#~ msgid "Aircraft with position"
+#~ msgstr "有定位嘅機數"
+
+#~ msgid ""
+#~ "Max reception distance per compass bearing. Receiver exact location "
+#~ "hidden — relative ranges only."
+#~ msgstr "每個方位收得到嘅最遠距離。唔顯示接收機確實位置，只係相對距離。"
+
+#~ msgid "// set receiver.lat / lon in config.json"
+#~ msgstr "// 請喺 config.json 填 receiver.lat / lon"
+
+#~ msgid "crunching… (heavy, hang on)"
+#~ msgstr "計緊…（幾重，等一陣）"
+
+#~ msgid "// no data today"
+#~ msgstr "// 今日未有資料"
+
+#~ msgid "▸  OPEN DETAILED VIEW  ▸"
+#~ msgstr "▸  開詳細表  ▸"
+
+#~ msgid "{day} JST · {total} aircraft · {ops} operators"
+#~ msgstr "{day} JST · {total} 架機 · {ops} 個營運商"
+
+#~ msgid "AIRCRAFT"
+#~ msgstr "AIRCRAFT"
+
+#~ msgid "Date"
+#~ msgstr "日期"
+
+#~ msgid "Sort"
+#~ msgstr "排序"
+
+#~ msgid "Country"
+#~ msgstr "國家"
+
+#~ msgid "Operator"
+#~ msgstr "營運商"
+
+#~ msgid "Type"
+#~ msgstr "機型"
+
+#~ msgid "From"
+#~ msgstr "由"
+
+#~ msgid "To"
+#~ msgstr "去"
+
+#~ msgid "all"
+#~ msgstr "全部"
+
+#~ msgid "Update"
+#~ msgstr "更新"
+
+#~ msgid "Day: {day} | Aircraft: {count} | Sort: {sort}"
+#~ msgstr "Day: {day} | Aircraft: {count} | Sort: {sort}"
+
+#~ msgid "Sign in to plane-history"
+#~ msgstr "登入 plane-history"
+
+#~ msgid "Username"
+#~ msgstr "Username"
+
+#~ msgid "Password"
+#~ msgstr "密碼"
+
+#~ msgid "Sign in"
+#~ msgstr "登入"
+
+#~ msgid "Wrong username or password"
+#~ msgstr "Username 或密碼錯誤"
+
+#~ msgid "← Back to home"
+#~ msgstr "← 返首頁"
+
+#~ msgid "Change password"
+#~ msgstr "改密碼"
+
+#~ msgid "Current password"
+#~ msgstr "而家嘅密碼"
+
+#~ msgid "New password"
+#~ msgstr "新密碼"
+
+#~ msgid "Confirm new password"
+#~ msgstr "再入一次"
+
+#~ msgid "Update password"
+#~ msgstr "更新密碼"
+
+#~ msgid "Current password is wrong"
+#~ msgstr "而家嘅密碼錯"
+
+#~ msgid "New passwords do not match"
+#~ msgstr "兩次新密碼唔一樣"
+
+#~ msgid "Password must be at least 6 characters"
+#~ msgstr "新密碼至少 6 個字"
+
+#~ msgid "✓ Password updated"
+#~ msgstr "✓ 密碼已更新"
+
+#~ msgid "/ to search"
+#~ msgstr "/ 搜尋"
+
+#~ msgid "LAST 30D · WEEKDAY × HOUR HEATMAP (JST)"
+#~ msgstr "近 30 日 · 星期 × 鐘數熱圖 (JST)"
+
+#~ msgid "MON"
+#~ msgstr "一"
+
+#~ msgid "TUE"
+#~ msgstr "二"
+
+#~ msgid "WED"
+#~ msgstr "三"
+
+#~ msgid "THU"
+#~ msgstr "四"
+
+#~ msgid "FRI"
+#~ msgstr "五"
+
+#~ msgid "SAT"
+#~ msgstr "六"
+
+#~ msgid "SUN"
+#~ msgstr "日"
+
+#~ msgid "CUMULATIVE UNIQUE ICAO"
+#~ msgstr "累計 unique ICAO"
+
+#~ msgid "RARE FINDS (1–2 PASSES ONLY)"
+#~ msgstr "罕見機 (得 1–2 次)"
+
+#~ msgid "ALL-DB · MAX ALT DISTRIBUTION"
+#~ msgstr "全 DB · 最高高度分佈"
+
+#~ msgid "ALL-DB · TOP 10 AIRCRAFT"
+#~ msgstr "全 DB · 機體 TOP 10"
+
+#~ msgid "FIRST SEEN"
+#~ msgstr "首見"
+
+#~ msgid "LAST SEEN"
+#~ msgstr "最後一次"
+
+#~ msgid "N"
+#~ msgstr "次"
+
+#~ msgid "unique ICAO"
+#~ msgstr "unique ICAO"
+
+#~ msgid "ft"
+#~ msgstr "ft"
+
+#~ msgid "// no matches"
+#~ msgstr "// 冇符合條件嘅機"
+
+#~ msgid "SPEED · ALTITUDE PROFILE"
+#~ msgstr "速度 · 高度 profile"
+
+#~ msgid "pick pass"
+#~ msgstr "揀 pass"
+
+#~ msgid "ALT (ft)"
+#~ msgstr "高度 (ft)"
+
+#~ msgid "GS (kt)"
+#~ msgstr "速度 (kt)"
+
+#~ msgid "// no track points for this pass"
+#~ msgstr "// 呢個 pass 冇 track 點"

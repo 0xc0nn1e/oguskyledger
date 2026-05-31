@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.stats_title|default:"統計 · plane-history" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/stats.css' %}">
+{% endblock %}
+
+{# 用 Three.js radar canvas 取代 base.html 預設嘅 .bg-vignette #}
+{% block radar_bg %}
+<canvas id="radar"></canvas>
+<div class="bg-vignette"></div>
+{% endblock %}
+
+{% block content %}
+  <p class="page-subtitle" id="stats-note"></p>
+
+  <section class="summary">
+    <div class="stat-big">
+      <div class="lbl" id="lbl-db-total"></div>
+      <div class="val" id="db-total">—</div>
+    </div>
+    <div class="stat-big">
+      <div class="lbl" id="lbl-db-types"></div>
+      <div class="val" id="db-types">—</div>
+    </div>
+    <div class="stat-big">
+      <div class="lbl" id="lbl-peak-alt"></div>
+      <div class="val" id="peak-alt">—</div>
+      <div class="sub" id="peak-alt-sub"></div>
+    </div>
+    <div class="stat-big">
+      <div class="lbl" id="lbl-busiest-hour"></div>
+      <div class="val" id="busiest-hour">—</div>
+      <div class="sub" id="busiest-hour-sub"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-hist"></span></div>
+    <div class="panel-body">
+      <div class="hist" id="hist"><div class="loading" id="loading-hist"></div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-24h-hist"></span></div>
+    <div class="panel-body">
+      <div class="hist hist24" id="hist24"><div class="loading" id="loading-hist24"></div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-heatmap"></span></div>
+    <div class="panel-body">
+      <div class="heatmap" id="heatmap"><div class="loading" id="loading-heatmap"></div></div>
+      <div class="heatmap-legend" id="heatmap-legend"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-curve"></span></div>
+    <div class="panel-body"><div class="curve-wrap" id="curve-wrap"><div class="loading" id="loading-curve"></div></div></div>
+  </section>
+
+  <div class="row-2col">
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-types"></span></div>
+      <div class="panel-body"><div class="top10" id="top-types"><div class="loading"></div></div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-ops"></span></div>
+      <div class="panel-body"><div class="top10" id="top-ops"><div class="loading"></div></div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-from"></span></div>
+      <div class="panel-body"><div class="top10" id="top-from"><div class="loading"></div></div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-to"></span></div>
+      <div class="panel-body"><div class="top10" id="top-to"><div class="loading"></div></div></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-icao"></span></div>
+    <div class="panel-body"><div class="top10 top10-icao" id="top-icao-7d"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-db-icao"></span></div>
+    <div class="panel-body"><div class="top10 top10-icao" id="top-icao-db"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-alt"></span></div>
+    <div class="panel-body"><div class="alt-wrap" id="alt-wrap"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-rare"></span></div>
+    <div class="panel-body" style="overflow-x:auto"><div id="rare-wrap"><div class="loading"></div></div></div>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // 用 T dict（由 base.html inline 注入）填 server-side static label
+  function setTxt(id, key, fallback) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = T[key] || fallback || '';
+  }
+  setTxt('stats-note', 'stats_note');
+  setTxt('lbl-db-total', 'stats_hdr_db_total');
+  setTxt('lbl-db-types', 'stats_hdr_db_types');
+  setTxt('lbl-peak-alt', 'stats_hdr_peak_alt');
+  setTxt('lbl-busiest-hour', 'stats_hdr_busiest_hour');
+  setTxt('hdr-7d-hist', 'stats_hdr_7d_hist');
+  setTxt('hdr-24h-hist', 'stats_hdr_24h_hist');
+  setTxt('hdr-heatmap', 'stats_hdr_heatmap');
+  setTxt('hdr-curve', 'discover_hdr_curve');
+  setTxt('hdr-7d-types', 'stats_hdr_7d_types');
+  setTxt('hdr-7d-ops', 'stats_hdr_7d_ops');
+  setTxt('hdr-7d-from', 'stats_hdr_7d_from');
+  setTxt('hdr-7d-to', 'stats_hdr_7d_to');
+  setTxt('hdr-7d-icao', 'stats_hdr_7d_icao');
+  setTxt('hdr-db-icao', 'stats_hdr_db_icao');
+  setTxt('hdr-alt', 'discover_hdr_alt');
+  setTxt('hdr-rare', 'discover_hdr_rare');
+  // loading 字串
+  document.querySelectorAll('.loading').forEach(el => { if (!el.textContent) el.textContent = T.loading || '読み込み中...'; });
+</script>
+<script type="module" src="{% static 'js/stats.js' %}"></script>
+{% endblock %}

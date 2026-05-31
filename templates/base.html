@@ -1,0 +1,125 @@
+{% load static i18n %}<!doctype html>
+<html lang="{{ request.LANGUAGE_CODE|default:'zh-Hant' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% trans "Aviation Radar · plane-history" %}{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  {% comment %}
+    Django JavaScript catalog：browser 由呢度攞 gettext() function。
+    必須喺 page-specific inline script + module 之前 load，後面 JS 可以直接 call gettext()。
+  {% endcomment %}
+  <script src="{% url 'javascript-catalog' %}"></script>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  {% block radar_bg %}<div class="bg-vignette"></div>{% endblock %}
+
+  {% comment %}
+     Frame：default `.container > .inner` 模式（normal pages）。
+     全屏 layout 嘅 page（例：/map 用 flex column）可以 override 個 block。
+     Header inline 喺度，唔用 include partial（nested block 由 child override 唔到）。
+  {% endcomment %}
+  {% block frame %}
+  <div class="container">
+    <div class="inner">
+      <header class="page-hdr">
+        <div class="hdr-row top">
+          <span><span class="dot">◉</span> LIVE · ADS-B · HOME RX</span>
+          <span id="date">— — —</span>
+        </div>
+        <div class="hdr-row main">
+          <h1 class="title"><a href="{% url 'home' %}">尾久 SKYLEDGER · TOKYO</a></h1>
+          <span class="clock" id="clock">--:--:--</span>
+        </div>
+        <div class="hdr-row sub">
+          <span class="coords">Powered by connie.hk</span>
+          <div class="tools">
+            {% block header_tools %}{% endblock %}
+            <div class="nav" id="nav"></div>
+          </div>
+        </div>
+      </header>
+
+      {% block content %}{% endblock %}
+
+      <footer class="page-footer">
+        尾久 SKYLEDGER · TOKYO<br>
+        <span style="color:var(--x-muted);font-size:8px;letter-spacing:2px">Powered by connie.hk</span>
+      </footer>
+    </div>
+  </div>
+  {% endblock %}
+
+  {# 共用 JS shell（clock / lang switch / nav build）。
+     過渡期：T dict 仲係由 view context 注入（view 入面 `t_dict_json`），
+     task #22 i18n migration 之後改用 Django JavaScriptCatalog。 #}
+  <script>
+    const T = {{ t_dict_json|default:'{}'|safe }};
+    const LANG = "{{ lang_code|default:'hk' }}";
+
+    const pad = n => String(n).padStart(2, '0');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function getJST() { const n = new Date(); return new Date(n.getTime() + 9*3600*1000); }
+    function updateClock() {
+      const j = getJST();
+      document.getElementById('clock').textContent =
+        `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:${pad(j.getUTCSeconds())} JPT`;
+      const wd = ['SUN','MON','TUE','WED','THU','FRI','SAT'][j.getUTCDay()];
+      document.getElementById('date').textContent =
+        `${j.getUTCFullYear()}.${pad(j.getUTCMonth()+1)}.${pad(j.getUTCDate())} · ${wd}`;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    // Lang switch set 兩個 cookie：
+    //   `django_language` — Django LocaleMiddleware 認嗰個（gettext 用，新 page）
+    //   `lang` — legacy STRINGS dict 同 PlaneHistoryBaseMixin 認嗰個（舊 page 仲未 swap）
+    // 過渡期兩個並存，舊新 page 都 work。Migration 完整之後可以剝走 legacy。
+    const LANG_TO_DJANGO = { jp:'ja', hk:'zh-hant', en:'en' };
+    function setLang(l) {
+      const djl = LANG_TO_DJANGO[l] || 'zh-hant';
+      document.cookie = `lang=${l}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      document.cookie = `django_language=${djl}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      location.reload();
+    }
+    window.setLang = setLang;
+
+    function langSwitchHTML() {
+      const labels = { jp:'JP', hk:'HK', en:'EN' };
+      return '<span class="lang-switch">' + ['jp','hk','en'].map(l =>
+        `<a href="#" onclick="setLang('${l}');return false" class="${l===LANG?'on':''}">${labels[l]}</a>`).join('') + '</span>';
+    }
+
+    async function renderNav() {
+      const nav = document.getElementById('nav');
+      const ls = langSwitchHTML();
+      const links = `<a href="/">${esc(T.link_back_home || 'HOME')}</a>`
+                  + `<a href="/map">${esc(T.nav_map || 'MAP')}</a>`
+                  + `<a href="/stats">${esc(T.nav_stats || 'STATS')}</a>`
+                  + `<a href="/coverage">${esc(T.nav_coverage || 'COVERAGE')}</a>`
+                  + `<a href="/details">${esc(T.nav_details || 'DETAILS')}</a>`;
+      try {
+        const me = await (await fetch('/api/me')).json();
+        if (me.username) {
+          nav.innerHTML = ls + links
+            + `<a href="/account">${esc(T.nav_account || 'ACCOUNT')}</a>`
+            + `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout || 'LOGOUT')}</button></form>`;
+        } else {
+          nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login || 'LOGIN')}</a>`;
+        }
+      } catch {
+        nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login || 'LOGIN')}</a>`;
+      }
+    }
+    renderNav();
+
+    function toJST(iso){ if(!iso) return null; const d=new Date(iso); return isNaN(d)?null:new Date(d.getTime()+9*3600*1000); }
+    function hm(iso){ const j=toJST(iso); return j ? pad(j.getUTCHours())+':'+pad(j.getUTCMinutes()) : '—'; }
+    function ymd(iso){ const j=toJST(iso); return j ? j.getUTCFullYear()+'-'+pad(j.getUTCMonth()+1)+'-'+pad(j.getUTCDate()) : '—'; }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
