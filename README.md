@@ -1,6 +1,44 @@
-# plane-history
+# 尾久 SKYLEDGER · TOKYO
+
+東京・尾久の自宅受信機で取得した航空機データを記録・可視化する個人開発プロジェクトです。
+自宅に設置したADS-B受信機から航空機データを取得し、MySQLに履歴を保存。Django + DRF + gunicorn によるバックエンドAPIとWebダッシュボードで可視化、HKE便がエリアに入ったらリアルタイムでpush通知も送信します。
+
+https://flight.connie.hk/
+
+# 技術スタック
+- フロントエンド
+ HTML · CSS · vanilla JS · Three.js · Leaflet
+- バックエンド
+Python 3.13 · Django 5 · DRF · gunicorn
+- データベース
+MySQL · PyMySQL
+- 受信機
+Raspberry Pi · dump1090 / readsb / tar1090
+- デプロイ
+macOS launchd · gunicorn · whitenoise
+- 通知
+push.connie.hk (HMAC)
+
 
 本地 ADS-B 飛機經過記錄器（receiver mode）+ Django web stack。
+
+## screenshot
+*FrontPage*
+
+![Demo screenshot](https://flight.connie.hk/static/img/screenshot_01_resize.png)
+
+*Map*
+
+![Demo screenshot](https://flight.connie.hk/static/img/screenshot_02_resize.png)
+
+*rawdata*
+
+![Demo screenshot](https://flight.connie.hk/static/img/screenshot_03_resize.png)
+
+
+*stats*
+
+![Demo screenshot](https://flight.connie.hk/static/img/screenshot_04_resize.png)
 
 ## 功能
 
@@ -37,7 +75,10 @@
 ```bash
 cp src/config.example.json src/config.json
 # 改 src/config.json：source.aircraft_json_url（真 tar1090 URL）、
-#                     mysql.password、push.secret
+#                     mysql.password、push.secret、
+#                     django.secret_key（用下面 command 隨機生成）、
+#                     django.debug、django.allowed_hosts
+.venv/bin/python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
 ## Quick start

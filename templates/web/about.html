@@ -1,44 +1,135 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load static %}
 
-{% block title %}{% trans "About · plane-history" %}{% endblock %}
+{% block title %}{{ T.about_title|default:"關於 · plane-history" }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/about.css' %}">
+{% endblock %}
+
+{% block radar_bg %}
+<canvas id="radar"></canvas>
+<div class="bg-vignette"></div>
+{% endblock %}
 
 {% block content %}
-  <section class="panel">
-    <div class="panel-hdr"><span class="diamond">◆</span>{% trans "System health" %}</div>
-    <div class="panel-body">
-      <div class="kv" id="about-kv">
-        <div class="row"><div class="k">{% trans "status" %}</div><div class="v" id="about-status">{% trans "loading…" %}</div></div>
-        <div class="row"><div class="k">{% trans "receiver" %}</div><div class="v" id="about-receiver">—</div></div>
-        <div class="row"><div class="k">{% trans "feed" %}</div><div class="v" id="about-feed">—</div></div>
-        <div class="row"><div class="k">{% trans "last update" %}</div><div class="v" id="about-last">—</div></div>
-        <div class="row"><div class="k">{% trans "records today" %}</div><div class="v" id="about-today">—</div></div>
-        <div class="row"><div class="k">{% trans "uptime" %}</div><div class="v" id="about-uptime">—</div></div>
+  <div class="about-grid">
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-receiver"></span></div>
+      <div class="panel-body">
+        <div class="kv">
+          <div class="row"><div class="k" id="lbl-receiver"></div><div class="v" id="ab-receiver">—</div></div>
+          <div class="row"><div class="k" id="lbl-source"></div><div class="v" id="ab-source">—</div></div>
+          <div class="row"><div class="k" id="lbl-uptime"></div><div class="v" id="ab-uptime">—</div></div>
+          <div class="row"><div class="k" id="lbl-last-update"></div><div class="v" id="ab-last">—</div></div>
+          <div class="row"><div class="k" id="lbl-feed"></div><div class="v"><span class="feed" id="ab-feed"><span class="dot"></span><span id="ab-feed-txt">—</span></span></div></div>
+        </div>
       </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-project"></span></div>
+      <div class="panel-body">
+        <p class="desc" id="about-desc"></p>
+        <div class="tags">
+          <span>self-hosted</span><span>data ingestion</span><span>Django</span><span>DRF</span>
+          <span>MySQL</span><span>dashboard</span><span>monitoring</span><span>real-time</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="about-grid">
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-health"></span></div>
+      <div class="panel-body">
+        <div class="kv">
+          <div class="row"><div class="k" id="lbl-api"></div><div class="v"><span class="feed" id="hl-api"><span class="dot"></span><span id="hl-api-txt">—</span></span></div></div>
+          <div class="row"><div class="k" id="lbl-db"></div><div class="v"><span class="feed" id="hl-db"><span class="dot"></span><span id="hl-db-txt">—</span></span></div></div>
+          <div class="row"><div class="k" id="lbl-last-update2"></div><div class="v" id="hl-last">—</div></div>
+          <div class="row"><div class="k" id="lbl-records-today"></div><div class="v" id="hl-records">—</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-stack"></span></div>
+      <div class="panel-body">
+        <div class="kv">
+          <div class="row"><div class="k" id="stack-frontend"></div><div class="v">HTML · CSS · vanilla JS · Three.js · Leaflet</div></div>
+          <div class="row"><div class="k" id="stack-backend"></div><div class="v">Python 3.13 · Django 5 · DRF · gunicorn</div></div>
+          <div class="row"><div class="k" id="stack-db"></div><div class="v">MySQL · PyMySQL</div></div>
+          <div class="row"><div class="k" id="stack-receiver"></div><div class="v">Raspberry Pi · dump1090 / readsb / tar1090</div></div>
+          <div class="row"><div class="k" id="stack-deploy"></div><div class="v">macOS launchd · gunicorn · whitenoise</div></div>
+          <div class="row"><div class="k" id="stack-notify"></div><div class="v">push.connie.hk (HMAC)</div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-arch"></span></div>
+    <div class="panel-body">
+<pre class="arch">       (( o ))  ANTENNA · 1090 MHz
+           │
+           ▼
+   ┌──────────────────────────┐
+   │ Raspberry Pi             │
+   │ dump1090 / readsb        │
+   │ tar1090  →  JSON feed    │
+   └──────────────────────────┘
+           │   HTTP poll · 60s
+           ▼
+   ┌──────────────────────────┐
+   │ launchd · 4 plist        │
+   │  · ingest_pipeline (60s) │
+   │  · browser_bulk (180s)   │
+   │  · healthcheck (900s)    │
+   │  · gunicorn web          │
+   └──────────────────────────┘
+           │
+           ├──────────────►  MySQL  · sightings / passes / registry / snapshots
+           │
+           ├──────────────►  push.connie.hk · HKE confirm + feed watchdog
+           │
+           ▼
+   ┌──────────────────────────┐
+   │ Django · DRF · whitenoise │
+   │ / · /stats · /details    │
+   │ /map · /aircraft/&lt;hex&gt;/  │
+   │ /about                   │
+   └──────────────────────────┘</pre>
     </div>
   </section>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-  // gettext() 由 base.html 嘅 jsi18n catalog 提供（global function）。
-  // 同 base.html 入面舊 `const T = ...` 可以共存：呢個 page 用 gettext，舊 page 仍 use T。
-  async function loadAbout() {
-    try {
-      const r = await fetch('/api/about').then(x => x.json());
-      document.getElementById('about-status').textContent = gettext('ok');
-      document.getElementById('about-receiver').textContent = r.receiver || '—';
-      document.getElementById('about-feed').textContent = r.feed_health || '—';
-      document.getElementById('about-last').textContent =
-        r.last_update_secs == null ? '—' : interpolate(gettext('%(s)ss ago'), {s: r.last_update_secs}, true);
-      document.getElementById('about-today').textContent = r.records_today ?? '—';
-      const u = r.uptime_secs || 0;
-      const h = Math.floor(u/3600), m = Math.floor((u%3600)/60), s = u%60;
-      document.getElementById('about-uptime').textContent = `${h}h ${m}m ${s}s`;
-    } catch (e) {
-      document.getElementById('about-status').textContent = 'error: ' + String(e);
-    }
+  function setTxt(id, key, fallback) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = T[key] || fallback || '';
   }
-  loadAbout();
+  setTxt('hdr-receiver', 'about_hdr_receiver');
+  setTxt('hdr-project', 'about_hdr_project');
+  setTxt('hdr-health', 'about_hdr_health');
+  setTxt('hdr-stack', 'about_hdr_stack');
+  setTxt('hdr-arch', 'about_hdr_arch');
+  setTxt('lbl-receiver', 'about_lbl_receiver');
+  setTxt('lbl-source', 'about_lbl_source');
+  setTxt('lbl-uptime', 'about_lbl_uptime');
+  setTxt('lbl-last-update', 'about_lbl_last_update');
+  setTxt('lbl-last-update2', 'about_lbl_last_update');
+  setTxt('lbl-feed', 'about_lbl_feed');
+  setTxt('lbl-api', 'about_lbl_api');
+  setTxt('lbl-db', 'about_lbl_db');
+  setTxt('lbl-records-today', 'about_lbl_records_today');
+  setTxt('stack-frontend', 'about_stack_frontend');
+  setTxt('stack-backend', 'about_stack_backend');
+  setTxt('stack-db', 'about_stack_db');
+  setTxt('stack-receiver', 'about_stack_receiver');
+  setTxt('stack-deploy', 'about_stack_deploy');
+  setTxt('stack-notify', 'about_stack_notify');
+  setTxt('about-desc', 'about_desc');
 </script>
+<script type="module" src="{% static 'js/about.js' %}"></script>
 {% endblock %}

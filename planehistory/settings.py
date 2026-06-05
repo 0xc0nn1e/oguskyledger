@@ -1,16 +1,14 @@
 """
 Django settings for planehistory project.
 
-Plane-history ADS-B 接收記錄器：原本純 stdlib（http.server + pymysql），
-而家 migrate 緊去 Django（learning project）。設定保留原本 src/config.json
-（mysql + push secret + receiver info），SECRET_KEY / DEBUG / ALLOWED_HOSTS
-則由 .env 經 django-environ 讀。
+Plane-history ADS-B 接收記錄器（learning Django project）。
+所有 secret 集中喺 src/config.json：mysql / push / receiver info
++ django block（SECRET_KEY / DEBUG / ALLOWED_HOSTS）。
 """
 
 import json
 from pathlib import Path
 
-import environ
 import pymysql
 
 # Django 預設 mysqlclient driver；用 PyMySQL 取代避免裝 mysql-connector C ext
@@ -18,22 +16,13 @@ pymysql.install_as_MySQLdb()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env(
-    DEBUG=(bool, False),
-    ALLOWED_HOSTS=(list, ['127.0.0.1', 'localhost']),
-)
-environ.Env.read_env(BASE_DIR / '.env')
-
-SECRET_KEY = env('SECRET_KEY')
-DEBUG = env('DEBUG')
-ALLOWED_HOSTS = env('ALLOWED_HOSTS')
-
-# plane-history domain config（tar1090 URL、push.secret、receiver info）由 config.json load
-# 唔放 .env 因為係 nested structured config。code 用：
-#   from django.conf import settings
-#   settings.PLANE_HISTORY['push']['secret']
 with open(BASE_DIR / 'src' / 'config.json', encoding='utf-8') as _f:
     PLANE_HISTORY = json.load(_f)
+
+_django = PLANE_HISTORY['django']
+SECRET_KEY = _django['secret_key']
+DEBUG = bool(_django.get('debug', False))
+ALLOWED_HOSTS = list(_django.get('allowed_hosts', ['127.0.0.1', 'localhost']))
 
 
 INSTALLED_APPS = [

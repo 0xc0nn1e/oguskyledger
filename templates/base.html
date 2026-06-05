@@ -98,7 +98,8 @@
       const links = `<a href="/">${esc(T.link_back_home || 'HOME')}</a>`
                   + `<a href="/map">${esc(T.nav_map || 'MAP')}</a>`
                   + `<a href="/stats">${esc(T.nav_stats || 'STATS')}</a>`
-                  + `<a href="/details">${esc(T.nav_details || 'DETAILS')}</a>`;
+                  + `<a href="/details">${esc(T.nav_details || 'DETAILS')}</a>`
+                  + `<a href="/about">${esc(T.nav_about || 'ABOUT')}</a>`;
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {

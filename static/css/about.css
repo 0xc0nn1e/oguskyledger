@@ -1,0 +1,49 @@
+/* /about page — 由舊 ABOUT_HTML inline <style> 抽出。
+   5 個 panel：Receiver Status / Project / Health / Stack / Architecture diagram。 */
+
+#radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
+.bg-vignette {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 35%, rgba(5,10,13,0.85) 95%);
+}
+
+:root { --warn:#ff7a59; --warn-light:#ff9a80; }
+
+.about-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+.about-grid section.panel { margin-bottom:18px; }
+
+/* receiver / health kv */
+.kv .row { grid-template-columns:150px 1fr; padding:10px 0; font-size:12px; }
+.kv .v { letter-spacing:0.5px; }
+
+/* feed status pill — 顏色 by status (ok/stale/down) */
+.feed { display:inline-flex; align-items:center; gap:8px; letter-spacing:1.5px; }
+.feed .dot { width:8px; height:8px; border-radius:50%; display:inline-block; background:var(--x-muted); }
+.feed.ok { color:var(--mint); }
+.feed.ok .dot { background:var(--mint); box-shadow:0 0 8px var(--mint); animation:blink 2s infinite; }
+.feed.stale { color:var(--amber); }
+.feed.stale .dot { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+.feed.down { color:var(--warn-light); }
+.feed.down .dot { background:var(--warn); box-shadow:0 0 8px var(--warn); }
+
+/* project description + tag pills */
+.desc { font-size:13px; line-height:1.95; color:var(--mint-light); letter-spacing:0.4px; margin:2px 0 0; }
+.tags { display:flex; flex-wrap:wrap; gap:7px; margin-top:18px; }
+.tags span {
+  font-size:10px; letter-spacing:1px; color:var(--mint);
+  border:var(--border); border-radius:999px; padding:5px 11px;
+  background:rgba(127,255,212,0.06);
+}
+
+/* architecture ASCII diagram */
+.arch {
+  margin:0; overflow-x:auto; font-size:12.5px; line-height:1.5;
+  color:var(--mint); white-space:pre; letter-spacing:0;
+  font-family:'SF Mono','Menlo','Courier New',monospace;
+}
+
+@media (max-width:700px) {
+  .about-grid { grid-template-columns:1fr; gap:0; }
+  .kv .row { grid-template-columns:120px 1fr; }
+  .arch { font-size:10px; line-height:1.45; }
+}
