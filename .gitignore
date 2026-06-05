@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# venv
+.venv/
+venv/
+env/
+
+# Test / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Build / dist
+build/
+dist/
+
+# Django
+staticfiles/
+media/
+db.sqlite3
+local_settings.py
+
+# Secrets / 配置：真值放 src/config.json，repo 只 commit src/config.example.json
+.env
+.env.*
+src/config.json
+
+# Runtime data（log / err / sqlite snapshot 等）
+data/
+
+# Launchd plist：含絕對路徑 + uid，每部機自己有
+*.plist
+
+# Playwright cache（browser_bulk_backfill 用）
+.playwright-cache/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.tmp
+*.bak
+*.local
+node_modules/
