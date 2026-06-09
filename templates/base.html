@@ -52,9 +52,11 @@
   </div>
   {% endblock %}
 
-  {# 共用 JS shell（clock / lang switch / nav build）。
-     過渡期：T dict 仲係由 view context 注入（view 入面 `t_dict_json`），
-     task #22 i18n migration 之後改用 Django JavaScriptCatalog。 #}
+  {% comment %}
+    共用 JS shell（clock / lang switch / nav build）。
+    過渡期：T dict 仲係由 view context 注入（view 入面 `t_dict_json`），
+    task #22 i18n migration 之後改用 Django JavaScriptCatalog。
+  {% endcomment %}
   <script>
     const T = {{ t_dict_json|default:'{}'|safe }};
     const LANG = "{{ lang_code|default:'hk' }}";

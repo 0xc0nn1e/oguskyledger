@@ -8,8 +8,10 @@
 <link rel="stylesheet" href="{% static 'css/map.css' %}">
 {% endblock %}
 
-{# Map page 全屏 flex column，唔用 base.html default .container > .inner frame。
-   Header inline（duplicate base.html 嘅 markup，因為 nested layout 唔同）。 #}
+{% comment %}
+  Map page 全屏 flex column，唔用 base.html default .container > .inner frame。
+  Header inline（duplicate base.html 嘅 markup，因為 nested layout 唔同）。
+{% endcomment %}
 {% block radar_bg %}{% endblock %}
 {% block frame %}
 <div class="wrap">
