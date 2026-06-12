@@ -153,6 +153,16 @@ const calendarDays = document.getElementById('calendarDays');
 const calendarPrev = document.getElementById('calendarPrev');
 const calendarNext = document.getElementById('calendarNext');
 const calendarToday = document.getElementById('calendarToday');
+// calendar label i18n——template 入面係英文 fallback，呢度按語言填
+if (T.cal_weekdays) {
+  const wd = T.cal_weekdays.split(',');
+  document.querySelectorAll('.calendar-weekdays span').forEach((el, i) => { if (wd[i]) el.textContent = wd[i]; });
+}
+if (T.cal_today) calendarToday.textContent = T.cal_today;
+if (T.cal_date_lbl) datePicker.dataset.label = T.cal_date_lbl;
+if (T.cal_aria_choose) calendarPopover.setAttribute('aria-label', T.cal_aria_choose);
+if (T.cal_aria_prev) calendarPrev.setAttribute('aria-label', T.cal_aria_prev);
+if (T.cal_aria_next) calendarNext.setAttribute('aria-label', T.cal_aria_next);
 let currentDay = todayStr;
 let calendarView = { ...dateParts(todayStr) };
 dateValue.textContent = displayDate(currentDay);
