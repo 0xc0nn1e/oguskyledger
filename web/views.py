@@ -13,7 +13,7 @@ import json
 from django.conf import settings
 from django.views.generic import TemplateView
 
-from ._legacy_strings import LANGS, STRINGS
+from ._legacy_strings import STRINGS
 
 
 class PlaneHistoryBaseMixin:
@@ -24,8 +24,9 @@ class PlaneHistoryBaseMixin:
     """
 
     def get_lang(self):
-        lang = self.request.COOKIES.get('lang', '')
-        return lang if lang in LANGS else 'hk'
+        # 同 context processor 共用一條判定鏈，普通 page 同 auth page 永遠一致
+        from .context_processors import resolve_lang
+        return resolve_lang(self.request)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

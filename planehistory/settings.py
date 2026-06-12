@@ -54,6 +54,8 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # 要喺 LocaleMiddleware 之前：將 legacy `lang` cookie 補做 django_language
+    'web.middleware.LegacyLangCookieMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -75,6 +77,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.i18n',
+                # 所有 page（包括 django.contrib.auth 嗰啲）都有 lang_code / t_dict_json
+                'web.context_processors.lang',
             ],
         },
     },
