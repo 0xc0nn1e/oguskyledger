@@ -21,6 +21,9 @@ class AircraftRegistryCache(models.Model):
     from_airport = models.CharField(max_length=64, blank=True, null=True)
     to_airport = models.CharField(max_length=64, blank=True, null=True)
     hke_notified_at = models.CharField(max_length=40, blank=True, null=True)
+    # HKE push 失敗重試 state（per JST 日封頂重試，成功 / 跨日 reset）
+    hke_push_failed_at = models.CharField(max_length=40, blank=True, null=True)
+    hke_push_fail_count = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'aircraft_registry_cache'

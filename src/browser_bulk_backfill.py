@@ -42,6 +42,15 @@ if 'hke_notified_at' not in column_set(conn, 'aircraft_registry_cache'):
     cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN hke_notified_at VARCHAR(40)")
     conn.commit()
 
+# push 失敗重試計數（per JST 日，封頂 HKE_PUSH_MAX_RETRY 次），
+# 防止「push 送到但 response 失敗」嘅情況無限重複轟炸
+if 'hke_push_failed_at' not in column_set(conn, 'aircraft_registry_cache'):
+    cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN hke_push_failed_at VARCHAR(40)")
+    cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN hke_push_fail_count INT NOT NULL DEFAULT 0")
+    conn.commit()
+
+HKE_PUSH_MAX_RETRY = 3
+
 # snapshots 表：per-(icao, callsign) 嘅 route 史，俾 build_passes 揾返 per-pass route
 cur.execute('''
     CREATE TABLE IF NOT EXISTS aircraft_route_snapshots (
@@ -79,6 +88,10 @@ hexes = [r[0].lower() for r in cur.fetchall()]
 updated = 0
 checked = 0
 errors = 0
+# 連續 error（多數係接收機頁面 goto timeout）去到上限就提早收工，
+# 唔好成個 run 逐架機白等 15 秒 timeout 拖成粒鐘
+MAX_CONSECUTIVE_ERRORS = 5
+consecutive_errors = 0
 start = datetime.now(timezone.utc).isoformat()
 log_line({'event': 'start', 'count': len(hexes), 'at': start})
 with sync_playwright() as p:
@@ -131,6 +144,9 @@ with sync_playwright() as p:
                         break
             operator = None
             should_fetch_fr24_meta = (not fr24_id) or (not from_airport) or (not to_airport)
+            # goto timeout 會拋 exception，page 一定要喺 finally 閂返，
+            # 否則每次 error 漏一個 renderer process，堆落去會食爆 RAM
+            search_page = None
             try:
                 search_page = browser.new_page()
                 search_page.goto(f'https://www.flightradar24.com/v1/search/web/find?query={hex.upper()}&limit=50', wait_until='domcontentloaded', timeout=15000)
@@ -142,9 +158,14 @@ with sync_playwright() as p:
                     if item.get('type') == 'aircraft' and str(detail.get('hex', '')).lower() == hex.lower():
                         fr24_id = item.get('id')
                         break
-                search_page.close()
             except Exception as e:
                 log_line({'event': 'fr24_search_error', 'icao': hex, 'error': str(e)})
+            finally:
+                if search_page is not None:
+                    try:
+                        search_page.close()
+                    except Exception:
+                        pass
             last_seen_older_than_30m = False
             cur.execute("SELECT MAX(seen_at) FROM sightings_raw WHERE icao = %s", (hex,))
             last_seen_row = cur.fetchone()
@@ -156,6 +177,7 @@ with sync_playwright() as p:
                     last_seen_older_than_30m = False
 
             if reg and reg != 'n/a' and (last_seen_older_than_30m or should_fetch_fr24_meta):
+                fr24_page = None
                 try:
                     fr24_page = browser.new_page()
                     fr24_page.goto(f'https://www.flightradar24.com/data/aircraft/{reg.lower()}', wait_until='domcontentloaded', timeout=15000)
@@ -191,9 +213,14 @@ with sync_playwright() as p:
                                     live_flight = None
                     if live_flight:
                         fr24_id = live_flight
-                    fr24_page.close()
                 except Exception as e:
                     log_line({'event': 'operator_lookup_error', 'icao': hex, 'registration': reg, 'error': str(e)})
+                finally:
+                    if fr24_page is not None:
+                        try:
+                            fr24_page.close()
+                        except Exception:
+                            pass
 
             if reg and reg != 'n/a':
                 if country == 'Japan': country = '日本'
@@ -261,7 +288,7 @@ with sync_playwright() as p:
                         log_line({'event': 'push_hke_wait_callsign', 'icao': hex, 'registration': reg, 'operator': operator, 'last_callsign': callsign})
                     else:
                         today_jst = datetime.now(JST).strftime('%Y-%m-%d')
-                        cur.execute("SELECT hke_notified_at FROM aircraft_registry_cache WHERE icao = %s", (hex,))
+                        cur.execute("SELECT hke_notified_at, hke_push_failed_at, hke_push_fail_count FROM aircraft_registry_cache WHERE icao = %s", (hex,))
                         notify_row = cur.fetchone()
                         already_notified_today = False
                         last_notified_at = notify_row[0] if notify_row and notify_row[0] else None
@@ -271,12 +298,26 @@ with sync_playwright() as p:
                                 already_notified_today = (last_notified_jst == today_jst)
                             except Exception:
                                 already_notified_today = False
-                        if not already_notified_today:
+                        # 失敗計數淨計今日 JST，舊嘅當 0（跨日自動 reset）
+                        fail_count_today = 0
+                        if notify_row and notify_row[1] and notify_row[2]:
+                            try:
+                                failed_jst = datetime.fromisoformat(notify_row[1]).astimezone(JST).strftime('%Y-%m-%d')
+                                if failed_jst == today_jst:
+                                    fail_count_today = notify_row[2]
+                            except Exception:
+                                fail_count_today = 0
+                        if not already_notified_today and fail_count_today < HKE_PUSH_MAX_RETRY:
                             msg = f"HKE confirm: {callsign} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
                             status = send_push(push_secret, msg)
-                            cur.execute("UPDATE aircraft_registry_cache SET hke_notified_at = %s WHERE icao = %s", (now_iso, hex))
-                            log_line({'event': 'push_hke_confirm', 'icao': hex, 'flight_code': callsign, 'registration': reg, 'from_airport': from_airport, 'to_airport': to_airport, 'status': status, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
-                        else:
+                            # 送到（2xx）先寫 hke_notified_at，否則重試（封頂每日 HKE_PUSH_MAX_RETRY 次，同 ingest.py 一致）
+                            if status and 200 <= status < 300:
+                                cur.execute("UPDATE aircraft_registry_cache SET hke_notified_at = %s, hke_push_failed_at = NULL, hke_push_fail_count = 0 WHERE icao = %s", (now_iso, hex))
+                                log_line({'event': 'push_hke_confirm', 'icao': hex, 'flight_code': callsign, 'registration': reg, 'from_airport': from_airport, 'to_airport': to_airport, 'status': status, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
+                            else:
+                                cur.execute("UPDATE aircraft_registry_cache SET hke_push_failed_at = %s, hke_push_fail_count = %s WHERE icao = %s", (now_iso, fail_count_today + 1, hex))
+                                log_line({'event': 'push_hke_failed', 'icao': hex, 'flight_code': callsign, 'registration': reg, 'status': status, 'attempt': fail_count_today + 1, 'max_retry': HKE_PUSH_MAX_RETRY})
+                        elif already_notified_today:
                             log_line({'event': 'push_hke_skipped_already_notified', 'icao': hex, 'flight_code': callsign, 'registration': reg, 'last_notified_at': last_notified_at, 'today_jst': today_jst})
 
                 conn.commit()
@@ -284,9 +325,15 @@ with sync_playwright() as p:
                 log_line({'event': 'updated', 'icao': hex, 'registration': reg, 'country': country, 'aircraft_type': aircraft_type or None, 'operator': operator, 'fr24_id': fr24_id, 'from_airport': from_airport, 'to_airport': to_airport, 'live_flight': live_flight})
             else:
                 log_line({'event': 'skip', 'icao': hex, 'reason': 'n/a'})
+            consecutive_errors = 0
         except Exception as e:
             errors += 1
+            consecutive_errors += 1
             log_line({'event': 'error', 'icao': hex, 'error': str(e)})
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                # 接收機頁面好可能成個唔響應，剩低嘅留返下個 cycle（180 秒後）再試
+                log_line({'event': 'abort_consecutive_errors', 'consecutive': consecutive_errors, 'remaining_hexes': len(hexes) - checked})
+                break
     browser.close()
 conn.commit()
 start_utc, end_utc = jst_today_utc_range()

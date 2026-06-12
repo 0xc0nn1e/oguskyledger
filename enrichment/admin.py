@@ -22,7 +22,8 @@ class AircraftRegistryCacheAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     # icao 係 PK + ingest pipeline 認得，唔可以改；同 hke_notified_at 防意外 re-push
-    readonly_fields = ('icao', 'last_lookup_at', 'lookup_source', 'fr24_id', 'hke_notified_at')
+    readonly_fields = ('icao', 'last_lookup_at', 'lookup_source', 'fr24_id', 'hke_notified_at',
+                       'hke_push_failed_at', 'hke_push_fail_count')
 
     fieldsets = (
         ('機體 identifier', {
@@ -35,8 +36,10 @@ class AircraftRegistryCacheAdmin(admin.ModelAdmin):
             'fields': ('from_airport', 'to_airport', 'fr24_id'),
         }),
         ('Lookup metadata', {
-            'fields': ('lookup_source', 'last_lookup_at', 'hke_notified_at'),
-            'description': '`hke_notified_at` readonly：reset 返 NULL 會令今日重複 push HKE notification。',
+            'fields': ('lookup_source', 'last_lookup_at', 'hke_notified_at',
+                       'hke_push_failed_at', 'hke_push_fail_count'),
+            'description': '`hke_notified_at` readonly：reset 返 NULL 會令今日重複 push HKE notification。'
+                           '`hke_push_*` 係重試 state，亂改會擾亂每日封頂邏輯。',
         }),
     )
 

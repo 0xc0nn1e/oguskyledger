@@ -13,6 +13,9 @@ CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
 
 RECEIVER_NAME = CONFIG['receiver']['name']
 SOURCE_NAME = CONFIG['source']['name']
+
+# HKE push 失敗每日最多重試咁多次（防止「送到但 response 失敗」無限重複轟炸）
+HKE_PUSH_MAX_RETRY = 3
 SOURCE_URL = CONFIG['source']['aircraft_json_url']
 
 JST = timezone(timedelta(hours=9))
@@ -63,7 +66,7 @@ def ingest_once():
             is_hke = bool(flight and (flight.startswith('HKE') or flight.startswith('UO')))
             if is_hke:
                 cur.execute(
-                    "SELECT registration, from_airport, to_airport, hke_notified_at FROM aircraft_registry_cache WHERE icao = %s",
+                    "SELECT registration, from_airport, to_airport, hke_notified_at, hke_push_failed_at, hke_push_fail_count FROM aircraft_registry_cache WHERE icao = %s",
                     (icao,),
                 )
                 reg_row = cur.fetchone()
@@ -71,6 +74,8 @@ def ingest_once():
                 from_airport = reg_row[1] if reg_row and reg_row[1] else None
                 to_airport = reg_row[2] if reg_row and reg_row[2] else None
                 hke_notified_at = reg_row[3] if reg_row and reg_row[3] else None
+                hke_push_failed_at = reg_row[4] if reg_row and reg_row[4] else None
+                hke_push_fail_count = reg_row[5] if reg_row and reg_row[5] else 0
 
                 if not registration:
                     # callsign 廣播咗 HKE/UO，但 reg 仲未 enrich → skip，等下個 cycle 補到再 push
@@ -87,7 +92,16 @@ def ingest_once():
                             already_notified_today = (last_jst == today_jst)
                         except (ValueError, TypeError):
                             already_notified_today = False
-                    if not already_notified_today:
+                    # 失敗計數淨計今日 JST，舊嘅當 0（跨日自動 reset）
+                    fail_count_today = 0
+                    if hke_push_failed_at and hke_push_fail_count:
+                        try:
+                            failed_jst = datetime.fromisoformat(hke_push_failed_at).astimezone(JST).strftime('%Y-%m-%d')
+                            if failed_jst == today_jst:
+                                fail_count_today = hke_push_fail_count
+                        except (ValueError, TypeError):
+                            fail_count_today = 0
+                    if not already_notified_today and fail_count_today < HKE_PUSH_MAX_RETRY:
                         # 格式：HKE confirm: HKE625 | B-LEL | Tokyo (HND)>Hong Kong (HKG)
                         flight_label = flight.strip()
                         parts = [f"HKE confirm: {flight_label}", registration]
@@ -100,19 +114,36 @@ def ingest_once():
 
                         msg = " | ".join(parts) + f"\nhttps://www.flightradar24.com/data/aircraft/{registration.lower()}"
                         status = send_push(push_secret, msg)
-                        cur.execute(
-                            "UPDATE aircraft_registry_cache SET hke_notified_at = %s WHERE icao = %s",
-                            (now, icao),
-                        )
-                        print(json.dumps({
-                            'event': 'push_hke_confirm',
-                            'icao': icao,
-                            'flight': flight,
-                            'registration': registration,
-                            'from_airport': from_airport,
-                            'to_airport': to_airport,
-                            'status': status,
-                        }, ensure_ascii=False), flush=True)
+                        # 送到（2xx）先寫 hke_notified_at，否則重試
+                        # （封頂每日 HKE_PUSH_MAX_RETRY 次，唔好俾一次 timeout 收起成日通知）
+                        if status and 200 <= status < 300:
+                            cur.execute(
+                                "UPDATE aircraft_registry_cache SET hke_notified_at = %s, hke_push_failed_at = NULL, hke_push_fail_count = 0 WHERE icao = %s",
+                                (now, icao),
+                            )
+                            print(json.dumps({
+                                'event': 'push_hke_confirm',
+                                'icao': icao,
+                                'flight': flight,
+                                'registration': registration,
+                                'from_airport': from_airport,
+                                'to_airport': to_airport,
+                                'status': status,
+                            }, ensure_ascii=False), flush=True)
+                        else:
+                            cur.execute(
+                                "UPDATE aircraft_registry_cache SET hke_push_failed_at = %s, hke_push_fail_count = %s WHERE icao = %s",
+                                (now, fail_count_today + 1, icao),
+                            )
+                            print(json.dumps({
+                                'event': 'push_hke_failed',
+                                'icao': icao,
+                                'flight': flight,
+                                'registration': registration,
+                                'status': status,
+                                'attempt': fail_count_today + 1,
+                                'max_retry': HKE_PUSH_MAX_RETRY,
+                            }, ensure_ascii=False), flush=True)
 
         cur.execute(
             '''

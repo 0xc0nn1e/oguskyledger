@@ -41,7 +41,9 @@ DDL = [
       fr24_id          VARCHAR(64),
       from_airport     VARCHAR(64),
       to_airport       VARCHAR(64),
-      hke_notified_at  VARCHAR(40)
+      hke_notified_at  VARCHAR(40),
+      hke_push_failed_at VARCHAR(40),
+      hke_push_fail_count INT NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """

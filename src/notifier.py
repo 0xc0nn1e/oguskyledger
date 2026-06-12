@@ -27,7 +27,10 @@ def send_push(secret, msg):
     try:
         curl = subprocess.run(
             [
-                'curl', '-s', '-o', '/tmp/plane-history-push.out', '-w', '%{http_code}',
+                # --max-time 防 push server hang 死 caller（healthcheck_alert 等
+                # launchd job 係 serial，一 hang 成個 job 冇得郁）
+                'curl', '-s', '--max-time', '15',
+                '-o', '/tmp/plane-history-push.out', '-w', '%{http_code}',
                 url,
                 '-H', 'Content-Type: application/json',
                 '-H', f'X-Timestamp: {ts}',
@@ -38,6 +41,7 @@ def send_push(secret, msg):
             capture_output=True,
             text=True,
             check=True,
+            timeout=20,
         )
         return int(curl.stdout.strip())
     except Exception as e:
