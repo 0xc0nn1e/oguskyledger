@@ -4,6 +4,8 @@
 {% block title %}{{ icao|upper }} · plane-history{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
 <link rel="stylesheet" href="{% static 'css/aircraft.css' %}">
 {% endblock %}
 
@@ -15,6 +17,9 @@
 <script>
   const el = document.getElementById('ac-loading');
   if (el) el.textContent = T.loading || '読み込み中...';
+  {% if rx_center_json %}window.RX_CENTER = {{ rx_center_json|safe }};{% endif %}
 </script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 <script src="{% static 'js/aircraft.js' %}"></script>
 {% endblock %}

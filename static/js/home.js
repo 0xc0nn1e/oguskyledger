@@ -135,12 +135,101 @@ const todayStr = (() => {
   const j = new Date(Date.now() + 9*3600*1000);
   return `${j.getUTCFullYear()}-${pad(j.getUTCMonth()+1)}-${pad(j.getUTCDate())}`;
 })();
+function dateParts(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  return { year, month, day };
+}
+function dateString(year, month, day) {
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+function displayDate(value) { return value.replaceAll('-', '/'); }
+
+const dateControl = document.getElementById('dateControl');
 const datePicker = document.getElementById('datePicker');
-datePicker.value = todayStr;
+const dateValue = document.getElementById('dateValue');
+const calendarPopover = document.getElementById('calendarPopover');
+const calendarMonth = document.getElementById('calendarMonth');
+const calendarDays = document.getElementById('calendarDays');
+const calendarPrev = document.getElementById('calendarPrev');
+const calendarNext = document.getElementById('calendarNext');
+const calendarToday = document.getElementById('calendarToday');
 let currentDay = todayStr;
-datePicker.addEventListener('change', () => {
-  currentDay = datePicker.value || todayStr;
+let calendarView = { ...dateParts(todayStr) };
+dateValue.textContent = displayDate(currentDay);
+
+function setCalendarOpen(open) {
+  dateControl.classList.toggle('open', open);
+  calendarPopover.hidden = !open;
+  datePicker.setAttribute('aria-expanded', String(open));
+  if (open) renderCalendar();
+}
+function selectDay(value) {
+  currentDay = value;
+  dateValue.textContent = displayDate(value);
+  calendarView = { ...dateParts(value) };
+  setCalendarOpen(false);
   load();
+}
+function renderCalendar() {
+  const { year, month } = calendarView;
+  calendarMonth.textContent = `${year} · ${pad(month)}`;
+  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const prevMonthDays = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
+  const cells = [];
+
+  for (let i = 0; i < 42; i++) {
+    let cellYear = year;
+    let cellMonth = month;
+    let day = i - firstWeekday + 1;
+    let otherMonth = false;
+    if (day < 1) {
+      otherMonth = true;
+      cellMonth -= 1;
+      if (cellMonth < 1) { cellMonth = 12; cellYear -= 1; }
+      day = prevMonthDays + day;
+    } else if (day > daysInMonth) {
+      otherMonth = true;
+      day -= daysInMonth;
+      cellMonth += 1;
+      if (cellMonth > 12) { cellMonth = 1; cellYear += 1; }
+    }
+    const value = dateString(cellYear, cellMonth, day);
+    const classes = ['calendar-day'];
+    if (otherMonth) classes.push('other-month');
+    if (value === todayStr) classes.push('today');
+    if (value === currentDay) classes.push('selected');
+    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${value}"${value > todayStr ? ' disabled' : ''}>${day}</button>`);
+  }
+  calendarDays.innerHTML = cells.join('');
+  const today = dateParts(todayStr);
+  calendarNext.disabled = year > today.year || (year === today.year && month >= today.month);
+}
+
+datePicker.addEventListener('click', () => setCalendarOpen(calendarPopover.hidden));
+calendarPrev.addEventListener('click', () => {
+  calendarView.month -= 1;
+  if (calendarView.month < 1) { calendarView.month = 12; calendarView.year -= 1; }
+  renderCalendar();
+});
+calendarNext.addEventListener('click', () => {
+  calendarView.month += 1;
+  if (calendarView.month > 12) { calendarView.month = 1; calendarView.year += 1; }
+  renderCalendar();
+});
+calendarDays.addEventListener('click', (e) => {
+  const day = e.target.closest('.calendar-day:not(:disabled)');
+  if (day) selectDay(day.dataset.date);
+});
+calendarToday.addEventListener('click', () => selectDay(todayStr));
+document.addEventListener('click', (e) => {
+  if (!dateControl.contains(e.target)) setCalendarOpen(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !calendarPopover.hidden) {
+    setCalendarOpen(false);
+    datePicker.focus();
+  }
 });
 
 // ===== Search =====
@@ -165,23 +254,68 @@ function applyFilter() {
     el.classList.toggle('hidden', q && !hay.includes(q));
   });
   document.querySelectorAll('.group').forEach(g => {
+    // search 緊嗰陣連摺埋嘅 extra row 都要現身，唔係搵唔到第 11 架之後嘅機
+    g.classList.toggle('search-show', !!q);
     const visible = g.querySelectorAll('.flight:not(.hidden)').length > 0;
     g.style.display = (q && !visible) ? 'none' : '';
   });
 }
 
-// ===== Collapse =====
+// ===== Collapse / 展開全部 =====
 document.addEventListener('click', (e) => {
+  const more = e.target.closest('.more-btn');
+  if (more) { more.closest('.group').classList.add('expanded'); return; }
   const hdr = e.target.closest('.group-hdr');
   if (hdr) hdr.parentElement.classList.toggle('collapsed');
 });
 
 // ===== Load + render =====
+let _homeLoadSeq = 0;
 async function load() {
+  // 快手連換日期時，遲返嚟嘅舊 response 唔可以覆寫新揀嗰日
+  const seq = ++_homeLoadSeq;
   document.getElementById('groups').innerHTML = `<div class="loading">${esc(T.loading)}</div>`;
   const res = await fetch(`/api/today?day=${currentDay}`);
   const data = await res.json();
+  if (seq !== _homeLoadSeq) return;
   render(data);
+  // 重新 render 完要重套現有 search，唔係 extra row 同無關行會走樣
+  if (searchInput.value.trim()) applyFilter();
+}
+
+// 一行 aircraft row。extra = 第 11 架起，預設摺埋（撳 .more-btn / search 時先現身）
+function flightRow(f, extra) {
+  const altMax = nVal(f.max_alt_baro);
+  const altPct = altMax != null ? Math.min(100, Number(altMax)/45000*100) : 0;
+  const altC = altColor(altMax);
+  const altLbl = altLabel(altMax);
+  const fromC = airportCode(f.from_airport);
+  const toC = airportCode(f.to_airport);
+  const hay = [f.icao, f.flight, f.registration, f.aircraft_type, fromC, toC, f.operator]
+    .filter(x => x && x !== '-').map(s => String(s).toLowerCase()).join(' ');
+  const tipParts = [];
+  if (f.first_seen_jst !== '-') tipParts.push('First: ' + f.first_seen_jst);
+  if (f.last_seen_jst !== '-') tipParts.push('Last: ' + f.last_seen_jst);
+  if (f.min_alt_baro !== '-' || f.max_alt_baro !== '-')
+    tipParts.push(`Alt: ${f.min_alt_baro}–${f.max_alt_baro} ft`);
+  tipParts.push(`${f.samples} samples`);
+  const tip = tipParts.join(' · ');
+  const regCell = f.registration !== '-'
+    ? `<a href="https://www.flightradar24.com/data/aircraft/${encodeURIComponent(String(f.registration).toLowerCase())}" target="_blank" rel="noreferrer">${esc(f.registration)}</a>`
+    : '—';
+  return `
+  <div class="flight${extra ? ' extra' : ''}" data-search="${esc(hay)}" title="${esc(tip)}">
+    <div class="icao"><a href="/aircraft/${esc(f.icao)}/">${esc(f.icao)}</a></div>
+    <div class="flight-no">${esc(f.flight !== '-' ? f.flight : '—')}</div>
+    <div class="reg">${regCell}</div>
+    <div class="type">${esc(f.aircraft_type !== '-' ? f.aircraft_type : '—')}</div>
+    <div class="route"><span>${fromC}</span><span class="arrow">►</span><span>${toC}</span></div>
+    <div class="alt">
+      <div class="bar"><div style="width:${altPct.toFixed(1)}%; background:${altC || 'transparent'}"></div></div>
+      <div class="alt-label" style="color:${altC || 'var(--x-muted)'}">${altLbl}</div>
+    </div>
+    <div class="last">${esc(lastTime(f.last_seen_jst))}</div>
+  </div>`;
 }
 
 function render(data) {
@@ -264,39 +398,11 @@ function render(data) {
         <div class="flight-cols">
           <div>ICAO</div><div>FLIGHT</div><div>REG</div><div>TYPE</div><div>ROUTE</div><div>ALTITUDE</div><div>LAST</div>
         </div>
-        ${g.flights.slice(0, 10).map(f => {
-          const altMax = nVal(f.max_alt_baro);
-          const altPct = altMax != null ? Math.min(100, Number(altMax)/45000*100) : 0;
-          const altC = altColor(altMax);
-          const altLbl = altLabel(altMax);
-          const fromC = airportCode(f.from_airport);
-          const toC = airportCode(f.to_airport);
-          const hay = [f.icao, f.flight, f.registration, f.aircraft_type, fromC, toC, f.operator]
-            .filter(x => x && x !== '-').map(s => String(s).toLowerCase()).join(' ');
-          const tipParts = [];
-          if (f.first_seen_jst !== '-') tipParts.push('First: ' + f.first_seen_jst);
-          if (f.last_seen_jst !== '-') tipParts.push('Last: ' + f.last_seen_jst);
-          if (f.min_alt_baro !== '-' || f.max_alt_baro !== '-')
-            tipParts.push(`Alt: ${f.min_alt_baro}–${f.max_alt_baro} ft`);
-          tipParts.push(`${f.samples} samples`);
-          const tip = tipParts.join(' · ');
-          const regCell = f.registration !== '-'
-            ? `<a href="https://www.flightradar24.com/data/aircraft/${encodeURIComponent(String(f.registration).toLowerCase())}" target="_blank" rel="noreferrer">${esc(f.registration)}</a>`
-            : '—';
-          return `
-          <div class="flight" data-search="${esc(hay)}" title="${esc(tip)}">
-            <div class="icao"><a href="/aircraft/${esc(f.icao)}/">${esc(f.icao)}</a></div>
-            <div class="flight-no">${esc(f.flight !== '-' ? f.flight : '—')}</div>
-            <div class="reg">${regCell}</div>
-            <div class="type">${esc(f.aircraft_type !== '-' ? f.aircraft_type : '—')}</div>
-            <div class="route"><span>${fromC}</span><span class="arrow">►</span><span>${toC}</span></div>
-            <div class="alt">
-              <div class="bar"><div style="width:${altPct.toFixed(1)}%; background:${altC || 'transparent'}"></div></div>
-              <div class="alt-label" style="color:${altC || 'var(--x-muted)'}">${altLbl}</div>
-            </div>
-            <div class="last">${esc(lastTime(f.last_seen_jst))}</div>
-          </div>`;
-        }).join('')}
+        ${g.flights.slice(0, 10).map(f => flightRow(f)).join('')}
+        ${g.flights.length > 10 ? `
+          ${g.flights.slice(10).map(f => flightRow(f, true)).join('')}
+          <button type="button" class="more-btn">${esc((T.home_show_all || '▼ +{n}').replace('{n}', g.flights.length - 10))}</button>
+        ` : ''}
       </div>
     </div>
   `).join('');

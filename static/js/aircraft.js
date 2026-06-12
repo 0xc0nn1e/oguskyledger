@@ -31,11 +31,13 @@ function passLabel(p) {
   return `${p.pass_date} ${hm(p.first_seen)}–${hm(p.last_seen)}` + (p.flight ? ` · ${p.flight}` : '');
 }
 
-let _passes = [], _icao = '';
+let _passes = [], _icao = '', _loadSeq = 0;
 
 async function loadProfile(idx) {
   const p = _passes[idx];
   if (!p) return;
+  // 快手連揀兩條 pass 時，遲返嚟嘅舊 response 唔可以覆寫新揀嗰條
+  const seq = ++_loadSeq;
   const wrap = document.getElementById('profile-wrap');
   wrap.innerHTML = `<div class="loading">${esc(T.loading)}</div>`;
   document.querySelectorAll('.ptable tr.pickable').forEach((tr, i) => {
@@ -49,7 +51,9 @@ async function loadProfile(idx) {
     const j = r.ok ? await r.json() : {};
     pts = j.points || [];
   } catch (e) { pts = []; }
+  if (seq !== _loadSeq) return;   // 已經揀咗另一條 pass，呢個 response 過時
   drawProfile(pts);
+  drawTrackMap(pts);
 }
 
 function drawProfile(pts) {
@@ -100,6 +104,87 @@ function drawProfile(pts) {
   wrap.innerHTML = `<svg id="profile-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
     ${yticks}${altSegs}${gsSegs}${xlabels}
   </svg>`;
+}
+
+// ===== 路線地圖（Leaflet，揀 pass 時同 profile 一齊更新）=====
+// 高度色階同 map.js 同一條公式：0–40,000ft 橙(35°) → 紫(265°)，無高度灰
+function altColor(ft) {
+  if (ft == null) return '#9aa6a3';
+  const t = Math.max(0, Math.min(1, ft / 40000));
+  return `hsl(${(35 + t * 230).toFixed(0)}, 85%, 58%)`;
+}
+
+// 飛機 icon 同 map.js 同一個 SVG path
+const TRACK_PLANE_SVG = '<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="currentColor" stroke="#031a14" stroke-width="0.7" d="M12 1.6 C12.6 1.6 13 2.4 13 4 L13 10.4 L21.6 15.4 L21.6 17.2 L13 14.6 L13 19.4 L15.2 21 L15.2 22.4 L12 21.4 L8.8 22.4 L8.8 21 L11 19.4 L11 14.6 L2.4 17.2 L2.4 15.4 L11 10.4 L11 4 C11 2.4 11.4 1.6 12 1.6 Z"/></svg>';
+
+// 兩點之間嘅方位角（度，0 = 正北），俾終點飛機 icon 轉向
+function bearingDeg(a, b) {
+  const toRad = d => d * Math.PI / 180;
+  const dLon = toRad(b.lon - a.lon);
+  const y = Math.sin(dLon) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat))
+          - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+let _map = null, _trackLayer = null;
+
+function drawTrackMap(pts) {
+  const wrap = document.getElementById('track-map-wrap');
+  if (!wrap) return;
+  const geo = (pts || []).filter(p => p.lat != null && p.lon != null);
+  if (!geo.length) {
+    // 冇位置點：拆咗個 map（如有），顯示 no-data，唔留舊軌跡
+    if (_map) { _map.remove(); _map = null; _trackLayer = null; }
+    wrap.innerHTML = `<div class="loading">${esc(T.ac_map_no_data)}</div>`;
+    return;
+  }
+  if (!_map) {
+    wrap.innerHTML = '<div id="track-map"></div>';
+    _map = L.map('track-map', { zoomControl: true, attributionControl: true, worldCopyJump: true });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 18, subdomains: 'abcd',
+      attribution: '© OpenStreetMap © CARTO'
+    }).addTo(_map);
+    _trackLayer = L.layerGroup().addTo(_map);
+  }
+  _trackLayer.clearLayers();
+  // 相鄰兩點一段 polyline，色 = 兩點高度平均（pass 通常幾十點，per-segment 冇性能問題）
+  for (let i = 1; i < geo.length; i++) {
+    const a = geo[i - 1], b = geo[i];
+    const alt = (a.alt != null && b.alt != null) ? (a.alt + b.alt) / 2 : (a.alt != null ? a.alt : b.alt);
+    L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+      color: altColor(alt), weight: 2.5, opacity: 0.9,
+    }).addTo(_trackLayer);
+  }
+  const s = geo[0], e = geo[geo.length - 1];
+  // 起點 ▲ mint；終點（最後離開覆蓋嗰位）用飛機 icon，指向最後航向
+  L.circleMarker([s.lat, s.lon], { radius: 5, color: '#7fffd4', fillColor: '#7fffd4', fillOpacity: 0.9, weight: 1 })
+    .bindTooltip(`▲ ${hm(s.ts)}`).addTo(_trackLayer);
+  // 向後搵最後一個唔同座標嘅點計航向——連續重複座標會令 bearing 錯誤變 0（指北）
+  let brg = 0;
+  for (let i = geo.length - 2; i >= 0; i--) {
+    if (geo[i].lat !== e.lat || geo[i].lon !== e.lon) { brg = bearingDeg(geo[i], e); break; }
+  }
+  const planeIcon = L.divIcon({
+    className: 'track-ac-icon',
+    iconSize: [26, 26], iconAnchor: [13, 13],
+    html: `<div class="track-ac" style="color:${altColor(e.alt)};transform:rotate(${brg.toFixed(0)}deg)">${TRACK_PLANE_SVG}</div>`,
+  });
+  L.marker([e.lat, e.lon], { icon: planeIcon }).bindTooltip(hm(e.ts)).addTo(_trackLayer);
+  _map.invalidateSize();
+  // 以接收機做中心、對稱 cover 晒全程軌跡；最少範圍要望到成個東京灣
+  let bounds = L.latLngBounds(geo.map(p => [p.lat, p.lon]));
+  if (window.RX_CENTER) {
+    const rlat = window.RX_CENTER[0], rlon = window.RX_CENTER[1];
+    let hLat = 0.45, hLon = 0.50;   // 最少半徑（度）：尾久一帶望落去見到東京灣
+    for (const p of geo) {
+      hLat = Math.max(hLat, Math.abs(p.lat - rlat));
+      hLon = Math.max(hLon, Math.abs(p.lon - rlon));
+    }
+    bounds = L.latLngBounds([[rlat - hLat, rlon - hLon], [rlat + hLat, rlon + hLon]]);
+  }
+  _map.fitBounds(bounds, { padding: [20, 20] });
 }
 
 async function load() {
@@ -158,6 +243,10 @@ async function load() {
         </div>
         <div id="profile-wrap"><div class="loading">${esc(T.loading)}</div></div>
       </div></section>
+    <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_map_hdr)}</div>
+      <div class="panel-body">
+        <div id="track-map-wrap"><div class="loading">${esc(T.loading)}</div></div>
+      </div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_passes_hdr)}</div>
       <div class="panel-body" style="overflow-x:auto">
         <table class="ptable"><thead><tr>
@@ -181,5 +270,10 @@ async function load() {
     tr.addEventListener('click', () => loadProfile(parseInt(tr.dataset.idx, 10)));
   });
   if (_passes.length) loadProfile(0);
+  else {
+    // 零 pass：兩個 panel 都要明示無數據，唔好困喺 loading
+    document.getElementById('profile-wrap').innerHTML = `<div class="loading">${esc(T.ac_profile_no_data)}</div>`;
+    document.getElementById('track-map-wrap').innerHTML = `<div class="loading">${esc(T.ac_map_no_data)}</div>`;
+  }
 }
 load();

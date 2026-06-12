@@ -10,6 +10,7 @@ aircraft 用 DetailView（DRF style），其他純 TemplateView。
 
 import json
 
+from django.conf import settings
 from django.views.generic import TemplateView
 
 from ._legacy_strings import LANGS, STRINGS
@@ -61,6 +62,12 @@ class AircraftDetailView(PlaneHistoryBaseMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['icao'] = self.kwargs.get('icao', '').lower()
+        # 路線地圖以接收機做中心（config.json receiver.lat/lon，街區級就夠，
+        # 會出現喺公開 HTML，唔好放精確 GPS）；冇設定就由 JS fallback fitBounds
+        rx = settings.PLANE_HISTORY.get('receiver') or {}
+        lat, lon = rx.get('lat'), rx.get('lon')
+        if lat is not None and lon is not None:
+            ctx['rx_center_json'] = json.dumps([lat, lon])
         return ctx
 
 

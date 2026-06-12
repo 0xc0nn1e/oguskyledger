@@ -24,6 +24,14 @@ SECRET_KEY = _django['secret_key']
 DEBUG = bool(_django.get('debug', False))
 ALLOWED_HOSTS = list(_django.get('allowed_hosts', ['127.0.0.1', 'localhost']))
 
+# 經 HTTPS reverse proxy 入嚟：Django 收到嘅係 plain HTTP，
+# 1) browser Origin（https://…）要喺 trusted origins 入面，否則 POST 全部 CSRF 403
+# 2) proxy 設 X-Forwarded-Proto: https 先當 request 係 secure
+# 注意：呢個 header 信任有前提——gunicorn bind 0.0.0.0，LAN 上直連可以偽造
+# X-Forwarded-Proto；單機 home LAN 接受呢個風險，公網一定要經 proxy 先掂到 Django
+CSRF_TRUSTED_ORIGINS = list(_django.get('csrf_trusted_origins', []))
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',

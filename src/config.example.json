@@ -24,6 +24,12 @@
   "django": {
     "secret_key": "CHANGE_ME_RUN_get_random_secret_key",
     "debug": false,
-    "allowed_hosts": ["127.0.0.1", "localhost"]
+    "allowed_hosts": [
+      "127.0.0.1",
+      "localhost"
+    ],
+    "csrf_trusted_origins": [
+      "https://your-domain.example.com"
+    ]
   }
 }

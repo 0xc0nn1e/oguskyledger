@@ -51,6 +51,24 @@
 #profile-svg .alt-line { fill:none; stroke:var(--mint); stroke-width:1.5; }
 #profile-svg .gs-line { fill:none; stroke:var(--amber); stroke-width:1.5; }
 
+/* 路線地圖（Leaflet，揀 pass 更新）——dark override 照 map.css 風格 */
+#track-map { height:320px; border:var(--border); border-radius:6px; background:#050a0d; }
+.leaflet-container { background:#050a0d; font-family:inherit; }
+.leaflet-control-attribution {
+  background:rgba(5,10,13,0.7)!important; color:var(--x-muted)!important; font-size:9px;
+}
+.leaflet-control-attribution a { color:var(--muted)!important; }
+.leaflet-bar a {
+  background:var(--card)!important; color:var(--mint)!important;
+  border-color:rgba(127,255,212,0.2)!important;
+}
+.leaflet-tooltip {
+  background:rgba(5,10,13,0.85); color:var(--mint); border:var(--border);
+  font-family:inherit; font-size:10px;
+}
+.track-ac-icon { background:none; border:none; overflow:visible; }
+.track-ac { width:26px; height:26px; filter:drop-shadow(0 0 3px rgba(0,0,0,0.7)); }
+
 @media (max-width:700px) {
   .ac-head { grid-template-columns:1fr; }
   .hist .day { display:none; }

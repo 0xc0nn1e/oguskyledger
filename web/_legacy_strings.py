@@ -160,6 +160,9 @@ STRINGS = {
         'ac_profile_alt_lbl': '高度 (ft)',
         'ac_profile_gs_lbl': '速度 (kt)',
         'ac_profile_no_data': '// このpassのトラックデータがありません',
+        'ac_map_hdr': 'ルートマップ',
+        'ac_map_no_data': '// このpassの位置データがありません',
+        'home_show_all': '▼ 残り {n} 機を表示',
     },
     'hk': {
         'site_title': '航空雷達 · plane-history',
@@ -311,6 +314,9 @@ STRINGS = {
         'ac_profile_alt_lbl': '高度 (ft)',
         'ac_profile_gs_lbl': '速度 (kt)',
         'ac_profile_no_data': '// 呢個 pass 冇 track 點',
+        'ac_map_hdr': '路線地圖',
+        'ac_map_no_data': '// 呢個 pass 冇位置點',
+        'home_show_all': '▼ 仲有 {n} 架 · 撳開晒',
     },
     'en': {
         'site_title': 'Aviation Radar · plane-history',
@@ -462,5 +468,8 @@ STRINGS = {
         'ac_profile_alt_lbl': 'ALT (ft)',
         'ac_profile_gs_lbl': 'GS (kt)',
         'ac_profile_no_data': '// no track points for this pass',
+        'ac_map_hdr': 'ROUTE MAP',
+        'ac_map_no_data': '// no position points for this pass',
+        'home_show_all': '▼ SHOW {n} MORE AIRCRAFT',
     },
 }

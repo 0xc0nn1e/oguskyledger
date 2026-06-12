@@ -131,7 +131,81 @@ const typeFilter = document.getElementById('typeFilter');
 const fromFilter = document.getElementById('fromFilter');
 const toFilter = document.getElementById('toFilter');
 
+function dateParts(value) {
+  const [year, month, date] = value.split('-').map(Number);
+  return { year, month, date };
+}
+function dateString(year, month, date) {
+  return `${year}-${pad(month)}-${pad(date)}`;
+}
+function displayDate(value) { return value.replaceAll('-', '/'); }
+
+const dateControl = document.getElementById('dateControl');
+const datePicker = document.getElementById('datePicker');
+const dateValue = document.getElementById('dateValue');
+const calendarPopover = document.getElementById('calendarPopover');
+const calendarMonth = document.getElementById('calendarMonth');
+const calendarDays = document.getElementById('calendarDays');
+const calendarPrev = document.getElementById('calendarPrev');
+const calendarNext = document.getElementById('calendarNext');
+const calendarToday = document.getElementById('calendarToday');
+const todayJST = new Date(Date.now() + 9*3600*1000);
+const todayStr = dateString(todayJST.getUTCFullYear(), todayJST.getUTCMonth()+1, todayJST.getUTCDate());
+let calendarView = { ...dateParts(todayStr) };
+
+function setCalendarOpen(open) {
+  dateControl.classList.toggle('open', open);
+  calendarPopover.hidden = !open;
+  datePicker.setAttribute('aria-expanded', String(open));
+  if (open) renderCalendar();
+}
+function selectDay(value) {
+  day.value = value;
+  dateValue.textContent = displayDate(value);
+  calendarView = { ...dateParts(value) };
+  setCalendarOpen(false);
+  load();
+}
+function renderCalendar() {
+  const { year, month } = calendarView;
+  calendarMonth.textContent = `${year} · ${pad(month)}`;
+  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const prevMonthDays = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
+  const cells = [];
+
+  for (let i = 0; i < 42; i++) {
+    let cellYear = year;
+    let cellMonth = month;
+    let cellDate = i - firstWeekday + 1;
+    let otherMonth = false;
+    if (cellDate < 1) {
+      otherMonth = true;
+      cellMonth -= 1;
+      if (cellMonth < 1) { cellMonth = 12; cellYear -= 1; }
+      cellDate = prevMonthDays + cellDate;
+    } else if (cellDate > daysInMonth) {
+      otherMonth = true;
+      cellDate -= daysInMonth;
+      cellMonth += 1;
+      if (cellMonth > 12) { cellMonth = 1; cellYear += 1; }
+    }
+    const value = dateString(cellYear, cellMonth, cellDate);
+    const classes = ['calendar-day'];
+    if (otherMonth) classes.push('other-month');
+    if (value === todayStr) classes.push('today');
+    if (value === day.value) classes.push('selected');
+    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${value}"${value > todayStr ? ' disabled' : ''}>${cellDate}</button>`);
+  }
+  calendarDays.innerHTML = cells.join('');
+  const today = dateParts(todayStr);
+  calendarNext.disabled = year > today.year || (year === today.year && month >= today.month);
+}
+
+let _loadSeq = 0;
 async function load() {
+  // 快手連換日期 / filter 時，遲返嚟嘅舊 response 唔可以覆寫新嗰個
+  const seq = ++_loadSeq;
   const qs = new URLSearchParams({
     day: day.value, sort: sort.value,
     country: countryFilter.value, operator: operatorFilter.value, type: typeFilter.value,
@@ -139,6 +213,7 @@ async function load() {
   });
   const res = await fetch('/api/today?' + qs.toString());
   const data = await res.json();
+  if (seq !== _loadSeq) return;
   meta.textContent = (T.meta_template || '{day} · {count} · {sort}')
     .replace('{day}', data.day).replace('{count}', data.count).replace('{sort}', data.sort);
 
@@ -178,16 +253,40 @@ async function load() {
 }
 
 // 預設今日（JST）
-const todayJST = new Date(Date.now() + 9*3600*1000);
-day.value = `${todayJST.getUTCFullYear()}-${pad(todayJST.getUTCMonth()+1)}-${pad(todayJST.getUTCDate())}`;
+day.value = todayStr;
+dateValue.textContent = displayDate(todayStr);
 
 loadBtn.addEventListener('click', load);
 sort.addEventListener('change', load);
-day.addEventListener('change', load);
 countryFilter.addEventListener('change', load);
 operatorFilter.addEventListener('change', load);
 typeFilter.addEventListener('change', load);
 fromFilter.addEventListener('change', load);
 toFilter.addEventListener('change', load);
+datePicker.addEventListener('click', () => setCalendarOpen(calendarPopover.hidden));
+calendarPrev.addEventListener('click', () => {
+  calendarView.month -= 1;
+  if (calendarView.month < 1) { calendarView.month = 12; calendarView.year -= 1; }
+  renderCalendar();
+});
+calendarNext.addEventListener('click', () => {
+  calendarView.month += 1;
+  if (calendarView.month > 12) { calendarView.month = 1; calendarView.year += 1; }
+  renderCalendar();
+});
+calendarDays.addEventListener('click', (e) => {
+  const selected = e.target.closest('.calendar-day:not(:disabled)');
+  if (selected) selectDay(selected.dataset.date);
+});
+calendarToday.addEventListener('click', () => selectDay(todayStr));
+document.addEventListener('click', (e) => {
+  if (!dateControl.contains(e.target)) setCalendarOpen(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !calendarPopover.hidden) {
+    setCalendarOpen(false);
+    datePicker.focus();
+  }
+});
 
 load();
