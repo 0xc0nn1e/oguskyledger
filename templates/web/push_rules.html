@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.push_hdr|default:"Push rules" }} · plane-history{% endblock %}
+
+{% block extra_css %}
+<style>
+  .push-card {
+    max-width: 560px; margin: 40px auto;
+    background: var(--card); border: var(--border); border-radius: 6px;
+    padding: 26px 30px;
+  }
+  .push-card h2 {
+    margin: 0 0 8px; font-size: 14px; letter-spacing: 2px;
+    color: var(--amber); text-transform: uppercase;
+  }
+  .push-card .intro {
+    margin: 0 0 22px; font-size: 11px; line-height: 1.7; color: var(--x-muted);
+  }
+  .push-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .push-table th {
+    text-align: left; font-size: 9px; letter-spacing: 1.5px; color: var(--x-muted);
+    text-transform: uppercase; padding: 6px 8px;
+    border-bottom: 0.5px solid rgba(127,255,212,0.12);
+  }
+  .push-table th.c, .push-table td.c { text-align: center; width: 44px; }
+  .push-table td {
+    padding: 9px 8px; border-bottom: var(--row-div); color: var(--mint-light);
+  }
+  .push-table .op { color: var(--mint); letter-spacing: 0.5px; }
+  .push-table .pfx { color: var(--x-muted); font-size: 11px; }
+  .push-table input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--mint); cursor: pointer; }
+  .push-table .del {
+    background: none; border: 0; color: var(--x-muted); cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 2px 6px;
+  }
+  .push-table .del:hover { color: #ff8f8f; }
+  .push-table .empty { text-align: center; color: var(--x-muted); padding: 18px; font-size: 11px; }
+
+  .push-card button.primary {
+    margin-top: 16px; background: rgba(127,255,212,0.10); color: var(--mint);
+    border: var(--border); border-radius: 4px; font: inherit; font-size: 11px;
+    letter-spacing: 2px; padding: 9px 18px; cursor: pointer; text-transform: uppercase;
+  }
+  .push-card button.primary:hover { background: rgba(127,255,212,0.18); }
+
+  .add-form {
+    margin-top: 26px; padding-top: 20px; border-top: 0.5px solid rgba(127,255,212,0.12);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .add-form label { font-size: 9px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; width: 100%; margin-bottom: 2px; }
+  .add-form input {
+    background: rgba(10,20,22,0.8); color: var(--mint); border: var(--border);
+    border-radius: 4px; font: inherit; font-size: 12px; padding: 8px 10px; outline: none;
+  }
+  .add-form input:focus { border-color: var(--mint); }
+  .add-form input.lbl { flex: 1 1 150px; }
+  .add-form input.pfx { flex: 1 1 130px; }
+  .add-form button {
+    background: rgba(127,255,212,0.10); color: var(--mint); border: var(--border);
+    border-radius: 4px; font: inherit; font-size: 11px; letter-spacing: 1.5px;
+    padding: 8px 14px; cursor: pointer; text-transform: uppercase; white-space: nowrap;
+  }
+  .add-form button:hover { background: rgba(127,255,212,0.18); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="push-card">
+  <h2>{{ T.push_hdr|default:"Push rules" }}</h2>
+  <p class="intro">{{ T.push_intro|default:"Choose which operators trigger a push." }}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save">
+    <table class="push-table">
+      <thead>
+        <tr>
+          <th class="c">{{ T.push_col_on|default:"ON" }}</th>
+          <th>{{ T.push_col_op|default:"OPERATOR" }}</th>
+          <th>{{ T.push_col_prefix|default:"CALLSIGN" }}</th>
+          <th class="c"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rule in rules %}
+        <tr>
+          <td class="c"><input type="checkbox" name="enabled" value="{{ rule.id }}"{% if rule.enabled %} checked{% endif %}></td>
+          <td class="op">{{ rule.label }}</td>
+          <td class="pfx">{{ rule.callsign_prefixes }}</td>
+          <td class="c"><button form="del-{{ rule.id }}" type="submit" class="del" title="{{ T.push_delete|default:'Delete' }}">✕</button></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="empty">{{ T.push_empty|default:"// no rules" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit" class="primary">{{ T.push_save|default:"Save" }}</button>
+  </form>
+
+  {# per-row delete form：放喺主 form 外面，靠 button form= attr 觸發，避免 nested form #}
+  {% for rule in rules %}
+  <form method="post" id="del-{{ rule.id }}">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ rule.id }}"></form>
+  {% endfor %}
+
+  <form method="post" class="add-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add">
+    <label>{{ T.push_add_hdr|default:"Add operator rule" }}</label>
+    <input class="lbl" type="text" name="label" placeholder="{{ T.push_ph_label|default:'operator name' }}" maxlength="64" required>
+    <input class="pfx" type="text" name="callsign_prefixes" placeholder="HKE,UO" maxlength="128" required>
+    <button type="submit">+ {{ T.push_add_btn|default:"Add" }}</button>
+  </form>
+</div>
+{% endblock %}

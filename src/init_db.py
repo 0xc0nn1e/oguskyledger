@@ -47,6 +47,14 @@ DDL = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
+    CREATE TABLE IF NOT EXISTS push_rules (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      label VARCHAR(64) NOT NULL,
+      callsign_prefixes VARCHAR(128) NOT NULL,
+      enabled TINYINT(1) NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
     CREATE TABLE IF NOT EXISTS aircraft_passes (
       pass_id      INT AUTO_INCREMENT PRIMARY KEY,
       pass_date    VARCHAR(16) NOT NULL,
@@ -102,6 +110,8 @@ DDL = [
 
 conn = connect(autocommit=True)
 cur = conn.cursor()
+# 純 schema init（同其他表一樣只 CREATE，唔 seed）。push_rules 嘅預設
+# HK Express 由 notifications migration seed（唯一 seed owner）。
 for stmt in DDL:
     cur.execute(stmt)
 conn.close()

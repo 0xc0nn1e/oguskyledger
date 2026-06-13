@@ -6,6 +6,7 @@ from playwright.sync_api import sync_playwright
 
 from db import connect, column_set
 from notifier import send_push
+from push_rules import ensure_push_rules, load_enabled_rules, match_rule
 
 BASE = Path.home() / "plane-history"
 LOG = BASE / 'data' / 'browser_bulk_backfill.log'
@@ -37,6 +38,10 @@ def jst_today_utc_range():
 conn = connect()
 cur = conn.cursor()
 push_secret = _CFG.get('push', {}).get('secret')
+push_rules = []
+if push_secret:
+    ensure_push_rules(conn)
+    push_rules = load_enabled_rules(conn)
 
 if 'hke_notified_at' not in column_set(conn, 'aircraft_registry_cache'):
     cur.execute("ALTER TABLE aircraft_registry_cache ADD COLUMN hke_notified_at VARCHAR(40)")
@@ -273,18 +278,18 @@ with sync_playwright() as p:
                             (hex, snap_callsign, from_airport, to_airport, now_iso),
                         )
 
-                if push_secret and reg and from_airport and to_airport:
-                    # Push 條件：最近一條 sightings_raw 嘅 callsign 必須係 HKE/UO（即係廣播確認），
-                    # 唔再用 operator path / fr24_id 補位（兩者都會出 hex-like string）。
+                if push_secret and push_rules and reg and from_airport and to_airport:
+                    # Push 條件：最近一條 sightings_raw 嘅 callsign 中咗某條 enabled rule 嘅前綴
+                    # （即係廣播確認），唔再用 operator path / fr24_id 補位（兩者都會出 hex-like string）。
                     cur.execute(
                         "SELECT flight FROM sightings_raw WHERE icao = %s AND COALESCE(flight, '') <> '' ORDER BY seen_at DESC LIMIT 1",
                         (hex,),
                     )
                     cs_row = cur.fetchone()
                     callsign = cs_row[0].strip().upper() if cs_row and cs_row[0] else None
-                    is_uo = bool(callsign and (callsign.startswith('HKE') or callsign.startswith('UO')))
-                    if not is_uo:
-                        # callsign 仲未廣播 HKE/UO，唔 push；下個 cycle ingest 補到 callsign 自己會 trigger
+                    matched_label = match_rule(callsign, push_rules)
+                    if not matched_label:
+                        # callsign 仲未廣播中 rule，唔 push；下個 cycle ingest 補到 callsign 自己會 trigger
                         log_line({'event': 'push_hke_wait_callsign', 'icao': hex, 'registration': reg, 'operator': operator, 'last_callsign': callsign})
                     else:
                         today_jst = datetime.now(JST).strftime('%Y-%m-%d')
@@ -308,7 +313,7 @@ with sync_playwright() as p:
                             except Exception:
                                 fail_count_today = 0
                         if not already_notified_today and fail_count_today < HKE_PUSH_MAX_RETRY:
-                            msg = f"HKE confirm: {callsign} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
+                            msg = f"{matched_label} confirm: {callsign} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
                             status = send_push(push_secret, msg)
                             # 送到（2xx）先寫 hke_notified_at，否則重試（封頂每日 HKE_PUSH_MAX_RETRY 次，同 ingest.py 一致）
                             if status and 200 <= status < 300:

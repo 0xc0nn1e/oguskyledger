@@ -7,6 +7,7 @@ from pathlib import Path
 
 from db import connect
 from notifier import send_push
+from push_rules import ensure_push_rules, load_enabled_rules, match_rule
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
@@ -44,9 +45,14 @@ def ingest_once():
 
     inserted = 0
 
-    # HKE / Hong Kong Express push：今日（JST）第一次見到 HKE callsign + 已 enrich reg 才送
+    # Push：callsign 中咗 push_rules 入面任何一條 enabled rule 嘅前綴 + 已 enrich reg 才送
+    # （今日 JST 第一次）。Rule 由 /push-rules/ 頁設定，唔再寫死 HKE/UO。
     today_jst = datetime.now(JST).strftime('%Y-%m-%d')
     push_secret = CONFIG.get('push', {}).get('secret')
+    push_rules = []
+    if push_secret:
+        ensure_push_rules(conn)
+        push_rules = load_enabled_rules(conn)
 
     for a in aircraft:
         icao = (a.get('hex') or '').strip().lower()
@@ -59,12 +65,12 @@ def ingest_once():
         if isinstance(alt_baro, str):  # tar1090 sends "ground" for landed aircraft
             alt_baro = None
 
-        if push_secret:
-            # Push 條件：ADS-B 廣播 callsign 係 HKE/UO（即係今鋪真係見到佢報自己係 HK Express），
+        if push_secret and push_rules:
+            # Push 條件：ADS-B 廣播 callsign 中咗某條 enabled rule 嘅前綴（今鋪真係見到佢報自己），
             # 而且 aircraft_registry_cache 已經補到 registration（避免 push hex）。
             # Dedup：用 aircraft_registry_cache.hke_notified_at（同 browser_bulk_backfill 一致）。
-            is_hke = bool(flight and (flight.startswith('HKE') or flight.startswith('UO')))
-            if is_hke:
+            matched_label = match_rule(flight, push_rules)
+            if matched_label:
                 cur.execute(
                     "SELECT registration, from_airport, to_airport, hke_notified_at, hke_push_failed_at, hke_push_fail_count FROM aircraft_registry_cache WHERE icao = %s",
                     (icao,),
@@ -104,7 +110,7 @@ def ingest_once():
                     if not already_notified_today and fail_count_today < HKE_PUSH_MAX_RETRY:
                         # 格式：HKE confirm: HKE625 | B-LEL | Tokyo (HND)>Hong Kong (HKG)
                         flight_label = flight.strip()
-                        parts = [f"HKE confirm: {flight_label}", registration]
+                        parts = [f"{matched_label} confirm: {flight_label}", registration]
                         if from_airport and to_airport:
                             parts.append(f"{from_airport}>{to_airport}")
                         elif from_airport:

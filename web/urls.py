@@ -24,6 +24,7 @@ urlpatterns = [
     path('details/', views.DetailsView.as_view(), name='details'),
     path('map/', views.MapView.as_view(), name='map'),
     path('about/', views.AboutView.as_view(), name='about'),
+    path('push-rules/', views.PushRulesView.as_view(), name='push-rules'),
     path('aircraft/<str:icao>/', views.AircraftDetailView.as_view(), name='aircraft-detail'),
     # /coverage 已 cut，舊 link 永久 301 → home
     path('coverage/', lambda r: HttpResponseRedirect('/'), name='coverage-legacy'),

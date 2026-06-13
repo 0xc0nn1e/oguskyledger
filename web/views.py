@@ -11,7 +11,11 @@ aircraft 用 DetailView（DRF style），其他純 TemplateView。
 import json
 
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import redirect
 from django.views.generic import TemplateView
+
+from notifications.models import PushRule
 
 from ._legacy_strings import STRINGS
 
@@ -74,3 +78,40 @@ class AircraftDetailView(PlaneHistoryBaseMixin, TemplateView):
 
 class AboutView(PlaneHistoryBaseMixin, TemplateView):
     template_name = 'web/about.html'
+
+
+class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
+    """Push 規則設定 — login 後先入到（LoginRequiredMixin 未登入彈去 /accounts/login/）。
+
+    GET：列出 rule + on/off + 加 / 刪。POST 三個 action：
+      save   — 套用 enabled checkbox（成批）
+      add    — 加新 rule（label + callsign 前綴）
+      delete — 刪一條 rule
+    """
+    template_name = 'web/push_rules.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['rules'] = list(PushRule.objects.order_by('id'))
+        ctx['T'] = STRINGS[self.get_lang()]
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get('action')
+        if action == 'add':
+            label = (request.POST.get('label') or '').strip()
+            prefixes = (request.POST.get('callsign_prefixes') or '').strip().upper()
+            if label and prefixes:
+                PushRule.objects.create(label=label, callsign_prefixes=prefixes, enabled=True)
+        elif action == 'delete':
+            rid = (request.POST.get('id') or '').strip()
+            if rid.isdigit():
+                PushRule.objects.filter(id=int(rid)).delete()
+        elif action == 'save':
+            enabled_ids = {x for x in request.POST.getlist('enabled') if x.isdigit()}
+            for rule in PushRule.objects.all():
+                want = str(rule.id) in enabled_ids
+                if rule.enabled != want:
+                    rule.enabled = want
+                    rule.save(update_fields=['enabled'])
+        return redirect('push-rules')

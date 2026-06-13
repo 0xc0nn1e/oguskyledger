@@ -106,6 +106,7 @@
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
           nav.innerHTML = ls + links
+            + `<a href="/push-rules/">${esc(T.nav_push || 'PUSH')}</a>`
             + `<a href="/account">${esc(T.nav_account || 'ACCOUNT')}</a>`
             + `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout || 'LOGOUT')}</button></form>`;
         } else {

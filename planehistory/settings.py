@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'enrichment',
     'web',
     'api',
+    'notifications',
 ]
 
 MIDDLEWARE = [
