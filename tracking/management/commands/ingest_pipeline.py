@@ -24,6 +24,7 @@ PIPELINE = [
     ('backfill_reg_browser.py', None, 180, True),          # 容錯
     ('enrich_operator.py', None, 60, False),
     ('build_passes.py', None, 120, False),
+    ('prune_raw.py', None, 60, True),                      # 容錯：retention，prune 舊 sightings_raw，失敗唔 stop pipeline
 ]
 
 
