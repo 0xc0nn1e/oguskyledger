@@ -31,6 +31,20 @@ function passLabel(p) {
   return `${p.pass_date} ${hm(p.first_seen)}–${hm(p.last_seen)}` + (p.flight ? ` · ${p.flight}` : '');
 }
 
+// 路線歷史：route_snapshots 去重後嘅時序（最近觀測先）
+function renderRouteHistory(items) {
+  if (!items || !items.length) return `<div class="loading">${esc(T.ac_routes_empty || '// no route history')}</div>`;
+  return '<div class="route-hist">' + items.map(r => {
+    const route = (r.from || r.to) ? `${esc(r.from || '—')} › ${esc(r.to || '—')}` : '—';
+    return `<div class="rh-row">`
+      + `<span class="rh-date">${ymd(r.last_seen)}</span>`
+      + `<span class="rh-flight">${esc(r.flight || '—')}</span>`
+      + `<span class="rh-route">${route}</span>`
+      + (r.n > 1 ? `<span class="rh-n">×${r.n}</span>` : '')
+      + `</div>`;
+  }).join('') + '</div>';
+}
+
 let _passes = [], _icao = '', _loadSeq = 0;
 
 async function loadProfile(idx) {
@@ -101,8 +115,15 @@ function drawProfile(pts) {
   };
   const altSegs = segs(toYAlt, 'alt').map(s => `<polyline class="alt-line" points="${s.join(' ')}"/>`).join('');
   const gsSegs = segs(toYGs, 'gs').map(s => `<polyline class="gs-line" points="${s.join(' ')}"/>`).join('');
+  // 每點透明 hover 圈 + <title>：hover 睇該點時間 / 高度 / 速度
+  const dots = pts.map(p => {
+    const t = hm(p.ts); let s = '';
+    if (p.alt != null) s += `<circle class="pt" cx="${toX(p.ts).toFixed(1)}" cy="${toYAlt(p.alt).toFixed(1)}" r="5" fill="transparent"><title>${esc(t)} · ${Math.round(p.alt).toLocaleString()} ft</title></circle>`;
+    if (p.gs != null) s += `<circle class="pt" cx="${toX(p.ts).toFixed(1)}" cy="${toYGs(p.gs).toFixed(1)}" r="5" fill="transparent"><title>${esc(t)} · ${Math.round(p.gs)} kt</title></circle>`;
+    return s;
+  }).join('');
   wrap.innerHTML = `<svg id="profile-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-    ${yticks}${altSegs}${gsSegs}${xlabels}
+    ${yticks}${altSegs}${gsSegs}${xlabels}${dots}
   </svg>`;
 }
 
@@ -251,6 +272,8 @@ async function load() {
         ${statCard(T.ac_last_seen, ymd(a.last_seen), hm(a.last_seen))}
       </div></div>
     </div>
+    <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_routes_hdr || 'ROUTE HISTORY')}</div>
+      <div class="panel-body">${renderRouteHistory(a.route_history)}</div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_daily_hdr)}</div>
       <div class="panel-body">${renderHist(a.daily)}</div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_profile_hdr)}</div>

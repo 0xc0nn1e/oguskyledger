@@ -653,6 +653,26 @@ def query_aircraft(icao):
             'to_airport': (r['to_airport'] or '').strip() or None,
         } for r in _dict_cursor(cur)]
 
+        # 路線歷史：route_snapshots 按 (flight, from, to) 去重，最近觀測先
+        cur.execute(
+            """SELECT flight,
+                      TRIM(COALESCE(from_airport, '')) AS f,
+                      TRIM(COALESCE(to_airport, '')) AS t,
+                      MAX(observed_at) AS last_seen, COUNT(*) AS n
+               FROM aircraft_route_snapshots
+               WHERE icao = %s
+               GROUP BY flight, f, t
+               ORDER BY last_seen DESC LIMIT 20""",
+            [icao],
+        )
+        route_history = [{
+            'flight': (r['flight'] or '').strip() or None,
+            'from': r['f'] or None,
+            'to': r['t'] or None,
+            'last_seen': r['last_seen'],
+            'n': r['n'],
+        } for r in _dict_cursor(cur)]
+
     def _c(v):
         v = (v or '').strip() if isinstance(v, str) else v
         return v if v and (not isinstance(v, str) or v.lower() != 'n/a') else None
@@ -675,6 +695,7 @@ def query_aircraft(icao):
         'samples': int(agg.get('samples') or 0),
         'daily': daily,
         'passes': passes,
+        'route_history': route_history,
     }
 
 

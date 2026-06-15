@@ -16,6 +16,21 @@
 .watch-btn.on { color:var(--amber); border-color:rgba(245,217,111,0.5); }
 .watch-btn:disabled { opacity:0.5; cursor:default; }
 
+/* 路線歷史 timeline（route_snapshots 去重時序）*/
+.route-hist { display:flex; flex-direction:column; }
+.rh-row {
+  display:grid; grid-template-columns:90px 84px 1fr auto; gap:10px; align-items:baseline;
+  padding:6px 4px; border-bottom:var(--row-div); font-size:11px;
+}
+.rh-row:last-child { border-bottom:0; }
+.rh-row .rh-date { color:var(--x-muted); font-size:10px; letter-spacing:0.5px; }
+.rh-row .rh-flight { color:var(--mint); letter-spacing:0.5px; }
+.rh-row .rh-route { color:var(--mint-light); }
+.rh-row .rh-n { color:var(--amber); font-size:9px; letter-spacing:0.5px; }
+@media (max-width:700px) {
+  .rh-row { grid-template-columns:74px 70px 1fr auto; gap:6px; font-size:10px; }
+}
+
 /* 30 日 daily histogram */
 .hist { display:grid; grid-template-columns:repeat(30, 1fr); gap:2px; align-items:end; }
 .hist .bar-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
