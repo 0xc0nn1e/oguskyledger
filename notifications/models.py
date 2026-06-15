@@ -33,17 +33,20 @@ class PushRule(models.Model):
 
     @classmethod
     def unwatch_icao(cls, icao):
-        """由所有 match_type=icao rule 移走呢個 icao（rule 變空就刪）。
+        """由 enabled 嘅 match_type=icao rule 移走呢個 icao（rule 變空就刪）。
 
-        watchlist unwatch 同 /api/watch off 共用：唔可以淨係刪 prefix_list==[icao]
-        嘅單值 rule，否則多 icao 嘅 rule 撳 unwatch 會冇反應（user-visible state bug）。
+        watchlist unwatch 同 /api/watch off 共用：
+        - 唔可以淨係刪 prefix_list==[icao] 嘅單值 rule，否則多 icao 嘅 rule 撳 unwatch
+          會冇反應（user-visible state bug）。
+        - **只動 enabled rule**：disabled rule 喺 watchlist / _is_watched 都當「冇 watch」
+          （用戶特登停用嚟暫停），unwatch 唔應該靜悄悄改/刪佢。
         回有冇真係郁過。
         """
         iu = (icao or '').strip().upper()
         if not iu:
             return False
         changed = False
-        for r in cls.objects.filter(match_type='icao'):
+        for r in cls.objects.filter(match_type='icao', enabled=True):
             pl = r.prefix_list()
             if iu not in pl:
                 continue
