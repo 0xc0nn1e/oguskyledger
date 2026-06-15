@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% trans "Aviation Radar · plane-history" %}{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0a1414">
+  <link rel="apple-touch-icon" href="{% static 'img/icon-192.png' %}">
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
   {% comment %}
     Django JavaScript catalog：browser 由呢度攞 gettext() function。
@@ -165,6 +168,9 @@
       });
     }
     window.makeSortable = makeSortable;
+
+    // PWA：註冊 service worker（offline 殼 + add-to-homescreen）
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   </script>
 
   {% block extra_js %}{% endblock %}
