@@ -114,6 +114,7 @@
             + `<div class="nav-auth">`
             +   `<a href="/dashboard/">${esc(T.nav_dash || 'DASH')}</a>`
             +   `<a href="/push-rules/">${esc(T.nav_push || 'PUSH')}</a>`
+            +   `<a href="/push-log/">${esc(T.nav_log || 'LOG')}</a>`
             +   `<a href="/account">${esc(T.nav_account || 'ACCOUNT')}</a>`
             +   `<form method="post" action="/accounts/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="${CSRF}"><button type="submit">${esc(T.nav_logout || 'LOGOUT')}</button></form>`
             + `</div>`;

@@ -7,7 +7,8 @@ from pathlib import Path
 
 from db import connect
 from notifier import send_push
-from push_rules import ensure_push_rules, load_enabled_rules, match_rule, rules_need_registry
+from push_rules import (ensure_push_log, ensure_push_rules, load_enabled_rules,
+                        log_push, match_rule, rules_need_registry)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
@@ -52,6 +53,7 @@ def ingest_once():
     push_rules = []
     if push_secret:
         ensure_push_rules(conn)
+        ensure_push_log(conn)
         push_rules = load_enabled_rules(conn)
 
     for a in aircraft:
@@ -130,6 +132,9 @@ def ingest_once():
 
                         msg = " | ".join(parts) + f"\nhttps://www.flightradar24.com/data/aircraft/{registration.lower()}"
                         status = send_push(push_secret, msg)
+                        log_push(cur, now, icao, flight, registration, matched_label,
+                                 (f"{from_airport}>{to_airport}" if from_airport and to_airport
+                                  else (from_airport or to_airport or None)), status)
                         # 送到（2xx）先寫 hke_notified_at，否則重試
                         # （封頂每日 HKE_PUSH_MAX_RETRY 次，唔好俾一次 timeout 收起成日通知）
                         if status and 200 <= status < 300:

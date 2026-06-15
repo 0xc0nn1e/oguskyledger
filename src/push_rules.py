@@ -44,6 +44,37 @@ def ensure_push_rules(conn):
     conn.commit()
 
 
+def ensure_push_log(conn):
+    """push_log（每次 push 寫一筆，畀 /push-log/ 頁睇）。CREATE IF NOT EXISTS，
+    無 seed、並發安全（同 init_db / notifications migration 三路都會建）。"""
+    cur = conn.cursor()
+    cur.execute(
+        """CREATE TABLE IF NOT EXISTS push_log (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          pushed_at VARCHAR(40) NOT NULL,
+          icao VARCHAR(16),
+          callsign VARCHAR(32),
+          registration VARCHAR(32),
+          label VARCHAR(64),
+          route VARCHAR(128),
+          http_status INT,
+          ok TINYINT(1) NOT NULL DEFAULT 0,
+          KEY idx_push_log_pushed_at (pushed_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"""
+    )
+    conn.commit()
+
+
+def log_push(cur, pushed_at, icao, callsign, registration, label, route, http_status):
+    """寫一筆 push 記錄（成敗都寫，ok = 2xx）。唔 commit——交返 caller 同 dedup state 一齊 commit。"""
+    cur.execute(
+        "INSERT INTO push_log (pushed_at, icao, callsign, registration, label, route, http_status, ok) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (pushed_at, icao, callsign, registration, label, route, http_status,
+         1 if (http_status and 200 <= http_status < 300) else 0),
+    )
+
+
 def load_enabled_rules(conn):
     """回 [(label, match_type, [值, ...]), ...]，只係 enabled 嗰啲。"""
     cur = conn.cursor()

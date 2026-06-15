@@ -9,15 +9,26 @@ aircraft 用 DetailView（DRF style），其他純 TemplateView。
 """
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
-from notifications.models import PushRule
+from notifications.models import PushLog, PushRule
 
 from ._legacy_strings import STRINGS
+
+_JST = timezone(timedelta(hours=9))
+
+
+def _fmt_jst(ts):
+    """UTC ISO string → 'MM-DD HH:MM:SS'（JST）for push-log 顯示。"""
+    try:
+        return datetime.fromisoformat(ts).astimezone(_JST).strftime('%m-%d %H:%M:%S')
+    except (ValueError, TypeError):
+        return ts or '—'
 
 
 class PlaneHistoryBaseMixin:
@@ -87,6 +98,22 @@ class DashboardView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
     log 狀態。資料層喺 tracking.services.queries.query_dashboard。
     """
     template_name = 'web/dashboard.html'
+
+
+class PushLogView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
+    """Push 通知記錄 — login 後先睇到。列最近 200 筆（最新喺上），畀人 debug
+    「到底有冇 push 到」。資料寫入喺 src/ingest.py / browser_bulk_backfill.py
+    嘅 push hook（src/push_rules.py log_push）。"""
+    template_name = 'web/push_log.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['rows'] = [{
+            't': _fmt_jst(r.pushed_at), 'label': r.label, 'callsign': r.callsign,
+            'reg': r.registration, 'route': r.route, 'ok': r.ok, 'status': r.http_status,
+        } for r in PushLog.objects.order_by('-id')[:200]]
+        ctx['T'] = STRINGS[self.get_lang()]
+        return ctx
 
 
 class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):

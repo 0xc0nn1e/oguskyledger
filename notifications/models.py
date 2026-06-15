@@ -30,3 +30,24 @@ class PushRule(models.Model):
 
     def prefix_list(self):
         return [p.strip().upper() for p in self.callsign_prefixes.split(',') if p.strip()]
+
+
+class PushLog(models.Model):
+    """每次 push 寫一筆（成敗都寫）。src/ingest.py / src/browser_bulk_backfill.py 經
+    src/push_rules.py 嘅 log_push() 直接 INSERT，/push-log/ 頁經呢個 model 讀。"""
+    pushed_at = models.CharField(max_length=40)
+    icao = models.CharField(max_length=16, blank=True, null=True)
+    callsign = models.CharField(max_length=32, blank=True, null=True)
+    registration = models.CharField(max_length=32, blank=True, null=True)
+    label = models.CharField(max_length=64, blank=True, null=True)
+    route = models.CharField(max_length=128, blank=True, null=True)
+    http_status = models.IntegerField(blank=True, null=True)
+    ok = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'push_log'
+        verbose_name = 'Push 記錄'
+        verbose_name_plural = 'Push 記錄'
+
+    def __str__(self):
+        return f'{self.pushed_at} {self.label} {self.registration} ok={self.ok}'

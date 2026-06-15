@@ -6,7 +6,8 @@ from playwright.sync_api import sync_playwright
 
 from db import connect, column_set
 from notifier import send_push
-from push_rules import ensure_push_rules, load_enabled_rules, match_rule
+from push_rules import (ensure_push_log, ensure_push_rules, load_enabled_rules,
+                        log_push, match_rule)
 
 BASE = Path.home() / "plane-history"
 LOG = BASE / 'data' / 'browser_bulk_backfill.log'
@@ -41,6 +42,7 @@ push_secret = _CFG.get('push', {}).get('secret')
 push_rules = []
 if push_secret:
     ensure_push_rules(conn)
+    ensure_push_log(conn)
     push_rules = load_enabled_rules(conn)
 
 if 'hke_notified_at' not in column_set(conn, 'aircraft_registry_cache'):
@@ -320,6 +322,8 @@ with sync_playwright() as p:
                         if not already_notified_today and fail_count_today < HKE_PUSH_MAX_RETRY:
                             msg = f"{matched_label} confirm: {callsign} | {reg} | {from_airport}>{to_airport}\nhttps://www.flightradar24.com/data/aircraft/{reg.lower()}"
                             status = send_push(push_secret, msg)
+                            log_push(cur, now_iso, hex, callsign, reg, matched_label,
+                                     f"{from_airport}>{to_airport}", status)
                             # 送到（2xx）先寫 hke_notified_at，否則重試（封頂每日 HKE_PUSH_MAX_RETRY 次，同 ingest.py 一致）
                             if status and 200 <= status < 300:
                                 cur.execute("UPDATE aircraft_registry_cache SET hke_notified_at = %s, hke_push_failed_at = NULL, hke_push_fail_count = 0 WHERE icao = %s", (now_iso, hex))

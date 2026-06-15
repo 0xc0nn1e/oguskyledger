@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.pushlog_hdr|default:"Push log" }} · plane-history{% endblock %}
+
+{% block extra_css %}
+<style>
+  .plog-card {
+    max-width: 720px; margin: 40px auto;
+    background: var(--card); border: var(--border); border-radius: 6px;
+    padding: 26px 30px;
+  }
+  .plog-card h2 {
+    margin: 0 0 8px; font-size: 14px; letter-spacing: 2px;
+    color: var(--amber); text-transform: uppercase;
+  }
+  .plog-card .intro { margin: 0 0 22px; font-size: 11px; line-height: 1.7; color: var(--x-muted); }
+  .plog-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .plog-table th {
+    text-align: left; font-size: 9px; letter-spacing: 1.5px; color: var(--x-muted);
+    text-transform: uppercase; padding: 6px 8px; border-bottom: 0.5px solid rgba(127,255,212,0.12);
+  }
+  .plog-table td { padding: 8px 8px; border-bottom: var(--row-div); color: var(--mint-light); white-space: nowrap; }
+  .plog-table .t { color: var(--x-muted); }
+  .plog-table .op { color: var(--mint); }
+  .plog-table .st-ok { color: var(--mint); }
+  .plog-table .st-bad { color: #ff8f8f; }
+  .plog-table .empty { text-align: center; color: var(--x-muted); padding: 18px; font-size: 11px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plog-card">
+  <h2>{{ T.pushlog_hdr|default:"Push log" }}</h2>
+  <p class="intro">{{ T.pushlog_intro|default:"Recent push notifications (latest first)." }}</p>
+  <table class="plog-table">
+    <thead>
+      <tr>
+        <th>{{ T.pushlog_col_time|default:"TIME" }}</th>
+        <th>{{ T.pushlog_col_label|default:"RULE" }}</th>
+        <th>{{ T.pushlog_col_callsign|default:"CALLSIGN" }}</th>
+        <th>{{ T.pushlog_col_reg|default:"REG" }}</th>
+        <th>{{ T.pushlog_col_route|default:"ROUTE" }}</th>
+        <th>{{ T.pushlog_col_status|default:"STATUS" }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="t">{{ r.t }}</td>
+        <td class="op">{{ r.label|default:"—" }}</td>
+        <td>{{ r.callsign|default:"—" }}</td>
+        <td>{{ r.reg|default:"—" }}</td>
+        <td>{{ r.route|default:"—" }}</td>
+        <td class="{% if r.ok %}st-ok{% else %}st-bad{% endif %}">
+          {% if r.ok %}✓{% else %}✕{% endif %} {{ r.status|default:"—" }}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty">{{ T.pushlog_empty|default:"// no pushes yet" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

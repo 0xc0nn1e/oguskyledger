@@ -56,6 +56,20 @@ DDL = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
+    CREATE TABLE IF NOT EXISTS push_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      pushed_at VARCHAR(40) NOT NULL,
+      icao VARCHAR(16),
+      callsign VARCHAR(32),
+      registration VARCHAR(32),
+      label VARCHAR(64),
+      route VARCHAR(128),
+      http_status INT,
+      ok TINYINT(1) NOT NULL DEFAULT 0,
+      KEY idx_push_log_pushed_at (pushed_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
     CREATE TABLE IF NOT EXISTS aircraft_passes (
       pass_id      INT AUTO_INCREMENT PRIMARY KEY,
       pass_date    VARCHAR(16) NOT NULL,
