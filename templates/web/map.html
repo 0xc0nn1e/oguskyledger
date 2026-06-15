@@ -35,12 +35,20 @@
     <span class="ttl"><span class="diamond">◆</span><span id="map-hdr"></span></span>
     <span class="cnt" id="cnt">— —</span>
     <span class="emerg-cnt" id="emerg-cnt"></span>
-    <input class="map-search" id="search" type="search" autocomplete="off" placeholder="search">
+    <span class="search-wrap">
+      <input class="map-search" id="search" type="search" autocomplete="off" placeholder="search">
+      <button type="button" class="search-clear" id="search-clear" hidden>✕</button>
+    </span>
+    <select class="map-filter" id="cat-filter" aria-label="type"></select>
+    <select class="map-filter" id="alt-filter" aria-label="altitude"></select>
     <span class="map-legend"><span id="map-low"></span><span class="bar"></span><span id="map-high"></span></span>
     <span class="note" id="map-note"></span>
   </div>
 
-  <div id="map"></div>
+  <div class="map-area">
+    <div id="map"></div>
+    <aside class="emerg-list" id="emerg-list" hidden></aside>
+  </div>
 </div>
 {% endblock %}
 
@@ -59,6 +67,16 @@
   setTxt('map-high', 'map_high');
   setTxt('map-note', 'map_note');
   setAttr('search', 'placeholder', 'map_search');
+  // filter select 嘅 option 用 T 砌（map.html 全程靠 JS i18n，唔用 Django {{T}}）
+  function fillSelect(id, opts) {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
+  }
+  fillSelect('cat-filter', [['', T.map_cat_all || 'ALL TYPES'], ['plane', T.map_cat_plane || 'PLANES'],
+    ['heli', T.map_cat_heli || 'HELI'], ['light', T.map_cat_light || 'LIGHT'], ['heavy', T.map_cat_heavy || 'HEAVY']]);
+  fillSelect('alt-filter', [['', T.map_alt_all || 'ALL ALT'], ['0-10000', '<10k'],
+    ['10000-25000', '10–25k'], ['25000-35000', '25–35k'], ['35000-999999', '>35k']]);
+  setAttr('search-clear', 'title', 'map_clear');
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>

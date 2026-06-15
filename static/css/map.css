@@ -32,6 +32,40 @@ body { overflow:hidden; }
   width:120px; height:8px; border-radius:4px; border:var(--border);
   background:linear-gradient(90deg, hsl(35,90%,55%), hsl(80,80%,50%), hsl(160,70%,50%), hsl(210,82%,58%), hsl(265,70%,62%));
 }
+
+/* search clear ✕ + 機型 / 高度帶 filter select */
+.search-wrap { position:relative; display:inline-flex; align-items:center; }
+.search-clear {
+  position:absolute; right:4px; background:none; border:0; color:var(--x-muted);
+  font-size:11px; line-height:1; padding:2px 4px; cursor:pointer;
+}
+.search-clear:hover { color:var(--mint); }
+.map-filter {
+  background:rgba(5,10,13,0.8); color:var(--mint); border:var(--border); border-radius:4px;
+  font:inherit; font-size:10px; letter-spacing:1px; padding:5px 8px; outline:none; cursor:pointer;
+}
+.map-filter:focus { border-color:var(--mint); }
+
+/* map 區 + emergency 側欄 overlay */
+.map-area { flex:1 1 auto; min-height:0; position:relative; display:flex; }
+.map-area #map { flex:1 1 auto; min-height:0; }
+.emerg-list {
+  position:absolute; top:10px; right:10px; z-index:600; max-width:210px;
+  background:rgba(8,16,18,0.95); border:0.5px solid rgba(255,91,91,0.5);
+  border-radius:6px; padding:7px 9px; box-shadow:0 4px 16px rgba(0,0,0,0.5);
+}
+.emerg-list .em-hdr {
+  font-size:9px; letter-spacing:1.5px; color:#ff5b5b; font-weight:700;
+  margin-bottom:5px; text-transform:uppercase;
+}
+.emerg-list .em-row {
+  display:flex; align-items:center; gap:6px; width:100%; background:none; border:0;
+  color:var(--mint-light); font:inherit; font-size:10px; padding:3px 2px; cursor:pointer; text-align:left;
+}
+.emerg-list .em-row:hover { color:#fff; }
+.emerg-list .em-tag { color:#ff5b5b; font-weight:700; font-size:8px; letter-spacing:1px; min-width:46px; }
+.emerg-list .em-fl { letter-spacing:0.5px; }
+
 @media (max-width:700px) {
   .map-legend, .map-meta .note { display:none; }
   .map-search { width:110px; }

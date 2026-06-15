@@ -108,6 +108,8 @@ const planes = {};
 let firstFit = true;
 let followHex = null;     // click 一架機跟住
 let searchTerm = '';      // 搜尋 highlight
+let catFilter = '';       // 機型 filter：'' / plane / heli / light / heavy
+let altFilter = '';       // 高度帶 filter：'' / 'lo-hi'（ft）
 const TRAIL_MAX = 80;     // 航跡保留點數（~4 分鐘 @3s）
 
 function matchSearch(p) {
@@ -115,16 +117,44 @@ function matchSearch(p) {
   const hay = [p.flight, p.reg, p.hex, p.operator].filter(Boolean).join(' ').toLowerCase();
   return hay.indexOf(searchTerm) >= 0;
 }
+function matchCat(p) {
+  if (!catFilter) return true;
+  if (catFilter === 'heli') return isHeli(p);
+  if (catFilter === 'plane') return !isHeli(p);
+  if (catFilter === 'light') return p.category === 'A1';
+  if (catFilter === 'heavy') return p.category === 'A5';
+  return true;
+}
+function matchAlt(p) {
+  if (!altFilter) return true;
+  if (p.alt == null) return false;
+  const [lo, hi] = altFilter.split('-').map(Number);
+  return p.alt >= lo && p.alt < hi;
+}
 function applyFilter() {
+  // 綜合：機型 ∧ 高度帶（filter）+ search（highlight）。任一 filter 唔中 → dim。
   for (const hex in planes) {
-    const el = planes[hex].marker && planes[hex].marker.getElement();
+    const p = planes[hex];
+    const el = p.marker && p.marker.getElement();
     if (!el) continue;
     const wrap = el.querySelector('.ac-wrap');
     if (!wrap) continue;
-    const m = matchSearch(planes[hex]);
-    wrap.classList.toggle('dim', m === false);
-    wrap.classList.toggle('hit', m === true);
+    const filtOk = matchCat(p) && matchAlt(p);
+    const s = matchSearch(p);   // null（冇 search）/ true / false
+    wrap.classList.toggle('dim', !filtOk || s === false);
+    wrap.classList.toggle('hit', s === true && filtOk);
   }
+}
+function renderEmergList() {
+  const box = document.getElementById('emerg-list');
+  if (!box) return;
+  const ems = Object.keys(planes).filter(h => isEmerg(planes[h]));
+  if (!ems.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `<div class="em-hdr">⚠ ${esc(T.map_emerg_hdr || 'EMERGENCY')}</div>`
+    + ems.map(h => `<button type="button" class="em-row" data-hex="${esc(h)}">`
+        + `<span class="em-tag">${esc(emergTag(planes[h]))}</span>`
+        + `<span class="em-fl">${esc(nameOf(planes[h]))}</span></button>`).join('');
 }
 
 function extrap(fix, dt) {
@@ -204,6 +234,7 @@ async function poll() {
   document.getElementById('cnt').textContent = n ? (n + ' ' + T.map_unit) : T.map_empty;
   document.getElementById('emerg-cnt').textContent = emg ? ('⚠ ' + emg + ' ' + T.map_emerg) : '';
   applyFilter();
+  renderEmergList();
   if (firstFit && fitPts.length) {
     firstFit = false;
     try { map.fitBounds(fitPts, { padding:[40,40], maxZoom:10 }); } catch (e) {}
@@ -239,11 +270,34 @@ function animate() {
 }
 requestAnimationFrame(animate);
 
-// 搜尋：highlight 命中、其餘變淡
+// 搜尋：highlight 命中、其餘變淡 + clear ✕
 const searchBox = document.getElementById('search');
+const clearBtn = document.getElementById('search-clear');
+function updateClear() { if (clearBtn) clearBtn.hidden = !searchTerm; }
 if (searchBox) searchBox.addEventListener('input', () => {
   searchTerm = searchBox.value.trim().toLowerCase();
+  updateClear();
   applyFilter();
+});
+if (clearBtn) clearBtn.addEventListener('click', () => {
+  searchBox.value = ''; searchTerm = ''; updateClear(); applyFilter(); searchBox.focus();
+});
+// 機型 / 高度帶 filter
+const catSel = document.getElementById('cat-filter');
+if (catSel) catSel.addEventListener('change', () => { catFilter = catSel.value; applyFilter(); });
+const altSel = document.getElementById('alt-filter');
+if (altSel) altSel.addEventListener('change', () => { altFilter = altSel.value; applyFilter(); });
+// emergency 側欄：click 一行 → 跟機 + 開 popup
+const emergBox = document.getElementById('emerg-list');
+if (emergBox) emergBox.addEventListener('click', (e) => {
+  const row = e.target.closest('.em-row');
+  if (!row) return;
+  const p = planes[row.dataset.hex];
+  if (!p) return;
+  followHex = p.hex;
+  p.marker.setPopupContent(buildPopup(p));
+  p.marker.openPopup();
+  map.setView([p.disp.lat, p.disp.lon], Math.max(map.getZoom(), 8), { animate: true });
 });
 // click 空白地圖 / 拖地圖 → 取消跟機
 map.on('mousedown', () => { followHex = null; });
