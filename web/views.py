@@ -110,8 +110,12 @@ class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
         if action == 'add':
             label = (request.POST.get('label') or '').strip()
             prefixes = (request.POST.get('callsign_prefixes') or '').strip().upper()
+            match_type = (request.POST.get('match_type') or 'callsign').strip().lower()
+            if match_type not in {'callsign', 'icao', 'registration', 'type', 'route', 'country'}:
+                match_type = 'callsign'
             if label and prefixes:
-                PushRule.objects.create(label=label, callsign_prefixes=prefixes, enabled=True)
+                PushRule.objects.create(
+                    label=label, callsign_prefixes=prefixes, match_type=match_type, enabled=True)
         elif action == 'delete':
             rid = (request.POST.get('id') or '').strip()
             if rid.isdigit():

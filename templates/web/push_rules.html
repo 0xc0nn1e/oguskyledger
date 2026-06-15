@@ -56,6 +56,11 @@
   .add-form input:focus { border-color: var(--mint); }
   .add-form input.lbl { flex: 1 1 150px; }
   .add-form input.pfx { flex: 1 1 130px; }
+  .add-form select.mt {
+    background: rgba(10,20,22,0.8); color: var(--mint); border: var(--border);
+    border-radius: 4px; font: inherit; font-size: 12px; padding: 8px 10px; outline: none; flex: 0 0 auto;
+  }
+  .add-form select.mt:focus { border-color: var(--mint); }
   .add-form button {
     background: rgba(127,255,212,0.10); color: var(--mint); border: var(--border);
     border-radius: 4px; font: inherit; font-size: 11px; letter-spacing: 1.5px;
@@ -78,7 +83,8 @@
         <tr>
           <th class="c">{{ T.push_col_on|default:"ON" }}</th>
           <th>{{ T.push_col_op|default:"OPERATOR" }}</th>
-          <th>{{ T.push_col_prefix|default:"CALLSIGN" }}</th>
+          <th>{{ T.push_col_type|default:"TYPE" }}</th>
+          <th>{{ T.push_col_val|default:"VALUE" }}</th>
           <th class="c"></th>
         </tr>
       </thead>
@@ -87,11 +93,12 @@
         <tr>
           <td class="c"><input type="checkbox" name="enabled" value="{{ rule.id }}"{% if rule.enabled %} checked{% endif %}></td>
           <td class="op">{{ rule.label }}</td>
+          <td class="pfx">{{ rule.match_type }}</td>
           <td class="pfx">{{ rule.callsign_prefixes }}</td>
           <td class="c"><button form="del-{{ rule.id }}" type="submit" class="del" title="{{ T.push_delete|default:'Delete' }}">✕</button></td>
         </tr>
         {% empty %}
-        <tr><td colspan="4" class="empty">{{ T.push_empty|default:"// no rules" }}</td></tr>
+        <tr><td colspan="5" class="empty">{{ T.push_empty|default:"// no rules" }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -108,6 +115,14 @@
     <input type="hidden" name="action" value="add">
     <label>{{ T.push_add_hdr|default:"Add operator rule" }}</label>
     <input class="lbl" type="text" name="label" placeholder="{{ T.push_ph_label|default:'operator name' }}" maxlength="64" required>
+    <select class="mt" name="match_type">
+      <option value="callsign">callsign</option>
+      <option value="icao">icao</option>
+      <option value="registration">registration</option>
+      <option value="type">type</option>
+      <option value="route">route</option>
+      <option value="country">country</option>
+    </select>
     <input class="pfx" type="text" name="callsign_prefixes" placeholder="HKE,UO" maxlength="128" required>
     <button type="submit">+ {{ T.push_add_btn|default:"Add" }}</button>
   </form>

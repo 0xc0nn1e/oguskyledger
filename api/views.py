@@ -18,7 +18,16 @@ from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from notifications.models import PushRule
 from tracking.services import queries
+
+
+def _is_watched(icao):
+    """有冇 enabled 嘅 match_type=icao rule 涵蓋呢個 icao（watchlist 狀態）。"""
+    iu = (icao or '').strip().upper()
+    if not iu:
+        return False
+    return any(iu in r.prefix_list() for r in PushRule.objects.filter(match_type='icao', enabled=True))
 
 
 # ---------- real endpoints ----------
@@ -88,7 +97,34 @@ def aircraft(request):
     payload = queries.query_aircraft(icao)
     if payload is None:
         return Response({'error': 'no_icao'}, status=404)
+    # 登入先有 watched（畀 aircraft 頁顯示 ⭐ watch 掣態；未登入唔出呢個 field）
+    if request.user.is_authenticated:
+        payload['watched'] = _is_watched(payload.get('icao') or icao)
     return Response(payload)
+
+
+@api_view(['POST'])
+def watch(request):
+    """加 / 刪一架機嘅 watchlist（= 一條 match_type=icao 嘅 push rule）。login 後先用得。
+
+    body {icao, on, label?}：on=true 加（label 預設 registration / icao），on=false 刪
+    （只刪 watch 整出嚟嘅單 icao rule，唔掂用戶自己加嘅多值 rule）。回 {watched}。
+    """
+    if not request.user.is_authenticated:
+        return Response({'error': 'auth_required'}, status=403)
+    icao = (request.data.get('icao') or '').strip().lower()
+    if not icao:
+        return Response({'error': 'no_icao'}, status=400)
+    iu = icao.upper()
+    if request.data.get('on'):
+        if not _is_watched(icao):
+            label = ((request.data.get('label') or '').strip() or iu)[:64]
+            PushRule.objects.create(label=label, callsign_prefixes=iu, match_type='icao', enabled=True)
+    else:
+        for r in PushRule.objects.filter(match_type='icao'):
+            if r.prefix_list() == [iu]:
+                r.delete()
+    return Response({'watched': _is_watched(icao)})
 
 
 @api_view(['GET'])

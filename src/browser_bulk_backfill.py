@@ -287,7 +287,12 @@ with sync_playwright() as p:
                     )
                     cs_row = cur.fetchone()
                     callsign = cs_row[0].strip().upper() if cs_row and cs_row[0] else None
-                    matched_label = match_rule(callsign, push_rules)
+                    # backfill 已有齊 enrichment local vars，直接砌 fields（callsign / icao /
+                    # registration / type / route / country 全部 match 得到）
+                    fields = {'callsign': callsign, 'icao': hex, 'registration': reg,
+                              'type': aircraft_type, 'from': from_airport, 'to': to_airport,
+                              'country': country if country != 'n/a' else None}
+                    matched_label = match_rule(fields, push_rules)
                     if not matched_label:
                         # callsign 仲未廣播中 rule，唔 push；下個 cycle ingest 補到 callsign 自己會 trigger
                         log_line({'event': 'push_hke_wait_callsign', 'icao': hex, 'registration': reg, 'operator': operator, 'last_callsign': callsign})

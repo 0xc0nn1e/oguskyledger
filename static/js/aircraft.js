@@ -187,6 +187,28 @@ function drawTrackMap(pts) {
   _map.fitBounds(bounds, { padding: [20, 20] });
 }
 
+async function toggleWatch(a) {
+  // 撳 ⭐ watch → POST /api/watch（login-gated；DRF SessionAuth 要 X-CSRFToken，
+  // token 由 base.html 嘅 const CSRF 提供）。加 / 刪一條 match_type=icao 嘅 push rule。
+  const wb = document.getElementById('watch-btn');
+  if (!wb) return;
+  const want = !wb.classList.contains('on');
+  wb.disabled = true;
+  try {
+    const r = await fetch('/api/watch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': (typeof CSRF !== 'undefined' ? CSRF : '') },
+      body: JSON.stringify({ icao: a.icao, on: want, label: a.registration || a.icao }),
+    });
+    if (r.ok) {
+      const on = !!(await r.json()).watched;
+      wb.classList.toggle('on', on);
+      wb.textContent = on ? '★ ' + (T.ac_watching || 'WATCHING') : '☆ ' + (T.ac_watch || 'WATCH');
+    }
+  } catch (e) { /* ignore，掣態唔變 */ }
+  wb.disabled = false;
+}
+
 async function load() {
   // 新 URL 由 pathname parse ICAO：/aircraft/<icao>/
   const m = location.pathname.match(/^\/aircraft\/([^\/]+)\/?$/);
@@ -209,7 +231,7 @@ async function load() {
   const spd = (a.max_gs != null) ? Math.round(a.max_gs) + ' kt' : '—';
   body.innerHTML = `
     <div class="ac-head">
-      <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(name)}</div>
+      <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(name)}${a.watched !== undefined ? `<button id="watch-btn" type="button" class="watch-btn${a.watched ? ' on' : ''}">${a.watched ? '★ ' + esc(T.ac_watching || 'WATCHING') : '☆ ' + esc(T.ac_watch || 'WATCH')}</button>` : ''}</div>
         <div class="panel-body"><div class="kv">
           ${kvRow(T.map_reg, esc(a.registration))}
           ${kvRow(T.map_type, esc(a.aircraft_type))}
@@ -264,6 +286,8 @@ async function load() {
       </div></section>`;
   _passes = a.passes || [];
   _icao = a.icao;
+  const wb = document.getElementById('watch-btn');
+  if (wb) wb.addEventListener('click', () => toggleWatch(a));
   const sel = document.getElementById('pass-pick');
   if (sel) sel.addEventListener('change', () => loadProfile(parseInt(sel.value, 10)));
   document.querySelectorAll('.ptable tr.pickable').forEach(tr => {

@@ -1,15 +1,23 @@
 """Push 規則 helper — src/ingest.py 同 src/browser_bulk_backfill.py 共用。
 
 push_rules 表正路由 Django migration（notifications app）同 init_db.py 建 + seed。
-ensure_push_rules() 淨係 CREATE TABLE IF NOT EXISTS（防 load_enabled_rules
-SELECT 唔到表），**唔 seed**——seed（預設 HK Express）係 one-time setup 嘅事，
-唔放喺呢個每 cycle 又俾 ingest + backfill 兩個 job 並發 call 嘅 hot path：
+ensure_push_rules() 淨係 CREATE TABLE IF NOT EXISTS（+ 補 match_type 欄），**唔 seed**
+——seed（預設 HK Express）係 one-time setup 嘅事，唔放喺呢個每 cycle 又俾 ingest +
+backfill 兩個 job 並發 call 嘅 hot path：
   (a) 兩個 process 同時見到「冇表」會 double-seed（競態）；
   (b) 用戶刪晒 rule 之後又會翻生。
 
-Rule = (label, [callsign 前綴...])。callsign 中咗任何一條 enabled rule 嘅前綴
-就 match，回個 label 俾 push message 用。
+Rule = (label, match_type, [值...])。match_type 話 match 邊個欄：
+  callsign / icao / registration / type → startswith（code-like 前綴）
+  route（比 from 同 to）/ country → substring（contains）
+callsign / icao 由 live feed 直接攞到（平路）；其餘要 aircraft_registry_cache enrichment。
 """
+
+
+# 平路 match_type：唔使查 registry，live feed 直接有
+_CHEAP_TYPES = {'callsign', 'icao'}
+# substring（contains）match 嘅 type；其餘用 startswith
+_SUBSTR_TYPES = {'route', 'country'}
 
 
 def ensure_push_rules(conn):
@@ -19,30 +27,52 @@ def ensure_push_rules(conn):
           id INT AUTO_INCREMENT PRIMARY KEY,
           label VARCHAR(64) NOT NULL,
           callsign_prefixes VARCHAR(128) NOT NULL,
+          match_type VARCHAR(16) NOT NULL DEFAULT 'callsign',
           enabled TINYINT(1) NOT NULL DEFAULT 1
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"""
     )
+    # 舊 DB 補 match_type 欄（migration / init_db 以外嘅防禦；並發 ALTER 撞欄當已加）
+    cur.execute(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'push_rules' AND COLUMN_NAME = 'match_type'"
+    )
+    if cur.fetchone()[0] == 0:
+        try:
+            cur.execute("ALTER TABLE push_rules ADD COLUMN match_type VARCHAR(16) NOT NULL DEFAULT 'callsign'")
+        except Exception:
+            pass
     conn.commit()
 
 
 def load_enabled_rules(conn):
-    """回 [(label, [prefix, ...]), ...]，只係 enabled 嗰啲。"""
+    """回 [(label, match_type, [值, ...]), ...]，只係 enabled 嗰啲。"""
     cur = conn.cursor()
-    cur.execute("SELECT label, callsign_prefixes FROM push_rules WHERE enabled = 1 ORDER BY id")
+    cur.execute("SELECT label, match_type, callsign_prefixes FROM push_rules WHERE enabled = 1 ORDER BY id")
     out = []
-    for label, prefixes in cur.fetchall():
-        plist = [p.strip().upper() for p in (prefixes or '').split(',') if p.strip()]
-        if plist:
-            out.append((label, plist))
+    for label, match_type, values in cur.fetchall():
+        vlist = [v.strip().upper() for v in (values or '').split(',') if v.strip()]
+        if vlist:
+            out.append((label, (match_type or 'callsign'), vlist))
     return out
 
 
-def match_rule(callsign, rules):
-    """callsign 中邊條 rule 就回個 label，冇就 None。"""
-    if not callsign:
-        return None
-    cs = callsign.strip().upper()
-    for label, prefixes in rules:
-        if any(cs.startswith(p) for p in prefixes):
-            return label
+def rules_need_registry(rules):
+    """有冇 rule 要查 aircraft_registry_cache 先 match 到（即非 callsign / icao）。"""
+    return any(mt not in _CHEAP_TYPES for _, mt, _ in rules)
+
+
+def match_rule(fields, rules):
+    """fields = {callsign, icao, registration, type, from, to, country}。
+
+    中邊條 enabled rule 就回個 label，冇就 None。route 比 from 同 to 兩個。
+    """
+    for label, match_type, values in rules:
+        cands = [fields.get('from'), fields.get('to')] if match_type == 'route' else [fields.get(match_type)]
+        substr = match_type in _SUBSTR_TYPES
+        for c in cands:
+            if not c:
+                continue
+            cu = str(c).strip().upper()
+            if (any(v in cu for v in values) if substr else any(cu.startswith(v) for v in values)):
+                return label
     return None

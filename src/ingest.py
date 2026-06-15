@@ -7,7 +7,7 @@ from pathlib import Path
 
 from db import connect
 from notifier import send_push
-from push_rules import ensure_push_rules, load_enabled_rules, match_rule
+from push_rules import ensure_push_rules, load_enabled_rules, match_rule, rules_need_registry
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((BASE_DIR / 'src' / 'config.json').read_text())
@@ -66,22 +66,32 @@ def ingest_once():
             alt_baro = None
 
         if push_secret and push_rules:
-            # Push 條件：ADS-B 廣播 callsign 中咗某條 enabled rule 嘅前綴（今鋪真係見到佢報自己），
-            # 而且 aircraft_registry_cache 已經補到 registration（避免 push hex）。
-            # Dedup：用 aircraft_registry_cache.hke_notified_at（同 browser_bulk_backfill 一致）。
-            matched_label = match_rule(flight, push_rules)
-            if matched_label:
+            # Push 條件：match 中咗某條 enabled rule，而且已 enrich registration（避免 push hex）。
+            # callsign / icao 平路免查 registry；type / registration / route / country 要 registry
+            # 先補查再 match。Dedup：aircraft_registry_cache.hke_notified_at（同 backfill 一致）。
+            fields = {'callsign': flight, 'icao': icao}
+            matched_label = match_rule(fields, push_rules)
+            reg_row = None
+            need_reg = matched_label is None and rules_need_registry(push_rules)
+            if matched_label or need_reg:
                 cur.execute(
-                    "SELECT registration, from_airport, to_airport, hke_notified_at, hke_push_failed_at, hke_push_fail_count FROM aircraft_registry_cache WHERE icao = %s",
+                    "SELECT registration, from_airport, to_airport, aircraft_type, operator_country, "
+                    "hke_notified_at, hke_push_failed_at, hke_push_fail_count "
+                    "FROM aircraft_registry_cache WHERE icao = %s",
                     (icao,),
                 )
                 reg_row = cur.fetchone()
+            if need_reg and reg_row:
+                fields.update({'registration': reg_row[0], 'from': reg_row[1], 'to': reg_row[2],
+                               'type': reg_row[3], 'country': reg_row[4]})
+                matched_label = match_rule(fields, push_rules)
+            if matched_label:
                 registration = reg_row[0] if reg_row and reg_row[0] else None
                 from_airport = reg_row[1] if reg_row and reg_row[1] else None
                 to_airport = reg_row[2] if reg_row and reg_row[2] else None
-                hke_notified_at = reg_row[3] if reg_row and reg_row[3] else None
-                hke_push_failed_at = reg_row[4] if reg_row and reg_row[4] else None
-                hke_push_fail_count = reg_row[5] if reg_row and reg_row[5] else 0
+                hke_notified_at = reg_row[5] if reg_row and reg_row[5] else None
+                hke_push_failed_at = reg_row[6] if reg_row and reg_row[6] else None
+                hke_push_fail_count = reg_row[7] if reg_row and reg_row[7] else 0
 
                 if not registration:
                     # callsign 廣播咗 HKE/UO，但 reg 仲未 enrich → skip，等下個 cycle 補到再 push

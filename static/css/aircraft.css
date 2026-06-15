@@ -6,6 +6,16 @@
   align-items:start; margin-bottom:18px;
 }
 
+/* ⭐ watchlist 掣（panel-hdr 右上，login 後先出）*/
+.watch-btn {
+  float:right; background:rgba(127,255,212,0.08); color:var(--x-muted);
+  border:var(--border); border-radius:4px; font:inherit; font-size:10px;
+  letter-spacing:1px; padding:3px 10px; cursor:pointer; margin-top:-2px;
+}
+.watch-btn:hover { border-color:var(--mint); color:var(--mint); }
+.watch-btn.on { color:var(--amber); border-color:rgba(245,217,111,0.5); }
+.watch-btn:disabled { opacity:0.5; cursor:default; }
+
 /* 30 日 daily histogram */
 .hist { display:grid; grid-template-columns:repeat(30, 1fr); gap:2px; align-items:end; }
 .hist .bar-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }

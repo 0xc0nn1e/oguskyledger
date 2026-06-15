@@ -51,6 +51,7 @@ DDL = [
       id INT AUTO_INCREMENT PRIMARY KEY,
       label VARCHAR(64) NOT NULL,
       callsign_prefixes VARCHAR(128) NOT NULL,
+      match_type VARCHAR(16) NOT NULL DEFAULT 'callsign',
       enabled TINYINT(1) NOT NULL DEFAULT 1
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,

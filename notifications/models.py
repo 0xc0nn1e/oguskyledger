@@ -12,8 +12,12 @@ from django.db import models
 
 
 class PushRule(models.Model):
-    label = models.CharField(max_length=64, help_text='operator 顯示名，會用喺 push message 開頭')
-    callsign_prefixes = models.CharField(max_length=128, help_text='逗號分隔嘅 callsign 前綴，例如 HKE,UO')
+    label = models.CharField(max_length=64, help_text='顯示名，會用喺 push message 開頭')
+    callsign_prefixes = models.CharField(max_length=128, help_text='逗號分隔嘅 match 值，例如 callsign 用 HKE,UO；type 用 A380；icao 用 hex')
+    match_type = models.CharField(
+        max_length=16, default='callsign',
+        help_text='match 邊個欄：callsign / icao / registration / type / route / country',
+    )
     enabled = models.BooleanField(default=True)
 
     class Meta:
