@@ -299,3 +299,5 @@ document.addEventListener('keydown', (e) => {
 });
 
 load();
+// 表頭 click 排序（thead 靜態，attach 一次即可；同 sort dropdown 並存）
+makeSortable(rowsEl.closest('table'));

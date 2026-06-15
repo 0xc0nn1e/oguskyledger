@@ -131,6 +131,40 @@
     function toJST(iso){ if(!iso) return null; const d=new Date(iso); return isNaN(d)?null:new Date(d.getTime()+9*3600*1000); }
     function hm(iso){ const j=toJST(iso); return j ? pad(j.getUTCHours())+':'+pad(j.getUTCMinutes()) : '—'; }
     function ymd(iso){ const j=toJST(iso); return j ? j.getUTCFullYear()+'-'+pad(j.getUTCMonth()+1)+'-'+pad(j.getUTCDate()) : '—'; }
+
+    // 共用：table 表頭 click 升/降序（details + aircraft pass 表用）。
+    // 數字（含 1,275–5,850 之類範圍）按數值；日期(YYYY-MM-DD)/時間(hh:mm) 按 string（ISO 本身時序）。
+    function makeSortable(table) {
+      if (!table || !table.tHead) return;
+      const ths = Array.from(table.tHead.rows[0].cells);
+      ths.forEach((th, idx) => {
+        if ('nosort' in th.dataset) return;
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', () => {
+          const tb = table.tBodies[0];
+          if (!tb) return;
+          const rows = Array.from(tb.rows).filter(r => r.cells.length >= ths.length);
+          if (rows.length < 2) return;
+          const asc = th.dataset.sortDir !== 'asc';
+          ths.forEach(o => { o.classList.remove('sort-asc', 'sort-desc'); if (o !== th) o.dataset.sortDir = ''; });
+          th.dataset.sortDir = asc ? 'asc' : 'desc';
+          th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+          const val = r => {
+            const t = (r.cells[idx] ? r.cells[idx].textContent : '').trim();
+            const m = t.replace(/,/g, '').match(/^[-+]?[\d.]+/);
+            const isNum = m && !/:/.test(t) && !/\d{4}-\d{2}-\d{2}/.test(t);
+            return { t, n: isNum ? parseFloat(m[0]) : 0, isNum };
+          };
+          rows.sort((a, b) => {
+            const va = val(a), vb = val(b);
+            const cmp = (va.isNum && vb.isNum) ? va.n - vb.n : va.t.localeCompare(vb.t);
+            return asc ? cmp : -cmp;
+          });
+          rows.forEach(r => tb.appendChild(r));
+        });
+      });
+    }
+    window.makeSortable = makeSortable;
   </script>
 
   {% block extra_js %}{% endblock %}

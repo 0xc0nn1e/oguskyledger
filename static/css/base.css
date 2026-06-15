@@ -73,6 +73,10 @@ header.page-hdr {
 }
 .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
 
+/* table 排序箭咀（makeSortable）*/
+th.sort-asc::after  { content:' ▲'; font-size:8px; color:var(--mint); }
+th.sort-desc::after { content:' ▼'; font-size:8px; color:var(--mint); }
+
 /* panel */
 section.panel { margin-bottom:18px; }
 .panel-hdr {

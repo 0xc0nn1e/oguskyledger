@@ -316,6 +316,8 @@ async function load() {
   document.querySelectorAll('.ptable tr.pickable').forEach(tr => {
     tr.addEventListener('click', () => loadProfile(parseInt(tr.dataset.idx, 10)));
   });
+  // 通過履歴表頭 click 排序（data-idx 跟住 row 走，揀 pass 照舊啱）
+  makeSortable(document.querySelector('.ptable'));
   if (_passes.length) loadProfile(0);
   else {
     // 零 pass：兩個 panel 都要明示無數據，唔好困喺 loading
