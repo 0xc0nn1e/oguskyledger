@@ -389,12 +389,29 @@ def query_stats():
             if r['cnt'] > heat_max:
                 heat_max = int(r['cnt'])
 
+        # operator 國籍 TOP10（registry）+ 機種類分佈（passes）+ route pair TOP10
+        top_op_country = top10('operator_country')
+        category_dist = top10('category', from_passes=True)
+        cur.execute(
+            """SELECT TRIM(from_airport) AS f, TRIM(to_airport) AS t, COUNT(*) AS cnt
+               FROM aircraft_passes
+               WHERE pass_date >= %s AND pass_date <= %s
+                 AND TRIM(COALESCE(from_airport, '')) NOT IN ('', '—', '-', 'n/a')
+                 AND TRIM(COALESCE(to_airport, '')) NOT IN ('', '—', '-', 'n/a')
+               GROUP BY f, t ORDER BY cnt DESC, f ASC LIMIT 10""",
+            [start_date, end_date],
+        )
+        route_top = [{'from': r['f'], 'to': r['t'], 'count': r['cnt']} for r in _dict_cursor(cur)]
+
     return {
         'histogram': histogram,
         'top_types': top_types,
         'top_ops': top_ops,
         'top_from': top_from,
         'top_to': top_to,
+        'top_op_country': top_op_country,
+        'category_dist': category_dist,
+        'route_top': route_top,
         'db_total': db_total,
         'db_types': db_types,
         'peak_alt': peak_alt,

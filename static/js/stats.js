@@ -42,6 +42,35 @@ function renderTopIcao(targetId, items) {
   }).join('');
 }
 
+// category code → 友善名（同 ADS-B emitter category 對應）
+const CAT_LABEL = {
+  A1:'Light', A2:'Small', A3:'Large', A4:'B757', A5:'Heavy', A6:'High-perf', A7:'Heli',
+  B1:'Glider', B2:'Balloon', B3:'Parachute', B4:'Ultralight', B6:'UAV', B7:'Space',
+  C1:'Vehicle', C2:'Vehicle', C3:'Obstacle', '(unknown)':'—',
+};
+
+function renderRoutes(targetId, items) {
+  const el = document.getElementById(targetId);
+  if (!items || !items.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
+  const colsHTML = `<div class="cols"><div class="r">${esc(T.stats_col_rank)}</div><div>${esc(T.stats_col_route || 'ROUTE')}</div><div class="c">${esc(T.stats_col_aircraft)}</div></div>`;
+  el.innerHTML = colsHTML + items.map((it, i) => `
+    <div class="row">
+      <div class="rank">${i+1}</div>
+      <div class="name" title="${esc(it.from + ' › ' + it.to)}">${esc(it.from)} › ${esc(it.to)}</div>
+      <div class="cnt">${it.count}</div>
+    </div>`).join('');
+}
+
+function renderCategory(targetId, items) {
+  const el = document.getElementById(targetId);
+  if (!items || !items.length) { el.innerHTML = '<div class="loading">— —</div>'; return; }
+  const colsHTML = `<div class="cols"><div class="r">${esc(T.stats_col_rank)}</div><div>NAME</div><div class="c">${esc(T.stats_col_aircraft)}</div></div>`;
+  el.innerHTML = colsHTML + items.map((it, i) => {
+    const lbl = (CAT_LABEL[it.name] || it.name) + (CAT_LABEL[it.name] ? ' · ' + it.name : '');
+    return `<div class="row"><div class="rank">${i+1}</div><div class="name" title="${esc(it.name)}">${esc(lbl)}</div><div class="cnt">${it.count}</div></div>`;
+  }).join('');
+}
+
 // ===== histograms =====
 
 function renderHist(hist) {
@@ -51,7 +80,7 @@ function renderHist(hist) {
   el.innerHTML = hist.map(h => {
     const pct = (h.count / max * 100).toFixed(1);
     const md = h.day.slice(5);
-    return `<div class="bar-wrap">
+    return `<div class="bar-wrap" title="${esc(md)} · ${h.count}">
       <div class="val">${h.count}</div>
       <div class="bar-area"><div class="bar" style="height:${pct}%"></div></div>
       <div class="day">${md}</div>
@@ -123,8 +152,9 @@ function renderCurve(curve) {
     const p = curve[i];
     return `<text class="tick" x="${toX(i)}" y="${H-padB+14}" text-anchor="middle">${esc(p.date.slice(5))}</text>`;
   }).join('');
+  const dots = curve.map((p, i) => `<circle cx="${toX(i).toFixed(1)}" cy="${toY(p.total).toFixed(1)}" r="6" fill="transparent"><title>${esc(p.date)} · ${p.total}</title></circle>`).join('');
   wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" id="curve-svg" preserveAspectRatio="xMidYMid meet">
-    ${yticks}<polygon class="area" points="${area}"/><polyline class="line" points="${pts}"/>${xlabels}
+    ${yticks}<polygon class="area" points="${area}"/><polyline class="line" points="${pts}"/>${xlabels}${dots}
   </svg>
   <div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:6px">${maxT.toLocaleString()} ${esc(T.discover_curve_total_lbl)} · ${esc(minD)} → ${esc(maxD)}</div>`;
 }
@@ -142,9 +172,9 @@ function renderAlt(dist) {
     const h = (H - padT - padB) * (c / maxC);
     const x = padL + i*bw + 2;
     const y = (H - padB) - h;
-    bars += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${h.toFixed(1)}"/>`;
-    if (c > 0) bars += `<text class="bar-lbl" x="${(x + (bw-4)/2).toFixed(1)}" y="${(y-3).toFixed(1)}">${c}</text>`;
     const lbl = dist[i].hi ? `${dist[i].lo/1000}–${dist[i].hi/1000}k` : `${dist[i].lo/1000}k+`;
+    bars += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${h.toFixed(1)}"><title>${esc(lbl)} · ${c}</title></rect>`;
+    if (c > 0) bars += `<text class="bar-lbl" x="${(x + (bw-4)/2).toFixed(1)}" y="${(y-3).toFixed(1)}">${c}</text>`;
     bars += `<text class="tick" x="${(x + (bw-4)/2).toFixed(1)}" y="${H-padB+14}" text-anchor="middle">${lbl}</text>`;
   }
   let yticks = '';
@@ -209,6 +239,9 @@ async function load() {
     renderTop('top-ops', r.top_ops);
     renderTop('top-from', r.top_from);
     renderTop('top-to', r.top_to);
+    renderTop('top-op-country', r.top_op_country);
+    renderCategory('top-category', r.category_dist);
+    renderRoutes('top-routes', r.route_top);
     renderTopIcao('top-icao-7d', r.top_icao_7d);
     renderTopIcao('top-icao-db', r.top_icao_db);
   } catch (e) {
