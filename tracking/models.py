@@ -66,6 +66,9 @@ class Pass(models.Model):
         db_table = 'aircraft_passes'
         indexes = [
             models.Index(fields=['icao', 'pass_date'], name='idx_passes_icao_date'),
+            # incremental build_passes 每 cycle `DELETE … WHERE last_seen >= W`，
+            # 冇呢個 index 就 full-scan 成個（永遠增長嘅）aircraft_passes
+            models.Index(fields=['last_seen'], name='idx_passes_last_seen'),
         ]
 
     def __str__(self):

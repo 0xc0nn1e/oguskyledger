@@ -88,7 +88,8 @@ DDL = [
       from_airport VARCHAR(64),
       to_airport   VARCHAR(64),
       KEY idx_passes_date (pass_date),
-      KEY idx_passes_icao_date (icao, pass_date)
+      KEY idx_passes_icao_date (icao, pass_date),
+      KEY idx_passes_last_seen (last_seen)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
