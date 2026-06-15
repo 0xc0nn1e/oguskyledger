@@ -54,8 +54,9 @@ async function loadProfile(idx) {
   const seq = ++_loadSeq;
   const wrap = document.getElementById('profile-wrap');
   wrap.innerHTML = `<div class="loading">${esc(T.loading)}</div>`;
-  document.querySelectorAll('.ptable tr.pickable').forEach((tr, i) => {
-    tr.classList.toggle('on', i === idx);
+  // 用 data-idx（pass 真 index）highlight，唔可以用 DOM 位置 i —— 排序後位置已變
+  document.querySelectorAll('.ptable tr.pickable').forEach((tr) => {
+    tr.classList.toggle('on', parseInt(tr.dataset.idx, 10) === idx);
   });
   const sel = document.getElementById('pass-pick');
   if (sel) sel.value = String(idx);

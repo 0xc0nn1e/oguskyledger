@@ -149,13 +149,9 @@ class WatchlistView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
         return ctx
 
     def post(self, request, *args, **kwargs):
-        # unwatch：只刪 watch 整出嚟嘅單 icao rule（同 /api/watch off 一致）
+        # unwatch：由 rule 移走呢個 icao（多 icao rule 都 work；同 /api/watch off 一致）
         if request.POST.get('action') == 'unwatch':
-            icao = (request.POST.get('icao') or '').strip().upper()
-            if icao:
-                for r in PushRule.objects.filter(match_type='icao'):
-                    if r.prefix_list() == [icao]:
-                        r.delete()
+            PushRule.unwatch_icao(request.POST.get('icao') or '')
         return redirect('watchlist')
 
 

@@ -31,6 +31,31 @@ class PushRule(models.Model):
     def prefix_list(self):
         return [p.strip().upper() for p in self.callsign_prefixes.split(',') if p.strip()]
 
+    @classmethod
+    def unwatch_icao(cls, icao):
+        """由所有 match_type=icao rule 移走呢個 icao（rule 變空就刪）。
+
+        watchlist unwatch 同 /api/watch off 共用：唔可以淨係刪 prefix_list==[icao]
+        嘅單值 rule，否則多 icao 嘅 rule 撳 unwatch 會冇反應（user-visible state bug）。
+        回有冇真係郁過。
+        """
+        iu = (icao or '').strip().upper()
+        if not iu:
+            return False
+        changed = False
+        for r in cls.objects.filter(match_type='icao'):
+            pl = r.prefix_list()
+            if iu not in pl:
+                continue
+            remaining = [p for p in pl if p != iu]
+            if remaining:
+                r.callsign_prefixes = ','.join(remaining)
+                r.save(update_fields=['callsign_prefixes'])
+            else:
+                r.delete()
+            changed = True
+        return changed
+
 
 class PushLog(models.Model):
     """每次 push 寫一筆（成敗都寫）。src/ingest.py / src/browser_bulk_backfill.py 經

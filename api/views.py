@@ -121,9 +121,7 @@ def watch(request):
             label = ((request.data.get('label') or '').strip() or iu)[:64]
             PushRule.objects.create(label=label, callsign_prefixes=iu, match_type='icao', enabled=True)
     else:
-        for r in PushRule.objects.filter(match_type='icao'):
-            if r.prefix_list() == [iu]:
-                r.delete()
+        PushRule.unwatch_icao(icao)
     return Response({'watched': _is_watched(icao)})
 
 
