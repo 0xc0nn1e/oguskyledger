@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import connection
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
@@ -114,6 +115,48 @@ class PushLogView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
         } for r in PushLog.objects.order_by('-id')[:200]]
         ctx['T'] = STRINGS[self.get_lang()]
         return ctx
+
+
+class WatchlistView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
+    """我 watch 緊嘅機 — login 後先睇到。watch = 一條 match_type=icao 嘅 push rule
+    （aircraft 頁個 ⭐ 掣加），呢度 list 晒 + 每架最近一筆 pass 狀態。"""
+    template_name = 'web/watchlist.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        rows = []
+        with connection.cursor() as cur:
+            for rule in PushRule.objects.filter(match_type='icao', enabled=True).order_by('id'):
+                for icao_u in rule.prefix_list():
+                    icao = icao_u.lower()
+                    cur.execute('SELECT registration, operator FROM aircraft_registry_cache WHERE icao = %s', [icao])
+                    reg_row = cur.fetchone()
+                    cur.execute(
+                        'SELECT last_seen, flight, from_airport, to_airport FROM aircraft_passes '
+                        'WHERE icao = %s ORDER BY last_seen DESC LIMIT 1', [icao])
+                    p = cur.fetchone()
+                    route = f'{p[2]} › {p[3]}' if p and p[2] and p[3] else None
+                    rows.append({
+                        'icao': icao,
+                        'reg': (reg_row[0] if reg_row else None) or None,
+                        'operator': (reg_row[1] if reg_row else None) or None,
+                        'last_pass': _fmt_jst(p[0]) if p else None,
+                        'last_flight': (p[1] if p else None) or None,
+                        'route': route,
+                    })
+        ctx['rows'] = rows
+        ctx['T'] = STRINGS[self.get_lang()]
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        # unwatch：只刪 watch 整出嚟嘅單 icao rule（同 /api/watch off 一致）
+        if request.POST.get('action') == 'unwatch':
+            icao = (request.POST.get('icao') or '').strip().upper()
+            if icao:
+                for r in PushRule.objects.filter(match_type='icao'):
+                    if r.prefix_list() == [icao]:
+                        r.delete()
+        return redirect('watchlist')
 
 
 class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):

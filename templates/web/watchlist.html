@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ T.watchlist_hdr|default:"Watchlist" }} · plane-history{% endblock %}
+
+{% block extra_css %}
+<style>
+  .wl-card {
+    max-width: 720px; margin: 40px auto;
+    background: var(--card); border: var(--border); border-radius: 6px;
+    padding: 26px 30px;
+  }
+  .wl-card h2 {
+    margin: 0 0 8px; font-size: 14px; letter-spacing: 2px;
+    color: var(--amber); text-transform: uppercase;
+  }
+  .wl-card .intro { margin: 0 0 22px; font-size: 11px; line-height: 1.7; color: var(--x-muted); }
+  .wl-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .wl-table th {
+    text-align: left; font-size: 9px; letter-spacing: 1.5px; color: var(--x-muted);
+    text-transform: uppercase; padding: 6px 8px; border-bottom: 0.5px solid rgba(127,255,212,0.12);
+  }
+  .wl-table td { padding: 8px 8px; border-bottom: var(--row-div); color: var(--mint-light); white-space: nowrap; }
+  .wl-table td.c, .wl-table th.c { text-align: center; width: 36px; }
+  .wl-table .ic a { color: var(--mint); letter-spacing: 0.5px; text-decoration: none; }
+  .wl-table .ic a:hover { text-decoration: underline; }
+  .wl-table form { display: inline; margin: 0; }
+  .wl-table .wl-del { background: none; border: 0; color: var(--x-muted); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 6px; }
+  .wl-table .wl-del:hover { color: #ff8f8f; }
+  .wl-table .empty { text-align: center; color: var(--x-muted); padding: 18px; font-size: 11px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wl-card">
+  <h2>{{ T.watchlist_hdr|default:"Watchlist" }}</h2>
+  <p class="intro">{{ T.watchlist_intro|default:"Aircraft you watch — open one and tap watch to add." }}</p>
+  <table class="wl-table">
+    <thead>
+      <tr>
+        <th>ICAO</th>
+        <th>{{ T.map_reg|default:"REG" }}</th>
+        <th>{{ T.map_op|default:"OPERATOR" }}</th>
+        <th>{{ T.watchlist_col_last|default:"LAST SEEN" }}</th>
+        <th>{{ T.map_route|default:"ROUTE" }}</th>
+        <th class="c"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="ic"><a href="/aircraft/{{ r.icao }}/">{{ r.icao|upper }}</a></td>
+        <td>{{ r.reg|default:"—" }}</td>
+        <td>{{ r.operator|default:"—" }}</td>
+        <td>{{ r.last_pass|default:"—" }}{% if r.last_flight %} · {{ r.last_flight }}{% endif %}</td>
+        <td>{{ r.route|default:"—" }}</td>
+        <td class="c">
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="unwatch">
+            <input type="hidden" name="icao" value="{{ r.icao }}">
+            <button type="submit" class="wl-del" title="{{ T.watchlist_unwatch|default:'Unwatch' }}">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty">{{ T.watchlist_empty|default:"// not watching any aircraft" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
