@@ -60,6 +60,9 @@
   <script>
     const T = {{ t_dict_json|default:'{}'|safe }};
     const LANG = "{{ lang_code|default:'hk' }}";
+    // CSRF token 俾 JS 砌嘅 logout form 用（nav 唔係 Django template form，
+    // 冇 {% templatetag openblock %} csrf_token {% templatetag closeblock %}）。
+    const CSRF = "{{ csrf_token }}";
 
     const pad = n => String(n).padStart(2, '0');
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -105,10 +108,15 @@
       try {
         const me = await (await fetch('/api/me')).json();
         if (me.username) {
+          // Login 後嘅三個制（PUSH / ACCOUNT / LOGOUT）包入 .nav-auth，
+          // 由 CSS flex-basis:100% 逼落主制堆下面自成一行（右對齊）。
           nav.innerHTML = ls + links
-            + `<a href="/push-rules/">${esc(T.nav_push || 'PUSH')}</a>`
-            + `<a href="/account">${esc(T.nav_account || 'ACCOUNT')}</a>`
-            + `<form method="post" action="/logout"><button type="submit">${esc(T.nav_logout || 'LOGOUT')}</button></form>`;
+            + `<div class="nav-auth">`
+            +   `<a href="/dashboard/">${esc(T.nav_dash || 'DASH')}</a>`
+            +   `<a href="/push-rules/">${esc(T.nav_push || 'PUSH')}</a>`
+            +   `<a href="/account">${esc(T.nav_account || 'ACCOUNT')}</a>`
+            +   `<form method="post" action="/accounts/logout/"><input type="hidden" name="csrfmiddlewaretoken" value="${CSRF}"><button type="submit">${esc(T.nav_logout || 'LOGOUT')}</button></form>`
+            + `</div>`;
         } else {
           nav.innerHTML = ls + links + `<a href="/login">${esc(T.nav_login || 'LOGIN')}</a>`;
         }

@@ -52,6 +52,18 @@ def about(request):
 
 
 @api_view(['GET'])
+def dashboard(request):
+    """Owner 系統儀表板資料 —— 一定要 login（會暴露 launchd / log / 系統內情）。
+
+    DashboardView 已 LoginRequiredMixin gate；呢度再守一重（直接打 /api/dashboard
+    都要 authenticated），未登入回 403。
+    """
+    if not request.user.is_authenticated:
+        return Response({'error': 'auth_required'}, status=403)
+    return Response(queries.query_dashboard())
+
+
+@api_view(['GET'])
 def stats(request):
     """/api/stats：7 日 / 24h histogram、heatmap、TOP 10、peak alt、busiest hour。"""
     return Response(queries.query_stats())

@@ -80,6 +80,15 @@ class AboutView(PlaneHistoryBaseMixin, TemplateView):
     template_name = 'web/about.html'
 
 
+class DashboardView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
+    """Owner 系統儀表板 — login 後先睇到（未登入彈去 /accounts/login/）。
+
+    本身唔做 query；JS poll `/api/dashboard`（30 秒）攞 launchd / feed / DB / chrome /
+    log 狀態。資料層喺 tracking.services.queries.query_dashboard。
+    """
+    template_name = 'web/dashboard.html'
+
+
 class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
     """Push 規則設定 — login 後先入到（LoginRequiredMixin 未登入彈去 /accounts/login/）。
 

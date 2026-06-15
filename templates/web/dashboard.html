@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}System dashboard · plane-history{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dash-wrap { max-width: 760px; margin: 30px auto; }
+  .dash-wrap h2 {
+    margin: 0 0 4px; font-size: 14px; letter-spacing: 2px;
+    color: var(--amber); text-transform: uppercase;
+  }
+  .dash-meta { margin: 0 0 20px; font-size: 10px; letter-spacing: 1px; color: var(--x-muted); }
+  .dash-card {
+    background: var(--card); border: var(--border); border-radius: 6px;
+    padding: 16px 20px; margin-bottom: 16px;
+  }
+  .dash-card h3 {
+    margin: 0 0 12px; font-size: 10px; letter-spacing: 2px;
+    color: var(--mint); text-transform: uppercase;
+  }
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kv { font-size: 12px; }
+  .kv .k { font-size: 9px; letter-spacing: 1.5px; color: var(--x-muted); text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .kv .v { color: var(--mint-light); }
+  .dash-jobs { display: flex; flex-direction: column; gap: 8px; }
+  .job-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .job-row .name { width: 100px; color: var(--mint); letter-spacing: 1px; }
+  .job-row .state { color: var(--mint-light); }
+  .dot { font-size: 11px; }
+  .dot.ok { color: var(--mint); }
+  .dot.idle { color: var(--x-muted); }
+  .dot.warn { color: var(--amber); }
+  .dot.bad { color: #ff8f8f; }
+  .badge { font-size: 9px; letter-spacing: 1px; padding: 1px 6px; border-radius: 3px; border: 0.5px solid rgba(127,255,212,0.2); color: var(--x-muted); }
+  .badge.bad { color: #ff8f8f; border-color: rgba(255,143,143,0.4); }
+  .log-block { margin-bottom: 12px; }
+  .log-block:last-child { margin-bottom: 0; }
+  .log-head { font-size: 10px; letter-spacing: 1px; color: var(--x-muted); margin-bottom: 4px; }
+  .log-tail {
+    background: rgba(10,20,22,0.7); border: 0.5px solid rgba(127,255,212,0.1); border-radius: 4px;
+    padding: 8px 10px; font-size: 10px; line-height: 1.55; color: var(--muted);
+    white-space: pre-wrap; word-break: break-word; max-height: 150px; overflow-y: auto; margin: 0;
+  }
+  .log-empty { font-size: 10px; color: var(--x-muted); }
+  #dash-err { color: #ff8f8f; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-wrap">
+  <h2 id="dash-title">SYSTEM DASHBOARD</h2>
+  <p class="dash-meta"><span id="dash-now">—</span> · <span id="dash-uptime">—</span></p>
+  <div id="dash-err"></div>
+  <div id="dash-body"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const fmtUptime = s => {
+    if (s == null) return '—';
+    const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+    return (d ? d+'d ' : '') + h + 'h ' + m + 'm';
+  };
+  const fmtSecs = s => s == null ? '—' : (s < 90 ? s+'s' : Math.floor(s/60)+'m '+(s%60)+'s');
+
+  const feedDot = h => ({ok:'ok', stale:'warn', down:'bad'}[h] || 'idle');
+
+  function jobRow(j) {
+    let cls, label;
+    if (j.loaded === false || j.loaded === null) { cls='bad'; label = T.dash_not_loaded || 'NOT LOADED'; }
+    else if (j.running) { cls='ok'; label = T.dash_running || 'RUNNING'; }
+    else { cls='idle'; label = T.dash_idle || 'IDLE'; }
+    const exitBad = j.last_exit != null && j.last_exit !== '0';
+    const badge = j.last_exit != null
+      ? `<span class="badge${exitBad?' bad':''}">exit ${esc(j.last_exit)}</span>` : '';
+    return `<div class="job-row"><span class="dot ${cls}">●</span>`
+         + `<span class="name">${esc(j.job)}</span>`
+         + `<span class="state">${esc(label)}</span> ${badge}</div>`;
+  }
+
+  function render(d) {
+    document.getElementById('dash-err').textContent = '';
+    document.getElementById('dash-now').textContent = d.now_jst || '—';
+    document.getElementById('dash-uptime').textContent =
+      (T.dash_uptime || 'web uptime') + ' ' + fmtUptime(d.uptime_secs);
+
+    const jobs = (d.jobs || []).map(jobRow).join('');
+
+    const ch = d.chrome || {};
+    const chWarn = ch.count != null && ch.count > 20;
+    const feed = d.feed || {}, db = d.db || {};
+
+    const stats = [
+      ['feed', `<span class="dot ${feedDot(feed.health)}">●</span> ${esc((feed.health||'—').toUpperCase())}`],
+      [T.dash_last_update || 'last sample ago', fmtSecs(feed.last_update_secs)],
+      [T.dash_records_today || 'passes today', feed.records_today ?? '—'],
+      [T.dash_raw_rows || 'raw rows', db.raw ?? '—'],
+      [T.dash_passes || 'total passes', db.passes ?? '—'],
+      [T.dash_last_sample || 'last sample', db.last_sample || '—'],
+      ['chromium', `<span class="dot ${chWarn?'warn':'ok'}">●</span> ${ch.count ?? '—'} (${ch.rss_mb ?? '—'} MB)`],
+    ].map(([k,v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`).join('');
+
+    const logs = (d.logs || []).map(l => {
+      const head = `<div class="log-head">${esc(l.name)} · ${l.exists ? (l.size+' bytes') : (T.dash_log_missing||'missing')}</div>`;
+      if (l.tail && l.tail.length) return `<div class="log-block">${head}<pre class="log-tail">${esc(l.tail.join('\n'))}</pre></div>`;
+      return `<div class="log-block">${head}<div class="log-empty">${T.dash_log_clean || '// clean'}</div></div>`;
+    }).join('');
+
+    document.getElementById('dash-body').innerHTML =
+        `<div class="dash-card"><h3>${esc(T.dash_jobs || 'LAUNCHD JOBS')}</h3><div class="dash-jobs">${jobs}</div></div>`
+      + `<div class="dash-card"><h3>${esc(T.dash_health || 'FEED / DB')}</h3><div class="dash-grid">${stats}</div></div>`
+      + `<div class="dash-card"><h3>${esc(T.dash_logs || 'RECENT ERRORS')}</h3>${logs}</div>`;
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/dashboard');
+      if (!r.ok) { document.getElementById('dash-err').textContent = 'HTTP ' + r.status; return; }
+      render(await r.json());
+    } catch (e) {
+      document.getElementById('dash-err').textContent = String(e);
+    }
+  }
+  document.getElementById('dash-title').textContent = T.dash_hdr || 'SYSTEM DASHBOARD';
+  load();
+  setInterval(load, 30000);
+})();
+</script>
+{% endblock %}

@@ -11,6 +11,7 @@ urlpatterns = [
     path('health', views.health, name='api-health'),
     path('me', views.me, name='api-me'),
     path('about', views.about, name='api-about'),
+    path('dashboard', views.dashboard, name='api-dashboard'),
     path('stats', views.stats, name='api-stats'),
     path('discover', views.discover, name='api-discover'),
     path('live', views.live, name='api-live'),

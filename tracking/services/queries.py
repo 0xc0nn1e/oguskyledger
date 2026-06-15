@@ -7,6 +7,8 @@
 """
 
 import json
+import re
+import subprocess
 import time
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
@@ -140,6 +142,99 @@ def query_health():
         'uptime_secs': int((datetime.now(timezone.utc) - _BOOT_AT).total_seconds()),
     }
     return payload, (200 if healthy else 503)
+
+
+def _scrub(line):
+    """Log 行出 web 之前清走 /Users/<user>/ 路徑（CLAUDE.md：唔可以暴露用戶名 / home 路徑）。"""
+    return re.sub(r'/Users/[^/\s]+/', '~/', line)
+
+
+# Dashboard 睇嘅 launchd job（同 src/healthcheck.py 一致）
+_DASH_JOBS = ['ingest', 'backfill', 'healthcheck', 'web']
+# 出畀 dashboard 嘅 error log（只 basename，唔出絕對路徑；StandardErrorPath 先有 traceback）
+_DASH_LOGS = ['django-ingest.err', 'django-backfill.err', 'django-web.err', 'django-error.log']
+
+
+def query_dashboard():
+    """Owner 系統儀表板資料 —— api/views.py 守住 login 先入到。
+
+    對得返 src/healthcheck.py，但只回狀態，唔回接收機 LAN IP / config secret /
+    用戶 home 路徑（log tail 經 _scrub 清走 /Users/<user>/）。
+    """
+    out = {
+        'now_jst': datetime.now(JST).strftime('%Y-%m-%d %H:%M:%S JST'),
+        'uptime_secs': int((datetime.now(timezone.utc) - _BOOT_AT).total_seconds()),
+    }
+
+    # 1) launchd 四個 job —— launchctl list 一 call 攞晒（pid\tstatus\tlabel）
+    rows = {}
+    try:
+        listing = subprocess.check_output(['launchctl', 'list'], text=True, timeout=5)
+        for line in listing.splitlines()[1:]:
+            parts = line.split('\t')
+            if len(parts) >= 3 and parts[2].startswith('com.connie.plane-history.'):
+                rows[parts[2].rsplit('.', 1)[1]] = {'pid': parts[0], 'status': parts[1]}
+    except Exception:
+        pass
+    out['jobs'] = [{
+        'job': j,
+        'loaded': j in rows,
+        'running': bool(rows.get(j) and rows[j]['pid'] not in ('-', '0')),
+        'last_exit': rows[j]['status'] if j in rows else None,
+    } for j in _DASH_JOBS]
+
+    # 2) chromium headless 數量（renderer leak 試過堆到 59 個食 5.6GB，正常 6-12 個）
+    try:
+        ps_out = subprocess.check_output(['ps', '-axo', 'rss=,comm='], text=True, timeout=5)
+        rss = [int(l.split(None, 1)[0]) for l in ps_out.splitlines() if 'chrome-headless-shell' in l]
+        out['chrome'] = {'count': len(rss), 'rss_mb': round(sum(rss) / 1024)}
+    except Exception:
+        out['chrome'] = {'count': None, 'rss_mb': None}
+
+    # 3) feed / DB 統計
+    last_secs, records_today, db_ok = None, None, True
+    try:
+        last_secs, records_today = _receiver_snapshot()
+    except Exception:
+        db_ok = False
+    out['feed'] = {
+        'health': _feed_health(last_secs) if db_ok else 'down',
+        'last_update_secs': last_secs,
+        'records_today': records_today,
+    }
+    db = {'ok': db_ok}
+    if db_ok:
+        try:
+            with connection.cursor() as cur:
+                cur.execute('SELECT COUNT(*) FROM sightings_raw')
+                db['raw'] = cur.fetchone()[0]
+                cur.execute('SELECT COUNT(*) FROM aircraft_passes')
+                db['passes'] = cur.fetchone()[0]
+                cur.execute('SELECT MAX(seen_at) FROM sightings_raw')
+                db['last_sample'] = fmt_ts(cur.fetchone()[0])
+        except Exception:
+            db['ok'] = False
+    out['db'] = db
+
+    # 4) 最近 error log 尾 8 行（basename + scrub /Users/<user>/）
+    logs = []
+    for name in _DASH_LOGS:
+        p = settings.BASE_DIR / 'data' / name
+        entry = {'name': name, 'exists': p.exists(), 'size': None, 'tail': []}
+        if p.exists():
+            entry['size'] = p.stat().st_size
+            if entry['size']:
+                try:
+                    # 只 seek 尾 16KB，唔好成個 multi-MB log 讀晒落 memory
+                    with open(p, 'rb') as fh:
+                        fh.seek(max(0, entry['size'] - 16384))
+                        tail = fh.read().decode('utf-8', errors='replace')
+                    entry['tail'] = [_scrub(x) for x in tail.splitlines()[-8:]]
+                except Exception:
+                    pass
+        logs.append(entry)
+    out['logs'] = logs
+    return out
 
 
 def query_stats():

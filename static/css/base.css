@@ -64,6 +64,8 @@ header.page-hdr {
 .tools .nav a:hover, .tools .nav button:hover { border-color:var(--mint); }
 .nav { display:flex; gap:4px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
 .nav form { display:inline; margin:0; }
+/* Login 後嘅 auth 制堆：flex-basis:100% 逼佢哋 wrap 落主制堆下面自成一行，右對齊 */
+.nav-auth { flex-basis:100%; display:flex; gap:4px; align-items:center; justify-content:flex-end; }
 .lang-switch { display:inline-flex; gap:2px; margin-right:4px; }
 .lang-switch a {
   color:var(--muted); text-decoration:none; font-size:10px; padding:5px 8px;
