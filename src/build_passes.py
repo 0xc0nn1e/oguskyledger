@@ -4,8 +4,19 @@ from datetime import datetime, timedelta, timezone
 from db import connect, dict_cursor, column_set
 
 PASS_GAP_MINUTES = 20
+# Incremental rebuild：只重砌近 REBUILD_DAYS 日嘅 pass，舊 pass 凍結保留，
+# 唔再每 cycle 由全史 full-rebuild（之前 O(所有歷史)/分鐘、無上限）。
+# 配合 retention（prune 舊 sightings_raw）：full rebuild 已退役，唔好再用。
+REBUILD_DAYS = 3
+# Scan 由 W - BUFFER_HOURS 開始，令跨越 W 邊界（first_seen<W、last_seen>=W）嘅 pass
+# 完整重砌唔被截斷。BUFFER 必須 > 最長 pass 時長（觀測 max ~9h；24h 有充足 margin）。
+BUFFER_HOURS = 24
 UTC = timezone.utc
 JST = timezone(timedelta(hours=9))
+
+_now = datetime.now(UTC)
+W = (_now - timedelta(days=REBUILD_DAYS)).isoformat()                         # 重砌 cutoff
+W_SCAN = (_now - timedelta(days=REBUILD_DAYS, hours=BUFFER_HOURS)).isoformat()  # scan 起點（含 buffer）
 
 conn = connect()
 cur = dict_cursor(conn)
@@ -42,8 +53,10 @@ cur.execute(
 snapshot_map = {(r['icao'], r['flight']): (r['from_airport'], r['to_airport'])
                 for r in cur.fetchall()}
 
-cur.execute('DELETE FROM aircraft_passes')
+# 只刪近窗（last_seen >= W）嘅 pass；舊 pass（last_seen < W）凍結保留。
+cur.execute('DELETE FROM aircraft_passes WHERE last_seen >= %s', (W,))
 
+# Scan 由 W_SCAN（含 buffer）起，等過界 pass 完整重砌；下面 insert 只揀返 last_seen >= W 嗰啲。
 cur.execute(
     '''
     SELECT
@@ -57,8 +70,10 @@ cur.execute(
       COALESCE(c.country, '') AS country
     FROM sightings_raw s
     LEFT JOIN aircraft_registry_cache c ON c.icao = s.icao
+    WHERE s.seen_at >= %s
     ORDER BY s.icao ASC, s.seen_at ASC
-    '''
+    ''',
+    (W_SCAN,)
 )
 rows = cur.fetchall()
 
@@ -107,7 +122,11 @@ for r in rows:
 if current is not None:
     passes.append(current)
 
+inserted = 0
 for p in passes:
+    # buffer 區（last_seen < W）嘅 pass 冇被 DELETE，仲喺 DB，唔好重複 insert。
+    if p['last_seen'] < W:
+        continue
     pass_date = datetime.fromisoformat(p['first_seen']).astimezone(JST).strftime('%Y-%m-%d')
     # per-pass from/to：用 (icao, flight) 喺 snapshot map 揾返。冇 callsign 就唔填，唔好亂用 registry 嘅最新一條。
     from_airport = None
@@ -130,7 +149,8 @@ for p in passes:
             from_airport, to_airport,
         )
     )
+    inserted += 1
 
 conn.commit()
 conn.close()
-print(json.dumps({'passes_built': len(passes), 'gap_minutes': PASS_GAP_MINUTES}, ensure_ascii=False))
+print(json.dumps({'passes_built': inserted, 'window_days': REBUILD_DAYS, 'gap_minutes': PASS_GAP_MINUTES}, ensure_ascii=False))
