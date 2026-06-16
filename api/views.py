@@ -20,6 +20,12 @@ from rest_framework.response import Response
 
 from notifications.models import PushRule
 from tracking.services import queries
+from web.models import SiteConfig
+
+
+def _page_size():
+    """server 分頁每頁數 —— 由 SiteConfig 單例（admin 可改）讀，server 為單一真源。"""
+    return SiteConfig.load().page_size
 
 
 def _is_watched(icao):
@@ -92,15 +98,26 @@ def live(request):
 
 @api_view(['GET'])
 def aircraft(request):
-    """/api/aircraft?icao=<hex>：單機歷史（registry + passes 聚合 + per-pass FROM/TO）。"""
+    """/api/aircraft?icao=<hex>：單機歷史（registry + 聚合 + daily + 第一頁通過履歷）。"""
     icao = request.GET.get('icao', '')
-    payload = queries.query_aircraft(icao)
+    payload = queries.query_aircraft(icao, page_size=_page_size())
     if payload is None:
         return Response({'error': 'no_icao'}, status=404)
     # 登入先有 watched（畀 aircraft 頁顯示 ⭐ watch 掣態；未登入唔出呢個 field）
     if request.user.is_authenticated:
         payload['watched'] = _is_watched(payload.get('icao') or icao)
     return Response(payload)
+
+
+@api_view(['GET'])
+def aircraft_passes(request):
+    """/api/aircraft/passes?icao=&page=&sort=：單機通過履歷 server 分頁（page_size 由 SiteConfig）。"""
+    return Response(queries.query_aircraft_passes(
+        request.GET.get('icao', ''),
+        request.GET.get('page', 1),
+        _page_size(),
+        request.GET.get('sort', ''),
+    ))
 
 
 @api_view(['POST'])

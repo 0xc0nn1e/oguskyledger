@@ -588,8 +588,64 @@ def query_live():
     return result
 
 
-def query_aircraft(icao):
-    """單機歷史：registry 資料 + aircraft_passes 聚合 + 每日 histogram + passes 列表。"""
+# 通過履歷可排序欄白名單（key → DB column）
+PASS_SORTS = {
+    'date': 'first_seen', 'flight': 'flight', 'from': 'from_airport',
+    'to': 'to_airport', 'alt': 'max_alt_baro', 'samples': 'samples',
+}
+
+
+def query_aircraft_passes(icao, page=1, page_size=50, sort=''):
+    """單機通過履歷 server 分頁（offset/limit + total + sort 白名單）。
+
+    sort：'' / 'key'（asc）/ '-key'（desc），key 喺 PASS_SORTS；預設 first_seen DESC。
+    page_size clamp [1,500]。回 {rows, total, page, page_size, total_pages, sort}。
+    """
+    icao = (icao or '').strip().lower()
+    try:
+        page = max(1, int(page))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = max(1, min(int(page_size), 500))
+    except (TypeError, ValueError):
+        page_size = 50
+    desc = isinstance(sort, str) and sort.startswith('-')
+    key = (sort[1:] if desc else sort) if sort else ''
+    if key in PASS_SORTS:
+        order = f'{PASS_SORTS[key]} {"DESC" if desc else "ASC"}'
+    else:
+        order, sort = 'first_seen DESC', ''
+    offset = (page - 1) * page_size
+    with connection.cursor() as cur:
+        cur.execute('SELECT COUNT(*) AS c FROM aircraft_passes WHERE icao = %s', [icao])
+        total = _dict_one(cur)['c']
+        cur.execute(
+            f"""SELECT pass_date, flight, operator, first_seen, last_seen,
+                       samples, min_alt_baro, max_alt_baro, from_airport, to_airport
+                FROM aircraft_passes WHERE icao = %s
+                ORDER BY {order} LIMIT %s OFFSET %s""",
+            [icao, page_size, offset],
+        )
+        rows = [{
+            'pass_date': r['pass_date'],
+            'flight': (r['flight'] or '').strip() or None,
+            'operator': (r['operator'] or '').strip() or None,
+            'first_seen': r['first_seen'],
+            'last_seen': r['last_seen'],
+            'samples': r['samples'],
+            'min_alt': r['min_alt_baro'],
+            'max_alt': r['max_alt_baro'],
+            'from_airport': (r['from_airport'] or '').strip() or None,
+            'to_airport': (r['to_airport'] or '').strip() or None,
+        } for r in _dict_cursor(cur)]
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    return {'rows': rows, 'total': total, 'page': page, 'page_size': page_size,
+            'total_pages': total_pages, 'sort': sort}
+
+
+def query_aircraft(icao, page_size=50):
+    """單機歷史：registry 資料 + aircraft_passes 聚合 + 每日 histogram + 第一頁 passes。"""
     icao = (icao or '').strip().lower()
     if not icao:
         return None
@@ -633,26 +689,6 @@ def query_aircraft(icao):
         )
         daily = [{'day': r['pass_date'], 'count': r['cnt']} for r in _dict_cursor(cur)][::-1]
 
-        cur.execute(
-            """SELECT pass_date, flight, operator, first_seen, last_seen,
-                      samples, min_alt_baro, max_alt_baro, from_airport, to_airport
-               FROM aircraft_passes WHERE icao = %s
-               ORDER BY first_seen DESC LIMIT 300""",
-            [icao],
-        )
-        passes = [{
-            'pass_date': r['pass_date'],
-            'flight': (r['flight'] or '').strip() or None,
-            'operator': (r['operator'] or '').strip() or None,
-            'first_seen': r['first_seen'],
-            'last_seen': r['last_seen'],
-            'samples': r['samples'],
-            'min_alt': r['min_alt_baro'],
-            'max_alt': r['max_alt_baro'],
-            'from_airport': (r['from_airport'] or '').strip() or None,
-            'to_airport': (r['to_airport'] or '').strip() or None,
-        } for r in _dict_cursor(cur)]
-
         # 路線歷史：route_snapshots 按 (flight, from, to) 去重，最近觀測先
         cur.execute(
             """SELECT flight,
@@ -677,6 +713,8 @@ def query_aircraft(icao):
         v = (v or '').strip() if isinstance(v, str) else v
         return v if v and (not isinstance(v, str) or v.lower() != 'n/a') else None
 
+    passes_pg = query_aircraft_passes(icao, 1, page_size, '')  # 第一頁（免 frontend 多一 request）
+
     return {
         'icao': icao.upper(),
         'registration': _c(info.get('registration')) if info else None,
@@ -694,7 +732,9 @@ def query_aircraft(icao):
         'max_gs': float(agg['max_gs']) if agg.get('max_gs') is not None else None,
         'samples': int(agg.get('samples') or 0),
         'daily': daily,
-        'passes': passes,
+        'passes': passes_pg['rows'],
+        'passes_total': passes_pg['total'],
+        'page_size': passes_pg['page_size'],
         'route_history': route_history,
     }
 

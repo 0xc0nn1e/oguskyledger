@@ -47,6 +47,25 @@ function renderRouteHistory(items) {
 
 let _passes = [], _icao = '', _loadSeq = 0;
 
+// 渲染當前一頁通過履歷（tbody + dropdown options + wire row click）。
+// _passes = 當前頁，data-idx 跟頁；loadProfile / 揀 pass 用呢個 index。
+function renderPassRows(rows) {
+  _passes = rows || [];
+  const tb = document.getElementById('pass-rows');
+  if (tb) {
+    tb.innerHTML = _passes.map((p, i) => {
+      const al = (p.min_alt != null || p.max_alt != null)
+        ? `${p.min_alt != null ? Math.round(p.min_alt).toLocaleString() : '—'}–${p.max_alt != null ? Math.round(p.max_alt).toLocaleString() : '—'}`
+        : '—';
+      return `<tr class="pickable" data-idx="${i}"><td>${esc(p.pass_date)}</td><td>${hm(p.first_seen)}–${hm(p.last_seen)}</td><td>${esc(p.flight || '—')}</td><td>${esc(p.from_airport || '—')}</td><td>${esc(p.to_airport || '—')}</td><td class="r">${al}</td><td class="r">${p.samples}</td></tr>`;
+    }).join('');
+    tb.querySelectorAll('tr.pickable').forEach(tr =>
+      tr.addEventListener('click', () => loadProfile(parseInt(tr.dataset.idx, 10))));
+  }
+  const sel = document.getElementById('pass-pick');
+  if (sel) sel.innerHTML = _passes.map((p, i) => `<option value="${i}">${esc(passLabel(p))}</option>`).join('');
+}
+
 async function loadProfile(idx) {
   const p = _passes[idx];
   if (!p) return;
@@ -281,7 +300,7 @@ async function load() {
       <div class="panel-body">
         <div class="profile-bar">
           <label for="pass-pick">${esc(T.ac_profile_pick)}</label>
-          <select id="pass-pick">${(a.passes||[]).map((p, i) => `<option value="${i}">${esc(passLabel(p))}</option>`).join('')}</select>
+          <select id="pass-pick"></select>
           <span class="legend">
             <span><i style="background:var(--mint)"></i>${esc(T.ac_profile_alt_lbl)}</span>
             <span><i style="background:var(--amber)"></i>${esc(T.ac_profile_gs_lbl)}</span>
@@ -295,35 +314,39 @@ async function load() {
       </div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_passes_hdr)}</div>
       <div class="panel-body" style="overflow-x:auto">
-        <table class="ptable"><thead><tr>
-          <th>${esc(T.ac_col_date)}</th><th>${esc(T.ac_col_time)}</th><th>${esc(T.ac_col_flight)}</th>
-          <th>${esc(T.ac_col_from)}</th><th>${esc(T.ac_col_to)}</th>
-          <th class="r">${esc(T.ac_col_alt)}</th><th class="r">${esc(T.ac_col_samples)}</th>
-        </tr></thead><tbody>
-        ${(a.passes||[]).map((p, i) => {
-          const al = (p.min_alt!=null||p.max_alt!=null)
-            ? `${p.min_alt!=null?Math.round(p.min_alt).toLocaleString():'—'}–${p.max_alt!=null?Math.round(p.max_alt).toLocaleString():'—'}`
-            : '—';
-          return `<tr class="pickable" data-idx="${i}"><td>${esc(p.pass_date)}</td><td>${hm(p.first_seen)}–${hm(p.last_seen)}</td><td>${esc(p.flight||'—')}</td><td>${esc(p.from_airport||'—')}</td><td>${esc(p.to_airport||'—')}</td><td class="r">${al}</td><td class="r">${p.samples}</td></tr>`;
-        }).join('')}
-        </tbody></table>
+        <table class="ptable" id="pass-table"><thead><tr>
+          <th data-sort="date">${esc(T.ac_col_date)}</th><th>${esc(T.ac_col_time)}</th><th data-sort="flight">${esc(T.ac_col_flight)}</th>
+          <th data-sort="from">${esc(T.ac_col_from)}</th><th data-sort="to">${esc(T.ac_col_to)}</th>
+          <th class="r" data-sort="alt">${esc(T.ac_col_alt)}</th><th class="r" data-sort="samples">${esc(T.ac_col_samples)}</th>
+        </tr></thead><tbody id="pass-rows"></tbody></table>
+        <div class="pager" id="pass-pager"></div>
       </div></section>`;
-  _passes = a.passes || [];
   _icao = a.icao;
   const wb = document.getElementById('watch-btn');
   if (wb) wb.addEventListener('click', () => toggleWatch(a));
   const sel = document.getElementById('pass-pick');
   if (sel) sel.addEventListener('change', () => loadProfile(parseInt(sel.value, 10)));
-  document.querySelectorAll('.ptable tr.pickable').forEach(tr => {
-    tr.addEventListener('click', () => loadProfile(parseInt(tr.dataset.idx, 10)));
+  // 通過履歴 server 分頁（揭全部歷史）+ 表頭 server 排序。第一頁由 /api/aircraft 直接帶返。
+  const psize = a.page_size || (typeof PAGE_SIZE !== 'undefined' ? PAGE_SIZE : 50);
+  let firstRender = true;
+  pagedTable({
+    fetchPage: (page, sort) => fetch(`/api/aircraft/passes?icao=${encodeURIComponent(_icao)}&page=${page}&sort=${encodeURIComponent(sort)}`).then(r => r.ok ? r.json() : null),
+    renderRows: renderPassRows,
+    controls: document.getElementById('pass-pager'),
+    table: document.getElementById('pass-table'),
+    initial: {
+      rows: a.passes || [], total: a.passes_total || 0, page: 1, page_size: psize,
+      total_pages: Math.max(1, Math.ceil((a.passes_total || 0) / psize)), sort: '',
+    },
+    onRendered: () => {
+      if (!firstRender) return;   // 揭頁只重畫表，唔重 load profile
+      firstRender = false;
+      if (_passes.length) loadProfile(0);
+      else {
+        document.getElementById('profile-wrap').innerHTML = `<div class="loading">${esc(T.ac_profile_no_data)}</div>`;
+        document.getElementById('track-map-wrap').innerHTML = `<div class="loading">${esc(T.ac_map_no_data)}</div>`;
+      }
+    },
   });
-  // 通過履歴表頭 click 排序（data-idx 跟住 row 走，揀 pass 照舊啱）
-  makeSortable(document.querySelector('.ptable'));
-  if (_passes.length) loadProfile(0);
-  else {
-    // 零 pass：兩個 panel 都要明示無數據，唔好困喺 loading
-    document.getElementById('profile-wrap').innerHTML = `<div class="loading">${esc(T.ac_profile_no_data)}</div>`;
-    document.getElementById('track-map-wrap').innerHTML = `<div class="loading">${esc(T.ac_map_no_data)}</div>`;
-  }
 }
 load();

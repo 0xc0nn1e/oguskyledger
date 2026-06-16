@@ -20,6 +20,7 @@ from django.views.generic import TemplateView
 from notifications.models import PushLog, PushRule
 
 from ._legacy_strings import STRINGS
+from .models import SiteConfig
 
 _JST = timezone(timedelta(hours=9))
 
@@ -49,6 +50,7 @@ class PlaneHistoryBaseMixin:
         lang = self.get_lang()
         ctx['lang_code'] = lang
         ctx['t_dict_json'] = json.dumps(STRINGS[lang], ensure_ascii=False)
+        ctx['page_size'] = SiteConfig.load().page_size  # server 分頁每頁數（admin 可改）
         return ctx
 
 

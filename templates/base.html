@@ -66,6 +66,7 @@
     // CSRF token 俾 JS 砌嘅 logout form 用（nav 唔係 Django template form，
     // 冇 {% templatetag openblock %} csrf_token {% templatetag closeblock %}）。
     const CSRF = "{{ csrf_token }}";
+    const PAGE_SIZE = {{ page_size|default:50 }};   // server 分頁每頁 row 數（admin 可改）
 
     const pad = n => String(n).padStart(2, '0');
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -168,6 +169,51 @@
       });
     }
     window.makeSortable = makeSortable;
+
+    // 共用 server-side 分頁表：fetch 一頁 + 畫 pagination bar + thead server sort。
+    // opts: { fetchPage(page,sort)->{rows,total,page,page_size,total_pages,sort},
+    //         renderRows(rows), controls(el), table(el 可選 for th[data-sort] sort),
+    //         onRendered(resp 可選), initial(可選：第一頁已有就唔使 fetch) }；回 { reload(page) }
+    function pagedTable(opts) {
+      let sort = (opts.initial && opts.initial.sort) || '';
+      function bar(resp) {
+        const el = opts.controls; if (!el) return;
+        const tp = resp.total_pages || 1, cur = resp.page || 1;
+        if (tp <= 1) { el.innerHTML = ''; return; }
+        const info = (T.page_of || '{p} / {n}').replace('{p}', cur).replace('{n}', tp);
+        el.innerHTML =
+          `<button class="pg-btn" data-d="-1"${cur<=1?' disabled':''}>‹ ${esc(T.page_prev||'PREV')}</button>`
+          + `<span class="pg-info">${esc(info)} · ${resp.total||0}</span>`
+          + `<button class="pg-btn" data-d="1"${cur>=tp?' disabled':''}>${esc(T.page_next||'NEXT')} ›</button>`;
+        el.querySelectorAll('.pg-btn').forEach(b =>
+          b.addEventListener('click', () => load(cur + parseInt(b.dataset.d, 10))));
+      }
+      function render(resp) {
+        opts.renderRows(resp.rows || []);
+        bar(resp);
+        if (opts.onRendered) opts.onRendered(resp);
+      }
+      async function load(page) {
+        let resp; try { resp = await opts.fetchPage(page, sort); } catch (e) { return; }
+        if (resp) render(resp);
+      }
+      if (opts.table && opts.table.tHead) {
+        Array.from(opts.table.tHead.rows[0].cells).forEach(th => {
+          const key = th.dataset.sort; if (!key) return;
+          th.style.cursor = 'pointer';
+          th.addEventListener('click', () => {
+            const asc = sort !== key;     // 未喺呢欄 asc → asc，否則 desc（toggle）
+            sort = asc ? key : '-' + key;
+            Array.from(opts.table.tHead.rows[0].cells).forEach(o => o.classList.remove('sort-asc', 'sort-desc'));
+            th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+            load(1);
+          });
+        });
+      }
+      if (opts.initial) render(opts.initial); else load(1);
+      return { reload: (p) => load(p || 1) };
+    }
+    window.pagedTable = pagedTable;
 
     // PWA：註冊 service worker（offline 殼 + add-to-homescreen）
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

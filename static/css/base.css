@@ -73,9 +73,20 @@ header.page-hdr {
 }
 .lang-switch a.on { color:var(--mint); border-color:var(--mint); }
 
-/* table 排序箭咀（makeSortable）*/
+/* table 排序箭咀（makeSortable / pagedTable）*/
 th.sort-asc::after  { content:' ▲'; font-size:8px; color:var(--mint); }
 th.sort-desc::after { content:' ▼'; font-size:8px; color:var(--mint); }
+
+/* server 分頁控件（pagedTable）*/
+.pager { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; }
+.pager:empty { margin:0; }
+.pg-btn {
+  background:rgba(15,31,34,0.6); color:var(--mint); border:var(--border); border-radius:4px;
+  font:inherit; font-size:10px; letter-spacing:1.5px; padding:6px 12px; cursor:pointer; text-transform:uppercase;
+}
+.pg-btn:hover:not(:disabled) { border-color:var(--mint); }
+.pg-btn:disabled { opacity:0.35; cursor:default; }
+.pg-info { font-size:10px; letter-spacing:1px; color:var(--x-muted); }
 
 /* panel */
 section.panel { margin-bottom:18px; }
