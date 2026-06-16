@@ -225,7 +225,13 @@ async function load() {
     if (r.peak_alt && r.peak_alt.alt != null) {
       document.getElementById('peak-alt').textContent = Math.round(r.peak_alt.alt).toLocaleString() + ' ft';
       const fl = r.peak_alt.flight ? r.peak_alt.flight.trim() : '';
-      document.getElementById('peak-alt-sub').textContent = fl ? '✈ ' + fl : '';
+      const sub = document.getElementById('peak-alt-sub');
+      // click ✈ 入去嗰架機 detail 頁（detail keyed by icao）
+      if (r.peak_alt.icao) {
+        sub.innerHTML = `<a href="/aircraft/${esc(r.peak_alt.icao)}/">✈ ${esc(fl || r.peak_alt.icao.toUpperCase())}</a>`;
+      } else {
+        sub.textContent = fl ? '✈ ' + fl : '';
+      }
     }
     if (r.busiest_hour && r.busiest_hour.hour != null) {
       const h = r.busiest_hour.hour;

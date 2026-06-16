@@ -16,6 +16,8 @@
 .summary { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:18px; }
 .summary .stat-big { backdrop-filter:blur(8px); padding:16px 18px; }
 .summary .stat-big .val { font-size:32px; }
+.summary .stat-big .sub a { color:var(--mint); text-decoration:none; }
+.summary .stat-big .sub a:hover { color:var(--amber); text-decoration:underline; }
 
 /* panel backdrop blur（覆寫 base.css） */
 .panel-hdr, .panel-body { backdrop-filter:blur(8px); }

@@ -314,12 +314,12 @@ def query_stats():
 
         # 全 DB 最高高度（帶埋邊班機）
         cur.execute(
-            """SELECT max_alt_baro AS alt, flight FROM aircraft_passes
+            """SELECT max_alt_baro AS alt, flight, icao FROM aircraft_passes
                WHERE max_alt_baro IS NOT NULL
                ORDER BY max_alt_baro DESC LIMIT 1"""
         )
         row = _dict_one(cur)
-        peak_alt = {'alt': row['alt'], 'flight': row['flight']} if row else None
+        peak_alt = {'alt': row['alt'], 'flight': row['flight'], 'icao': row['icao']} if row else None
 
         # 全 DB 最繁忙時段（JST）
         # 注意：傳 [] 做 params 等 PyMySQL unescape `%%` → `%`；冇 params 嘅話
