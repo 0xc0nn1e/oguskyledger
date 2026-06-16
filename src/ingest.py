@@ -66,6 +66,11 @@ def ingest_once():
         alt_baro = a.get('alt_baro')
         if isinstance(alt_baro, str):  # tar1090 sends "ground" for landed aircraft
             alt_baro = None
+        # ADS-B alt_baro 偶有 corrupt 讀數（試過 101,500 ft）；超出物理合理範圍當 glitch
+        # 丟棄，唔好污染 max/peak 統計。raw_json 照存原值。上限 60,000 ft 保留到真高空
+        # 無人機（FORTE10 Global Hawk ~52,000 ft）。
+        if alt_baro is not None and not (-2000 <= alt_baro <= 60000):
+            alt_baro = None
 
         if push_secret and push_rules:
             # Push 條件：match 中咗某條 enabled rule，而且已 enrich registration（避免 push hex）。
