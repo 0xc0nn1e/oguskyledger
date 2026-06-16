@@ -328,7 +328,6 @@ async function load() {
   if (sel) sel.addEventListener('change', () => loadProfile(parseInt(sel.value, 10)));
   // 通過履歴 server 分頁（揭全部歷史）+ 表頭 server 排序。第一頁由 /api/aircraft 直接帶返。
   const psize = a.page_size || (typeof PAGE_SIZE !== 'undefined' ? PAGE_SIZE : 50);
-  let firstRender = true;
   pagedTable({
     fetchPage: (page, sort) => fetch(`/api/aircraft/passes?icao=${encodeURIComponent(_icao)}&page=${page}&sort=${encodeURIComponent(sort)}`).then(r => r.ok ? r.json() : null),
     renderRows: renderPassRows,
@@ -339,8 +338,8 @@ async function load() {
       total_pages: Math.max(1, Math.ceil((a.passes_total || 0) / psize)), sort: '',
     },
     onRendered: () => {
-      if (!firstRender) return;   // 揭頁只重畫表，唔重 load profile
-      firstRender = false;
+      // 每次（初載 / 揭頁 / 排序）都 load 當前頁第一條 pass，令 profile / map /
+      // highlight / dropdown 同當前頁一致，唔好留低舊頁嗰條 stale 圖。
       if (_passes.length) loadProfile(0);
       else {
         document.getElementById('profile-wrap').innerHTML = `<div class="loading">${esc(T.ac_profile_no_data)}</div>`;
