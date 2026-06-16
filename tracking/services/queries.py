@@ -709,6 +709,11 @@ def query_aircraft(icao, page_size=50):
             'n': r['n'],
         } for r in _dict_cursor(cur)]
 
+        # 仲留住嘅最舊 raw（retention floor）；老過呢個嘅 pass = raw 已 prune，
+        # 前端用嚟分清「track/profile 冇點」係 retention 清咗定本身冇位置。
+        cur.execute('SELECT MIN(seen_at) AS m FROM sightings_raw')
+        raw_since = (_dict_one(cur) or {}).get('m')
+
     def _c(v):
         v = (v or '').strip() if isinstance(v, str) else v
         return v if v and (not isinstance(v, str) or v.lower() != 'n/a') else None
@@ -736,6 +741,7 @@ def query_aircraft(icao, page_size=50):
         'passes_total': passes_pg['total'],
         'page_size': passes_pg['page_size'],
         'route_history': route_history,
+        'raw_since': raw_since,
     }
 
 

@@ -45,7 +45,14 @@ function renderRouteHistory(items) {
   }).join('') + '</div>';
 }
 
-let _passes = [], _icao = '', _loadSeq = 0;
+let _passes = [], _icao = '', _loadSeq = 0, _rawSince = null, _curPass = null;
+
+// 揀緊嘅 pass 老過仲留住嘅 raw（_rawSince = retained raw 最舊一筆 seen_at）→ 係 retention
+// prune 咗 raw，唔係本身冇位置；俾更準嘅 no-data 訊息（唔好誤導話「冇位置數據」）。
+function noDataMsg(defKey) {
+  if (_curPass && _rawSince && _curPass.last_seen < _rawSince) return T.ac_pruned || '// raw pruned (retention)';
+  return T[defKey];
+}
 
 // 渲染當前一頁通過履歷（tbody + dropdown options + wire row click）。
 // _passes = 當前頁，data-idx 跟頁；loadProfile / 揀 pass 用呢個 index。
@@ -69,6 +76,7 @@ function renderPassRows(rows) {
 async function loadProfile(idx) {
   const p = _passes[idx];
   if (!p) return;
+  _curPass = p;   // 畀 noDataMsg 判斷係咪 retention prune 咗
   // 快手連揀兩條 pass 時，遲返嚟嘅舊 response 唔可以覆寫新揀嗰條
   const seq = ++_loadSeq;
   const wrap = document.getElementById('profile-wrap');
@@ -93,7 +101,7 @@ async function loadProfile(idx) {
 function drawProfile(pts) {
   const wrap = document.getElementById('profile-wrap');
   if (!pts || pts.length < 1) {
-    wrap.innerHTML = `<div class="loading">${esc(T.ac_profile_no_data)}</div>`;
+    wrap.innerHTML = `<div class="loading">${esc(noDataMsg('ac_profile_no_data'))}</div>`;
     return;
   }
   const W = 800, H = 240, padL = 44, padR = 44, padT = 14, padB = 28;
@@ -177,7 +185,7 @@ function drawTrackMap(pts) {
   if (!geo.length) {
     // 冇位置點：拆咗個 map（如有），顯示 no-data，唔留舊軌跡
     if (_map) { _map.remove(); _map = null; _trackLayer = null; }
-    wrap.innerHTML = `<div class="loading">${esc(T.ac_map_no_data)}</div>`;
+    wrap.innerHTML = `<div class="loading">${esc(noDataMsg('ac_map_no_data'))}</div>`;
     return;
   }
   if (!_map) {
@@ -322,6 +330,7 @@ async function load() {
         <div class="pager" id="pass-pager"></div>
       </div></section>`;
   _icao = a.icao;
+  _rawSince = a.raw_since || null;   // retained raw 最舊一筆；老過呢個嘅 pass = raw 已 prune
   const wb = document.getElementById('watch-btn');
   if (wb) wb.addEventListener('click', () => toggleWatch(a));
   const sel = document.getElementById('pass-pick');
