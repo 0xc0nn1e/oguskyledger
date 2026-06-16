@@ -176,6 +176,7 @@
     //         onRendered(resp 可選), initial(可選：第一頁已有就唔使 fetch) }；回 { reload(page) }
     function pagedTable(opts) {
       let sort = (opts.initial && opts.initial.sort) || '';
+      let _seq = 0;
       function bar(resp) {
         const el = opts.controls; if (!el) return;
         const tp = resp.total_pages || 1, cur = resp.page || 1;
@@ -194,7 +195,9 @@
         if (opts.onRendered) opts.onRendered(resp);
       }
       async function load(page) {
+        const s = ++_seq;
         let resp; try { resp = await opts.fetchPage(page, sort); } catch (e) { return; }
+        if (s !== _seq) return;   // 過時 response（快手換 filter/頁）唔好覆寫新嗰個
         if (resp) render(resp);
       }
       if (opts.table && opts.table.tHead) {

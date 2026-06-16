@@ -173,7 +173,7 @@ function selectDay(value) {
   dateValue.textContent = displayDate(value);
   calendarView = { ...dateParts(value) };
   setCalendarOpen(false);
-  load();
+  reload();
 }
 function renderCalendar() {
   const { year, month } = calendarView;
@@ -211,37 +211,16 @@ function renderCalendar() {
   calendarNext.disabled = year > today.year || (year === today.year && month >= today.month);
 }
 
-let _loadSeq = 0;
-async function load() {
-  // 快手連換日期 / filter 時，遲返嚟嘅舊 response 唔可以覆寫新嗰個
-  const seq = ++_loadSeq;
-  const qs = new URLSearchParams({
-    day: day.value, sort: sort.value,
-    country: countryFilter.value, operator: operatorFilter.value, type: typeFilter.value,
-    from: fromFilter.value, to: toFilter.value,
-  });
-  const res = await fetch('/api/today?' + qs.toString());
-  const data = await res.json();
-  if (seq !== _loadSeq) return;
-  meta.textContent = (T.meta_template || '{day} · {count} · {sort}')
-    .replace('{day}', data.day).replace('{count}', data.count).replace('{sort}', data.sort);
-
-  // 每次都 rebuild dropdown options，但 keep 現有 selection 如果 list 仲有
-  function refillSelect(el, values) {
-    const cur = el.value;
-    while (el.options.length > 1) el.remove(1);
-    values.forEach(v => el.insertAdjacentHTML('beforeend', `<option value="${esc(v)}">${esc(v)}</option>`));
-    el.value = values.includes(cur) ? cur : '';
-  }
-  refillSelect(countryFilter, data.countries);
-  refillSelect(operatorFilter, data.operators);
-  refillSelect(typeFilter, data.types);
-  refillSelect(fromFilter, data.from_airports);
-  refillSelect(toFilter, data.to_airports);
-
-  rowsEl.innerHTML = data.rows.map(r => {
-    const ic = categoryIcon(r.category);
-    return `
+// dropdown options：keep 現有 selection（list 仲有就保留）
+function refillSelect(el, values) {
+  const cur = el.value;
+  while (el.options.length > 1) el.remove(1);
+  values.forEach(v => el.insertAdjacentHTML('beforeend', `<option value="${esc(v)}">${esc(v)}</option>`));
+  el.value = values.includes(cur) ? cur : '';
+}
+function renderDetailRow(r) {
+  const ic = categoryIcon(r.category);
+  return `
     <tr>
       <td>${ic ? ic + ' ' : ''}<a class="ac-link" href="/aircraft/${esc(r.icao)}/">${esc(r.icao)}</a></td>
       <td>${esc(r.flight)}</td>
@@ -258,20 +237,46 @@ async function load() {
       <td>${esc(r.first_seen_jst)}</td>
       <td>${esc(r.last_seen_jst)}</td>
     </tr>`;
-  }).join('');
+}
+function detailsURL(page) {
+  const qs = new URLSearchParams({
+    day: day.value, sort: sort.value,
+    country: countryFilter.value, operator: operatorFilter.value, type: typeFilter.value,
+    from: fromFilter.value, to: toFilter.value, page: page,
+  });
+  return '/api/today?' + qs.toString();
+}
+let _pager;
+// filter / 日期 / sort 改 → 返第 1 頁；揭頁由 pager 自己管（server 分頁 + stale guard）
+function reload() {
+  if (_pager) { _pager.reload(1); return; }
+  _pager = pagedTable({
+    fetchPage: (page) => fetch(detailsURL(page)).then(r => r.ok ? r.json() : null),
+    renderRows: (rows) => { rowsEl.innerHTML = rows.map(renderDetailRow).join(''); },
+    controls: document.getElementById('details-pager'),
+    onRendered: (data) => {
+      meta.textContent = (T.meta_template || '{day} · {count} · {sort}')
+        .replace('{day}', data.day).replace('{count}', data.count).replace('{sort}', data.sort);
+      refillSelect(countryFilter, data.countries);
+      refillSelect(operatorFilter, data.operators);
+      refillSelect(typeFilter, data.types);
+      refillSelect(fromFilter, data.from_airports);
+      refillSelect(toFilter, data.to_airports);
+    },
+  });
 }
 
 // 預設今日（JST）
 day.value = todayStr;
 dateValue.textContent = displayDate(todayStr);
 
-loadBtn.addEventListener('click', load);
-sort.addEventListener('change', load);
-countryFilter.addEventListener('change', load);
-operatorFilter.addEventListener('change', load);
-typeFilter.addEventListener('change', load);
-fromFilter.addEventListener('change', load);
-toFilter.addEventListener('change', load);
+loadBtn.addEventListener('click', reload);
+sort.addEventListener('change', reload);
+countryFilter.addEventListener('change', reload);
+operatorFilter.addEventListener('change', reload);
+typeFilter.addEventListener('change', reload);
+fromFilter.addEventListener('change', reload);
+toFilter.addEventListener('change', reload);
 datePicker.addEventListener('click', () => setCalendarOpen(calendarPopover.hidden));
 calendarPrev.addEventListener('click', () => {
   calendarView.month -= 1;
@@ -298,6 +303,4 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-load();
-// 表頭 click 排序（thead 靜態，attach 一次即可；同 sort dropdown 並存）
-makeSortable(rowsEl.closest('table'));
+reload();

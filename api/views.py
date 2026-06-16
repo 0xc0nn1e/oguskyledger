@@ -162,7 +162,7 @@ def today(request):
     sort = request.GET.get('sort', 'last_seen')
     filters = {k: request.GET.get(k, '') for k in
                ('country', 'operator', 'type', 'from', 'to')}
-    rows = queries.query_rows(
+    rows_all = queries.query_rows(
         day, sort,
         country_filter=filters['country'],
         operator_filter=filters['operator'],
@@ -170,6 +170,16 @@ def today(request):
         from_filter=filters['from'],
         to_filter=filters['to'],
     )
+    # server 分頁：一日 row 有界，full filtered 完喺度 slice 一頁（page_size 由 SiteConfig）
+    total = len(rows_all)
+    page_size = _page_size()
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    try:
+        page = min(max(1, int(request.GET.get('page', 1))), total_pages)
+    except (TypeError, ValueError):
+        page = 1
+    offset = (page - 1) * page_size
+    rows = rows_all[offset:offset + page_size]
     # 唔加 filter 嘅版本，攞返 dropdown 全部可選值
     all_rows = queries.query_rows(day, sort)
     countries = sorted({r['country'] for r in all_rows if r['country'] != '-'})
@@ -180,7 +190,11 @@ def today(request):
     return Response({
         'day': day,
         'sort': sort,
-        'count': len(rows),
+        'count': total,
+        'total': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': total_pages,
         'countries': countries,
         'operators': operators,
         'types': types,
