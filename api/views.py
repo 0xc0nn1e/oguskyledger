@@ -170,16 +170,21 @@ def today(request):
         from_filter=filters['from'],
         to_filter=filters['to'],
     )
-    # server 分頁：一日 row 有界，full filtered 完喺度 slice 一頁（page_size 由 SiteConfig）
     total = len(rows_all)
     page_size = _page_size()
-    total_pages = max(1, (total + page_size - 1) // page_size)
-    try:
-        page = min(max(1, int(request.GET.get('page', 1))), total_pages)
-    except (TypeError, ValueError):
-        page = 1
-    offset = (page - 1) * page_size
-    rows = rows_all[offset:offset + page_size]
+    page_param = request.GET.get('page')
+    if page_param is None:
+        # 冇 page param → 回全日 row（home operator 分組 / 統計要全部，唔分頁；
+        # 同分頁前舊行為一致）。details 永遠帶 page，先至 slice 一頁。
+        rows, page, total_pages, page_size = rows_all, 1, 1, (total or page_size)
+    else:
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        try:
+            page = min(max(1, int(page_param)), total_pages)
+        except (TypeError, ValueError):
+            page = 1
+        offset = (page - 1) * page_size
+        rows = rows_all[offset:offset + page_size]
     # 唔加 filter 嘅版本，攞返 dropdown 全部可選值
     all_rows = queries.query_rows(day, sort)
     countries = sorted({r['country'] for r in all_rows if r['country'] != '-'})
