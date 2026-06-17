@@ -258,6 +258,34 @@ async function toggleWatch(a) {
   wb.disabled = false;
 }
 
+// 飛機相：經 /api/photo（server 帶正確 UA 攞 planespotters metadata —— planespotters
+// 擋瀏覽器 UA，fetch() 又改唔到 UA，所以唔可以純 client 直 fetch）。但張相本身仍然
+// 由 browser 直接 load planespotters CDN（唔經、唔存喺我 server）。
+// 冇相 / 圖載唔到 → 內置 placeholder，唔留死 link。
+function noPhotoSVG() {
+  return '<div class="ac-photo-ph">'
+    + '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.6c.6 0 1 .8 1 2.4v6.4l8.6 5v1.8L13 14.6v4.8l2.2 1.6v1.4L12 21.4l-3.2 1L8.8 21 11 19.4v-4.8L2.4 17.2v-1.8l8.6-5V4c0-1.6.4-2.4 1-2.4Z"/></svg>'
+    + `<span>${esc(T.ac_no_photo || 'NO PHOTO')}</span></div>`;
+}
+async function loadPhoto(icao) {
+  const box = document.getElementById('ac-photo');
+  if (!box) return;
+  box.innerHTML = noPhotoSVG();   // 先放 placeholder（fetch 緊 / 冇相都唔會空）
+  let ph;
+  try {
+    const r = await fetch('/api/photo?icao=' + encodeURIComponent(icao));
+    if (!r.ok) return;
+    ph = (await r.json()).photo;
+  } catch (e) { return; }            // fetch fail → 留 placeholder
+  if (!ph || !ph.src) return;        // 冇相 → 留 placeholder
+  const credit = ph.photographer ? '© ' + ph.photographer + ' · ' : '';
+  box.innerHTML = `<a href="${esc(ph.link || '#')}" target="_blank" rel="noopener">`
+    + `<img id="ac-photo-img" src="${esc(ph.src)}" alt="${esc(icao)}" loading="lazy">`
+    + `<span class="cred">${esc(credit)}planespotters.net</span></a>`;
+  const img = document.getElementById('ac-photo-img');
+  if (img) img.addEventListener('error', () => { box.innerHTML = noPhotoSVG(); });  // 圖死 link → placeholder
+}
+
 async function load() {
   // 新 URL 由 pathname parse ICAO：/aircraft/<icao>/
   const m = location.pathname.match(/^\/aircraft\/([^\/]+)\/?$/);
@@ -281,7 +309,7 @@ async function load() {
   body.innerHTML = `
     <div class="ac-head">
       <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(name)}${a.watched !== undefined ? `<button id="watch-btn" type="button" class="watch-btn${a.watched ? ' on' : ''}">${a.watched ? '★ ' + esc(T.ac_watching || 'WATCHING') : '☆ ' + esc(T.ac_watch || 'WATCH')}</button>` : ''}</div>
-        <div class="panel-body"><div class="kv">
+        <div class="panel-body"><div class="ac-photo" id="ac-photo"></div><div class="kv">
           ${kvRow(T.map_reg, esc(a.registration))}
           ${kvRow(T.map_type, esc(a.aircraft_type))}
           ${kvRow(T.map_op, esc(a.operator))}
@@ -331,6 +359,7 @@ async function load() {
       </div></section>`;
   _icao = a.icao;
   _rawSince = a.raw_since || null;   // retained raw 最舊一筆；老過呢個嘅 pass = raw 已 prune
+  loadPhoto(a.icao);                 // planespotters 相（client-side，冇相有 placeholder）
   const wb = document.getElementById('watch-btn');
   if (wb) wb.addEventListener('click', () => toggleWatch(a));
   const sel = document.getElementById('pass-pick');

@@ -152,6 +152,14 @@ def aircraft_track(request):
 
 
 @api_view(['GET'])
+def photo(request):
+    """/api/photo?icao= → planespotters 相 metadata（server 帶自訂 UA fetch；planespotters
+    擋瀏覽器 UA 所以唔可以純 client 直 fetch）。回 {photo: {src,link,photographer}|null}；
+    張相本身由 browser 直接 load planespotters CDN，唔經 / 唔存喺本 server。"""
+    return Response({'photo': queries.query_aircraft_photo(request.GET.get('icao', ''))})
+
+
+@api_view(['GET'])
 def today(request):
     """/api/today?day=<JST date>&sort=...&country=...&operator=...：home 同 details 頁用。
 

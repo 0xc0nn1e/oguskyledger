@@ -766,6 +766,41 @@ def query_aircraft_track(icao, from_iso, to_iso):
         } for r in _dict_cursor(cur)]
 
 
+# planespotters 相 cache（icao -> (photo|None, fetched_at)）；process-local，避免重複打 planespotters。
+_PHOTO_CACHE = {}
+_PHOTO_TTL = 86400  # 1 日
+
+
+def query_aircraft_photo(icao):
+    """planespotters.net 相 metadata（server-side fetch，要自訂 User-Agent —— planespotters
+    擋瀏覽器 UA，所以唔可以純 client 直 fetch）。回 {src, link, photographer} | None。
+    張相本身由 browser 直接 load planespotters CDN，唔經 / 唔存喺本 server。"""
+    icao = (icao or '').strip().lower()
+    if not icao:
+        return None
+    now = time.time()
+    hit = _PHOTO_CACHE.get(icao)
+    if hit and now - hit[1] < _PHOTO_TTL:
+        return hit[0]
+    photo = None
+    try:
+        req = urllib.request.Request(
+            f'https://api.planespotters.net/pub/photos/hex/{icao}',
+            headers={'User-Agent': 'plane-history/1.0 (+https://flight.connie.hk)'},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.load(resp)
+        ph = (data.get('photos') or [None])[0]
+        if ph:
+            src = (ph.get('thumbnail_large') or ph.get('thumbnail') or {}).get('src')
+            if src:
+                photo = {'src': src, 'link': ph.get('link'), 'photographer': ph.get('photographer')}
+    except Exception:
+        photo = None   # planespotters timeout / 死 → 當冇相，唔好爆
+    _PHOTO_CACHE[icao] = (photo, now)
+    return photo
+
+
 def query_rows(day_str, sort_key='last_seen', country_filter='', operator_filter='',
                type_filter='', from_filter='', to_filter=''):
     """/details + home today table 用：指定 JST 日嘅 aircraft 聚合（每 ICAO 一行）。"""
