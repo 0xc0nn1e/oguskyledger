@@ -769,6 +769,8 @@ def query_aircraft_track(icao, from_iso, to_iso):
 # planespotters 相 cache（icao -> (photo|None, fetched_at)）；process-local，避免重複打 planespotters。
 _PHOTO_CACHE = {}
 _PHOTO_TTL = 86400  # 1 日
+_PHOTO_CACHE_MAX = 4096  # cache 上限：防公開 endpoint 被灌大量唯一 icao 谷爆 memory
+_ICAO_RE = re.compile(r'[0-9a-f]{6}')
 
 
 def query_aircraft_photo(icao):
@@ -776,7 +778,9 @@ def query_aircraft_photo(icao):
     擋瀏覽器 UA，所以唔可以純 client 直 fetch）。回 {src, link, photographer} | None。
     張相本身由 browser 直接 load planespotters CDN，唔經 / 唔存喺本 server。"""
     icao = (icao or '').strip().lower()
-    if not icao:
+    # 嚴格 ICAO hex（6 位）驗證：公開 endpoint，防 URL injection / 用我 server 做 open
+    # proxy 灌 planespotters，又限死 cache key 範圍。
+    if not _ICAO_RE.fullmatch(icao):
         return None
     now = time.time()
     hit = _PHOTO_CACHE.get(icao)
@@ -797,6 +801,8 @@ def query_aircraft_photo(icao):
                 photo = {'src': src, 'link': ph.get('link'), 'photographer': ph.get('photographer')}
     except Exception:
         photo = None   # planespotters timeout / 死 → 當冇相，唔好爆
+    if len(_PHOTO_CACHE) >= _PHOTO_CACHE_MAX:
+        _PHOTO_CACHE.pop(next(iter(_PHOTO_CACHE)), None)   # 超上限 → evict 最舊（防 memory 谷爆）
     _PHOTO_CACHE[icao] = (photo, now)
     return photo
 

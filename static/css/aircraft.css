@@ -7,7 +7,7 @@
 }
 
 /* 飛機相（planespotters；冇相 → placeholder，唔留死 link）*/
-.ac-photo { margin-bottom:12px; border:var(--border); border-radius:6px; overflow:hidden; background:#050a0d; }
+.ac-photo { border:var(--border); border-radius:6px; overflow:hidden; background:#050a0d; }
 .ac-photo a { display:block; position:relative; line-height:0; text-decoration:none; }
 .ac-photo img { width:100%; height:auto; max-height:240px; object-fit:cover; display:block; }
 .ac-photo .cred {

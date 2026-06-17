@@ -309,7 +309,7 @@ async function load() {
   body.innerHTML = `
     <div class="ac-head">
       <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(name)}${a.watched !== undefined ? `<button id="watch-btn" type="button" class="watch-btn${a.watched ? ' on' : ''}">${a.watched ? '★ ' + esc(T.ac_watching || 'WATCHING') : '☆ ' + esc(T.ac_watch || 'WATCH')}</button>` : ''}</div>
-        <div class="panel-body"><div class="ac-photo" id="ac-photo"></div><div class="kv">
+        <div class="panel-body"><div class="kv">
           ${kvRow(T.map_reg, esc(a.registration))}
           ${kvRow(T.map_type, esc(a.aircraft_type))}
           ${kvRow(T.map_op, esc(a.operator))}
@@ -328,6 +328,8 @@ async function load() {
         ${statCard(T.ac_last_seen, ymd(a.last_seen), hm(a.last_seen))}
       </div></div>
     </div>
+    <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_photo_hdr || 'PHOTO')}</div>
+      <div class="panel-body"><div class="ac-photo" id="ac-photo"></div></div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_routes_hdr || 'ROUTE HISTORY')}</div>
       <div class="panel-body">${renderRouteHistory(a.route_history)}</div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_daily_hdr)}</div>
