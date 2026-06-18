@@ -652,7 +652,7 @@ def query_aircraft(icao, page_size=50):
 
     with connection.cursor() as cur:
         cur.execute(
-            """SELECT icao, registration, country, aircraft_type, operator,
+            """SELECT icao, registration, country, aircraft_type, operator, operator_country,
                       from_airport, to_airport, fr24_id
                FROM aircraft_registry_cache WHERE icao = %s""",
             [icao],
@@ -725,6 +725,7 @@ def query_aircraft(icao, page_size=50):
         'registration': _c(info.get('registration')) if info else None,
         'aircraft_type': _c(info.get('aircraft_type')) if info else None,
         'operator': _c(info.get('operator')) if info else None,
+        'operator_country': _c(info.get('operator_country')) if info else None,
         'country': _c(info.get('country')) if info else None,
         'category': category,
         'from': _c(info.get('from_airport')) if info else None,

@@ -27,6 +27,15 @@ function categoryIcon(code) {
   return '';
 }
 
+// ADS-B emitter category code → 友善名（左卡「類別」row 用）
+const CAT_LBL = { A1:'Light', A2:'Small', A3:'Large', A4:'B757', A5:'Heavy', A6:'High-perf', A7:'Heli',
+  B1:'Glider', B2:'Balloon', B3:'Parachute', B4:'Ultralight', B6:'UAV', B7:'Space', C1:'Vehicle', C2:'Vehicle' };
+function catLabel(c) {
+  if (!c) return '';
+  const u = String(c).trim().toUpperCase();
+  return CAT_LBL[u] ? `${CAT_LBL[u]} (${u})` : u;
+}
+
 function passLabel(p) {
   return `${p.pass_date} ${hm(p.first_seen)}–${hm(p.last_seen)}` + (p.flight ? ` · ${p.flight}` : '');
 }
@@ -312,9 +321,13 @@ async function load() {
         <div class="panel-body"><div class="kv">
           ${kvRow(T.map_reg, esc(a.registration))}
           ${kvRow(T.map_type, esc(a.aircraft_type))}
+          ${kvRow(T.ac_category, esc(catLabel(a.category)))}
           ${kvRow(T.map_op, esc(a.operator))}
+          ${kvRow(T.ac_op_country, esc(a.operator_country))}
           ${kvRow(T.map_country, esc(a.country))}
-          ${kvRow(T.map_route, route)}
+          ${kvRow(T.ac_col_from, esc(a.from))}
+          ${kvRow(T.ac_col_to, esc(a.to))}
+          ${kvRow(T.ac_samples, a.samples ? esc(a.samples.toLocaleString()) : '')}
           ${kvRow('ICAO', esc(a.icao))}
           <div class="row"><div class="k">FR24</div><div class="v"><a href="${fr24}" target="_blank" rel="noopener">${esc(T.map_fr24)} ↗</a></div></div>
         </div></div>
@@ -326,10 +339,8 @@ async function load() {
         ${statCard(T.ac_max_spd, spd, '')}
         ${statCard(T.ac_first_seen, ymd(a.first_seen), hm(a.first_seen))}
         ${statCard(T.ac_last_seen, ymd(a.last_seen), hm(a.last_seen))}
-      </div></div>
+      </div><div class="ac-photo" id="ac-photo"></div></div>
     </div>
-    <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_photo_hdr || 'PHOTO')}</div>
-      <div class="panel-body"><div class="ac-photo" id="ac-photo"></div></div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_routes_hdr || 'ROUTE HISTORY')}</div>
       <div class="panel-body">${renderRouteHistory(a.route_history)}</div></section>
     <section class="panel"><div class="panel-hdr"><span class="diamond">◆</span>${esc(T.ac_daily_hdr)}</div>
