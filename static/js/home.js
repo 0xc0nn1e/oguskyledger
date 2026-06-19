@@ -332,12 +332,20 @@ function render(data) {
   // Stats
   document.getElementById('s-today').textContent = data.count;
   document.getElementById('s-ops').textContent = data.operators.length;
-  let peakAlt = 0;
+  let peakAlt = 0, peakRow = null;
   for (const r of data.rows) {
     const v = nVal(r.max_alt_baro);
-    if (v != null && Number(v) > peakAlt) peakAlt = Number(v);
+    if (v != null && Number(v) > peakAlt) { peakAlt = Number(v); peakRow = r; }
   }
-  document.getElementById('s-peak').textContent = peakAlt ? Math.round(peakAlt/1000) + 'k' : '—';
+  const sPeak = document.getElementById('s-peak');
+  if (peakAlt && peakRow && peakRow.icao) {
+    // 46k 後面 inline 接返架機（click 入 detail）；用細 font + nowrap，唔開新行、唔影響格高度
+    const fl = (peakRow.flight && peakRow.flight !== '-') ? peakRow.flight : String(peakRow.icao).toUpperCase();
+    sPeak.innerHTML = `${Math.round(peakAlt/1000)}k`
+      + `<a class="peak-ac" href="/aircraft/${esc(peakRow.icao)}/" title="${esc(fl)}">✈ ${esc(fl)}</a>`;
+  } else {
+    sPeak.textContent = peakAlt ? Math.round(peakAlt/1000) + 'k' : '—';
+  }
   const routes = new Set();
   for (const r of data.rows) {
     if (r.from_airport !== '-' && r.to_airport !== '-')
