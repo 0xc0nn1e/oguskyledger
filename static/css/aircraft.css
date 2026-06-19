@@ -6,6 +6,9 @@
   align-items:start; margin-bottom:18px;
 }
 
+/* 左卡尾「資料新鮮度」badge（enrichment 來源 + 幾耐前更新）*/
+.ac-src { margin-top:10px; font-size:10px; letter-spacing:0.5px; color:var(--x-muted); }
+
 /* 飛機相（planespotters；冇相 → placeholder，唔留死 link）*/
 .ac-photo { margin-top:12px; border:var(--border); border-radius:6px; overflow:hidden; background:#050a0d; text-align:center; }
 .ac-photo a { display:inline-block; position:relative; line-height:0; max-width:100%; text-decoration:none; }

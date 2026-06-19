@@ -36,6 +36,31 @@ function catLabel(c) {
   return CAT_LBL[u] ? `${CAT_LBL[u]} (${u})` : u;
 }
 
+// 相對時間（localized）：enrichment 幾耐前更新。用 Intl 免自己維護三語單位字串。
+const _RTF_LOCALE = { jp: 'ja', hk: 'zh-HK', en: 'en' };
+function relAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const sec = (Date.now() - d.getTime()) / 1000;
+  const loc = _RTF_LOCALE[typeof LANG !== 'undefined' ? LANG : 'hk'] || 'en';
+  let rtf;
+  try { rtf = new Intl.RelativeTimeFormat(loc, { numeric: 'auto' }); }
+  catch (e) { return ''; }
+  if (sec < 3600) return rtf.format(-Math.round(sec / 60), 'minute');
+  if (sec < 86400) return rtf.format(-Math.round(sec / 3600), 'hour');
+  return rtf.format(-Math.round(sec / 86400), 'day');
+}
+
+// 左卡尾「資料新鮮度」badge：enrichment 來源 + 幾耐前更新（兩者缺一就只顯示有嗰個）。
+function srcBadge(a) {
+  const src = a.lookup_source ? `${esc(T.ac_src)}: ${esc(a.lookup_source)}` : '';
+  const rel = relAgo(a.last_lookup_at);
+  const upd = rel ? `${esc(T.ac_updated)} ${esc(rel)}` : '';
+  const inner = [src, upd].filter(Boolean).join(' · ');
+  return inner ? `<div class="ac-src">${inner}</div>` : '';
+}
+
 function passLabel(p) {
   return `${p.pass_date} ${hm(p.first_seen)}–${hm(p.last_seen)}` + (p.flight ? ` · ${p.flight}` : '');
 }
@@ -73,7 +98,10 @@ function renderPassRows(rows) {
       const al = (p.min_alt != null || p.max_alt != null)
         ? `${p.min_alt != null ? Math.round(p.min_alt).toLocaleString() : '—'}–${p.max_alt != null ? Math.round(p.max_alt).toLocaleString() : '—'}`
         : '—';
-      return `<tr class="pickable" data-idx="${i}"><td>${esc(p.pass_date)}</td><td>${hm(p.first_seen)}–${hm(p.last_seen)}</td><td>${esc(p.flight || '—')}</td><td>${esc(p.from_airport || '—')}</td><td>${esc(p.to_airport || '—')}</td><td class="r">${al}</td><td class="r">${p.samples}</td></tr>`;
+      const sp = (p.min_gs != null || p.max_gs != null)
+        ? `${p.min_gs != null ? Math.round(p.min_gs) : '—'}–${p.max_gs != null ? Math.round(p.max_gs) : '—'}`
+        : '—';
+      return `<tr class="pickable" data-idx="${i}"><td>${esc(p.pass_date)}</td><td>${hm(p.first_seen)}–${hm(p.last_seen)}</td><td>${esc(p.flight || '—')}</td><td>${esc(p.from_airport || '—')}</td><td>${esc(p.to_airport || '—')}</td><td class="r">${al}</td><td class="r">${sp}</td><td class="r">${p.samples}</td></tr>`;
     }).join('');
     tb.querySelectorAll('tr.pickable').forEach(tr =>
       tr.addEventListener('click', () => loadProfile(parseInt(tr.dataset.idx, 10))));
@@ -330,7 +358,7 @@ async function load() {
           ${kvRow(T.ac_samples, a.samples ? esc(a.samples.toLocaleString()) : '')}
           ${kvRow('ICAO', esc(a.icao))}
           <div class="row"><div class="k">FR24</div><div class="v"><a href="${fr24}" target="_blank" rel="noopener">${esc(T.map_fr24)} ↗</a></div></div>
-        </div></div>
+        </div>${srcBadge(a)}</div>
       </section>
       <div><div class="stats-grid">
         ${statCard(T.ac_total_passes, (a.total_passes||0).toLocaleString(), '')}
@@ -366,7 +394,7 @@ async function load() {
         <table class="ptable" id="pass-table"><thead><tr>
           <th data-sort="date">${esc(T.ac_col_date)}</th><th>${esc(T.ac_col_time)}</th><th data-sort="flight">${esc(T.ac_col_flight)}</th>
           <th data-sort="from">${esc(T.ac_col_from)}</th><th data-sort="to">${esc(T.ac_col_to)}</th>
-          <th class="r" data-sort="alt">${esc(T.ac_col_alt)}</th><th class="r" data-sort="samples">${esc(T.ac_col_samples)}</th>
+          <th class="r" data-sort="alt">${esc(T.ac_col_alt)}</th><th class="r" data-sort="spd">${esc(T.ac_col_spd)}</th><th class="r" data-sort="samples">${esc(T.ac_col_samples)}</th>
         </tr></thead><tbody id="pass-rows"></tbody></table>
         <div class="pager" id="pass-pager"></div>
       </div></section>`;

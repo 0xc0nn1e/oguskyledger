@@ -591,7 +591,7 @@ def query_live():
 # 通過履歷可排序欄白名單（key → DB column）
 PASS_SORTS = {
     'date': 'first_seen', 'flight': 'flight', 'from': 'from_airport',
-    'to': 'to_airport', 'alt': 'max_alt_baro', 'samples': 'samples',
+    'to': 'to_airport', 'alt': 'max_alt_baro', 'spd': 'max_gs', 'samples': 'samples',
 }
 
 
@@ -622,7 +622,8 @@ def query_aircraft_passes(icao, page=1, page_size=50, sort=''):
         total = _dict_one(cur)['c']
         cur.execute(
             f"""SELECT pass_date, flight, operator, first_seen, last_seen,
-                       samples, min_alt_baro, max_alt_baro, from_airport, to_airport
+                       samples, min_alt_baro, max_alt_baro, min_gs, max_gs,
+                       from_airport, to_airport
                 FROM aircraft_passes WHERE icao = %s
                 ORDER BY {order} LIMIT %s OFFSET %s""",
             [icao, page_size, offset],
@@ -636,6 +637,8 @@ def query_aircraft_passes(icao, page=1, page_size=50, sort=''):
             'samples': r['samples'],
             'min_alt': r['min_alt_baro'],
             'max_alt': r['max_alt_baro'],
+            'min_gs': r['min_gs'],
+            'max_gs': r['max_gs'],
             'from_airport': (r['from_airport'] or '').strip() or None,
             'to_airport': (r['to_airport'] or '').strip() or None,
         } for r in _dict_cursor(cur)]
@@ -653,7 +656,7 @@ def query_aircraft(icao, page_size=50):
     with connection.cursor() as cur:
         cur.execute(
             """SELECT icao, registration, country, aircraft_type, operator, operator_country,
-                      from_airport, to_airport, fr24_id
+                      from_airport, to_airport, fr24_id, lookup_source, last_lookup_at
                FROM aircraft_registry_cache WHERE icao = %s""",
             [icao],
         )
@@ -730,6 +733,8 @@ def query_aircraft(icao, page_size=50):
         'category': category,
         'from': _c(info.get('from_airport')) if info else None,
         'to': _c(info.get('to_airport')) if info else None,
+        'lookup_source': _c(info.get('lookup_source')) if info else None,
+        'last_lookup_at': info.get('last_lookup_at') if info else None,
         'total_passes': int(agg.get('passes') or 0),
         'days': int(agg.get('days') or 0),
         'first_seen': agg.get('first_seen'),
