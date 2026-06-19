@@ -157,6 +157,43 @@ function renderEmergList() {
         + `<span class="em-fl">${esc(nameOf(planes[h]))}</span></button>`).join('');
 }
 
+// 直升機群集事故 alert：頂部橫額 + 範圍圈 + member marker 高亮（query_live 計好）
+let heliCircle = null;
+function clearHeliHighlight() {
+  for (const hex in planes) {
+    const el = planes[hex].marker && planes[hex].marker.getElement();
+    if (el) el.classList.remove('heli-cluster-on');
+  }
+}
+function renderHeliCluster(hc) {
+  const box = document.getElementById('heli-alert');
+  if (!hc || !hc.active) {
+    if (box) { box.hidden = true; box.innerHTML = ''; }
+    if (heliCircle) { map.removeLayer(heliCircle); heliCircle = null; }
+    clearHeliHighlight();
+    return;
+  }
+  const msg = (T.map_heli_cluster || '⚠ {n} helicopters clustered — possible incident')
+    .replace('{n}', hc.count);
+  if (box) {
+    box.hidden = false;
+    box.innerHTML = `<button type="button" class="heli-alert-btn" `
+      + `data-lat="${hc.center[0]}" data-lon="${hc.center[1]}">${esc(msg)}</button>`;
+  }
+  const r = (hc.radius_km || 8) * 1000;
+  if (!heliCircle) {
+    heliCircle = L.circle(hc.center, { radius:r, color:'#f5d96f', weight:2, opacity:0.85,
+      fillColor:'#f5d96f', fillOpacity:0.07, interactive:false, className:'heli-cluster-circle' }).addTo(map);
+  } else {
+    heliCircle.setLatLng(hc.center); heliCircle.setRadius(r);
+  }
+  const set = new Set(hc.members || []);
+  for (const hex in planes) {
+    const el = planes[hex].marker && planes[hex].marker.getElement();
+    if (el) el.classList.toggle('heli-cluster-on', set.has(hex));
+  }
+}
+
 function extrap(fix, dt) {
   const ms = (fix.gs || 0) * 0.514444;        // kt -> m/s
   const dist = ms * Math.min(dt, 30);         // cap 30s 防 poll 卡住飛走
@@ -235,6 +272,7 @@ async function poll() {
   document.getElementById('emerg-cnt').textContent = emg ? ('⚠ ' + emg + ' ' + T.map_emerg) : '';
   applyFilter();
   renderEmergList();
+  renderHeliCluster(data.heli_cluster);
   if (firstFit && fitPts.length) {
     firstFit = false;
     try { map.fitBounds(fitPts, { padding:[40,40], maxZoom:10 }); } catch (e) {}
@@ -298,6 +336,14 @@ if (emergBox) emergBox.addEventListener('click', (e) => {
   p.marker.setPopupContent(buildPopup(p));
   p.marker.openPopup();
   map.setView([p.disp.lat, p.disp.lon], Math.max(map.getZoom(), 8), { animate: true });
+});
+// 直升機群集橫額：click → pan 去 cluster 中心
+const heliBox = document.getElementById('heli-alert');
+if (heliBox) heliBox.addEventListener('click', (e) => {
+  const btn = e.target.closest('.heli-alert-btn');
+  if (!btn) return;
+  map.setView([parseFloat(btn.dataset.lat), parseFloat(btn.dataset.lon)],
+    Math.max(map.getZoom(), 11), { animate: true });
 });
 // click 空白地圖 / 拖地圖 → 取消跟機
 map.on('mousedown', () => { followHex = null; });

@@ -16,6 +16,8 @@ from datetime import date, datetime, timedelta, timezone
 from django.conf import settings
 from django.db import connection
 
+from .incidents import detect_heli_cluster
+
 
 JST = timezone(timedelta(hours=9))
 
@@ -577,11 +579,25 @@ def query_live():
         except Exception:
             pass  # registry enrichment optional，DB error 唔 break /map
 
+    # 直升機群集事故偵測（map 即時橫額用；門檻喺 SiteConfig，可 admin 改）。
+    # 任何例外都當「冇 cluster」，唔好搞冧 /map。
+    heli_cluster = {'active': False}
+    try:
+        from web.models import SiteConfig
+        cfg = SiteConfig.load()
+        if cfg.heli_cluster_enabled:
+            heli_cluster = detect_heli_cluster(out, cfg.heli_cluster_min, cfg.heli_cluster_radius_km)
+            if heli_cluster.get('active'):
+                heli_cluster['radius_km'] = cfg.heli_cluster_radius_km
+    except Exception:
+        heli_cluster = {'active': False}
+
     result = {
         'aircraft': out,
         'count_pos': len(out),
         'count_total': len(raw),
         'now': payload.get('now'),
+        'heli_cluster': heli_cluster,
     }
     _LIVE_CACHE['at'] = now_t
     _LIVE_CACHE['data'] = result
