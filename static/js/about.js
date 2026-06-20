@@ -1,7 +1,7 @@
 // /about page JS — 由舊 ABOUT_HTML inline <script> 抽出。
 // fetch /api/about 每 5 秒更新 receiver / feed health + Three.js radar 背景。
 
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 // ===== format helpers =====
 

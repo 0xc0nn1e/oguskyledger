@@ -20,6 +20,9 @@ html, body {
 }
 body { overflow:hidden; }
 
+/* 共用背景雷達 canvas（base.html default radar_bg）。content(.container z-index:2) 喺佢上面。
+   有自己 radar 嘅頁（home/stats/about/details）各自喺 page CSS 再定義一次（同值，無害）。*/
+#radar { position:fixed; inset:0; z-index:0; width:100vw; height:100vh; }
 .bg-vignette {
   position:fixed; inset:0; z-index:0; pointer-events:none;
   background:radial-gradient(ellipse at center, rgba(31,90,74,0.10) 0%, transparent 55%, rgba(5,10,13,0.9) 95%);

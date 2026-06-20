@@ -1,8 +1,8 @@
 // /stats page JS — 由舊 STATS_HTML inline <script type="module"> 抽出。
 // base.html 已 inject window.T 同 window.LANG，呢度全部 render function 用住 window.T。
-// Radar background 用 Three.js（unpkg CDN module）。
+// Radar background 用 Three.js（self-host，base.html importmap 把 `three` 指去 vendor）。
 
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 // ===== render top-10 helpers =====
 

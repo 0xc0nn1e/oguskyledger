@@ -14,10 +14,29 @@
     必須喺 page-specific inline script + module 之前 load，後面 JS 可以直接 call gettext()。
   {% endcomment %}
   <script src="{% url 'javascript-catalog' %}"></script>
+  {% comment %}
+    Import map：`three` 指去自 host 嘅 three.module.js，唔再由 unpkg 等第三方 CDN load
+    可執行 JS（auth 頁尤其唔應該食外部 executable code）。所有 import THREE 嘅 module
+    （radar.js + home/stats/about/details page JS）一律用裸 `three` specifier。
+    必須喺任何 <script type="module"> 之前。
+  {% endcomment %}
+  <script type="importmap">
+  {"imports": {"three": "{% static 'vendor/three.module.js' %}"}}
+  </script>
   {% block extra_css %}{% endblock %}
 </head>
 <body>
-  {% block radar_bg %}<div class="bg-vignette"></div>{% endblock %}
+  {% comment %}
+    Default 背景 = radar canvas + vignette + radar.js（共用背景雷達）。冇 override 嘅頁
+    （login / dashboard / watchlist / push-* / password / aircraft 等）自動有雷達背景。
+    有自己 radar 嘅頁（home/stats/about/details，page JS inline init THREE）同 /map（要全屏
+    地圖）各自 override 呢個 block，唔會行到下面個 script，所以唔會 double-init。
+  {% endcomment %}
+  {% block radar_bg %}
+  <canvas id="radar"></canvas>
+  <div class="bg-vignette"></div>
+  <script type="module" src="{% static 'js/radar.js' %}"></script>
+  {% endblock %}
 
   {% comment %}
      Frame：default `.container > .inner` 模式（normal pages）。

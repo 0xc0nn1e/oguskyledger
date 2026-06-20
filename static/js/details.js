@@ -2,7 +2,7 @@
 // Three.js radar 背景（fancier than stats：有 blips + 滾動聯動 camera）+ 控制 dropdown + 表格 load。
 // base.html 已 inject window.T 同 window.LANG。
 
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import * as THREE from 'three';
 
 // ===== Three.js radar 背景 =====
 const MINT = 0x7fffd4, AMBER = 0xf5d96f, RING = 0x1f5a4a;
