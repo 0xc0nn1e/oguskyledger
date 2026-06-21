@@ -4,8 +4,7 @@
 {% block title %}{{ T.map_title|default:"即時地圖 · plane-history" }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
 <link rel="stylesheet" href="{% static 'css/map.css' %}">
 {% endblock %}
 
@@ -79,7 +78,6 @@
     ['10000-25000', '10–25k'], ['25000-35000', '25–35k'], ['35000-999999', '>35k']]);
   setAttr('search-clear', 'title', 'map_clear');
 </script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/map.js' %}"></script>
 {% endblock %}
