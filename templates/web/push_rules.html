@@ -67,6 +67,16 @@
     padding: 8px 14px; cursor: pointer; text-transform: uppercase; white-space: nowrap;
   }
   .add-form button:hover { background: rgba(127,255,212,0.18); }
+
+  /* 系統提示 section（直升機群集等非 operator-rule 嘅 push on/off）*/
+  .sys-section { margin-top: 26px; padding-top: 20px; border-top: 0.5px solid rgba(127,255,212,0.12); }
+  .sys-section h2 { margin: 0 0 12px; font-size: 11px; letter-spacing: 2px; color: var(--amber); text-transform: uppercase; }
+  .sys-row { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .sys-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+  .sys-toggle input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--mint); cursor: pointer; }
+  .sys-toggle .sys-name { color: var(--mint); font-size: 12px; letter-spacing: 0.5px; }
+  .sys-desc { margin: 0; font-size: 10px; line-height: 1.6; color: var(--x-muted); }
+  .sys-section button.primary { margin-top: 8px; }
 </style>
 {% endblock %}
 
@@ -126,5 +136,19 @@
     <input class="pfx" type="text" name="callsign_prefixes" placeholder="HKE,UO" maxlength="128" required>
     <button type="submit">+ {{ T.push_add_btn|default:"Add" }}</button>
   </form>
+
+  <div class="sys-section">
+    <h2>{{ T.push_sys_hdr|default:"System alerts" }}</h2>
+    <form method="post" class="sys-row">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="system">
+      <label class="sys-toggle">
+        <input type="checkbox" name="heli_cluster_enabled"{% if heli_cluster_enabled %} checked{% endif %}>
+        <span class="sys-name">🚁 {{ T.push_heli_label|default:"Helicopter cluster (possible incident)" }}</span>
+      </label>
+      <p class="sys-desc">{{ T.push_heli_desc|default:"Push when several helicopters cluster nearby." }}</p>
+      <button type="submit" class="primary">{{ T.push_save|default:"Save" }}</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

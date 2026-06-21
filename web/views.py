@@ -170,6 +170,7 @@ class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['rules'] = list(PushRule.objects.order_by('id'))
+        ctx['heli_cluster_enabled'] = SiteConfig.load().heli_cluster_enabled  # 系統 alert on/off（直升機群集）
         ctx['T'] = STRINGS[self.get_lang()]
         return ctx
 
@@ -195,4 +196,10 @@ class PushRulesView(LoginRequiredMixin, PlaneHistoryBaseMixin, TemplateView):
                 if rule.enabled != want:
                     rule.enabled = want
                     rule.save(update_fields=['enabled'])
+        elif action == 'system':
+            # 系統 alert on/off（直升機群集 push）——source of truth 仍係 SiteConfig，
+            # 門檻（架數 / 範圍 / 冷卻）喺 /admin/web/siteconfig/ 調，呢度淨係 on/off。
+            cfg = SiteConfig.load()
+            cfg.heli_cluster_enabled = bool(request.POST.get('heli_cluster_enabled'))
+            cfg.save()
         return redirect('push-rules')
