@@ -1,20 +1,21 @@
 # 尾久 SKYLEDGER · TOKYO
 
-東京・尾久の自宅受信機で取得した航空機データを記録・可視化する個人開発プロジェクトです。
-自宅に設置したADS-B受信機から航空機データを取得し、MySQLに履歴を保存。Django + DRF + gunicorn によるバックエンドAPIとWebダッシュボードで可視化、HKE便がエリアに入ったらリアルタイムでpush通知も送信します。
+**繁體中文** · [日本語](README.ja.md) · [English](README.en.md)
+
+喺東京・尾久屋企接收機收到嘅飛機資料，記錄 + 可視化嘅個人 project。屋企裝嘅 ADS-B 接收機攞飛機資料，存落 MySQL 做歷史；Django + DRF + gunicorn 後端 API + Web dashboard 可視化，HKE 航班入區仲會即時 push 通知。
 
 https://flight.connie.hk/
 
-# 技術スタック
-- フロントエンド
- HTML · CSS · vanilla JS · Three.js · Leaflet
-- バックエンド
+# 技術棧
+- 前端
+ HTML · CSS · vanilla JS · Three.js · Leaflet（都 self-host vendor，零第三方可執行 JS）
+- 後端
 Python 3.13 · Django 5 · DRF · gunicorn
-- データベース
+- 資料庫
 MySQL · PyMySQL
-- 受信機
+- 接收機
 Raspberry Pi · dump1090 / readsb / tar1090
-- デプロイ
+- 部署
 macOS launchd · gunicorn · whitenoise
 - 通知
 push.connie.hk (HMAC)
@@ -48,18 +49,19 @@ push.connie.hk (HMAC)
   - 先用 flight prefix 推斷（例如 `HKE`）
   - 再對符合條件嘅 aircraft 去 FR24 aircraft page 補真實 operator
 - Web dashboard（SKYLEDGER 雷達主題）多頁：
-  - `/`：首頁，recent contacts + 今日 operator group + 4 個 stat tile
+  - `/`：首頁，recent contacts + 今日 operator group + 4 個 stat tile（PEAK ALT 撳得入嗰架最高高度機）
   - `/details`：歷史飛機接觸搜尋 / filter（公司・機型・航線・國家・高度）+ sort
   - `/stats`：7 日每日班次、近 24 小時逐鐘 histogram、**近 30 日 weekday × hour heatmap**、TOP 10（機型 / 公司 / 出發 / 目的地 / **ICAO** 7 日 + 全 DB）、peak altitude、busiest hour；**長窗口段**：累計 unique ICAO 發現曲線、最高高度分佈 histogram、罕見機 list（只見過 1–2 次嘅 ICAO）。`/discover` 舊 URL 301 redirect 入嚟
   - `/map`：即時地圖，tar1090 live 位置，FR24 式平滑移動，click 出詳細 popup（`/api/live` 有 1 秒 TTL cache，N 個 client 共用同一 fetch）
-  - `/aircraft/<hex>/`：單機歷史（聚合統計、每日出現、**SVG 速度·高度 dual-axis profile chart**、經過記錄含 per-pass FROM / TO）—— 喺 `/`、`/details`、`/map` 撳機入。舊 `/aircraft?icao=` URL 自動 redirect
+  - `/aircraft/<hex>/`：單機歷史（聚合統計、每日出現、**SVG 速度·高度 dual-axis profile chart**、經過記錄含 per-pass FROM / TO + **速度範圍**、planespotters 相片、enrichment 資料新鮮度 badge）—— 喺 `/`、`/details`、`/map` 撳機入。舊 `/aircraft?icao=` URL 自動 redirect
   - `/about`：接收機狀態 + uptime + records today + feed health
   - `/api/health`：monitoring endpoint（DB ok 回 200、死回 503）
 - ICAO 前面 sprinkle category emoji：🚁 直升機（A7）、🪁 滑翔機（B1）、🎈 氣球 / UAV（B2/B6）、🚗 地面車（C\*）；客機留白避免 noise
 - 三套 i18n（繁中 / 日 / 英）：Django gettext + .po + JavaScriptCatalog（`/about/` 完整 swap，其他 page 過渡期仍用 legacy STRINGS dict）
 - Django 內建 auth + custom login template（`/accounts/login/`；舊 `/login` 301 redirect）
 - 凡係接收站收得到嘅 aircraft，都當作「屋企收到」
-- HKE / Hong Kong Express 入區時送 push（`HKE confirm: <flight no> | <reg> | <from>>HKG`）
+- Push 規則（`/push-rules/`，login 後可改）：按 callsign / icao / registration / type / route / country 前綴 match，中咗 + 已 enrich 就送 push（每機每日一次 dedup）。預設 HKE / Hong Kong Express（`HKE confirm: <flight no> | <reg> | <from>>HKG`）
+- **直升機群集事故 alert**：偵測到多架直升機喺細範圍聚集（通常代表附近有事故 / 災害，報道機 + 警消直升機會聚埋）→ `/map` 即時警示橫額 + 範圍圈 + member 高亮，同時送 push（冇開住 map 都收到）。門檻（架數 / 半徑 / 冷卻）喺 `/admin/web/siteconfig/` 可調、`push_log` 做 cooldown dedup；on/off 喺 `/push-rules/` 「系統提示」section
 - **Feed watchdog**：每 15 分鐘 check 一次 `MAX(sightings_raw.seen_at)`，超過 1 小時冇 update 就 push alert message 講 DB / tar1090 邊個死咗
 - 寫入 MySQL
 - macOS launchd 自動執行
@@ -182,6 +184,7 @@ JSON API：
 - `aircraft_route_snapshots` 表：每次 `browser_bulk_backfill` 由 FR24 攞到 from/to + 當時 ADS-B 廣播 callsign，記低一條 `(icao, flight, from, to, observed_at)`。`build_passes` 重建時揾返每組 `(icao, flight)` 最新 snapshot 填返入 `aircraft_passes.from_airport / to_airport`，達到 per-pass route 而唔係全部 pass 共用 registry 嘅最新一條
 - `/api/live` 用 module-level dict cache（process-local，restart 即清，無需 Redis）
 - REG bulk backfill 依賴 Python `playwright` + `chromium`（venv 入面裝晒）
+- 前端 Three.js + Leaflet self-host 喺 `static/vendor/`（`base.html` importmap 把 `three` 指過去、Leaflet 用 `{% static %}`），auth 頁零第三方可執行 JS，連 vendored LICENSE（THREE MIT / Leaflet BSD-2）。Radar 背景而家係 `base.html` default `radar_bg`，login / 後台頁都有。地圖 tiles（cartocdn）+ planespotters 相維持外部（圖片、非可執行）
 - `push.connie.hk` 使用 HMAC header 驗證，Python notifier 用 `openssl + curl` 兼容現有 shell 簽名流程
 - Feed watchdog 兩次 alert 之間 dedup 6 小時，避免重複轟炸；recovery（feed 返來）會 send 一次 `✓ recovered` confirm
 - `/coverage` 同 `/api/coverage` 已 cut（意義不明），舊 URL 301 redirect 入 `/`
