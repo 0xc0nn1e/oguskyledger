@@ -126,7 +126,13 @@ LOCALE_PATHS = [BASE_DIR / 'locale']
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Django 5：一定要用 STORAGES（deprecated STATICFILES_STORAGE 會被 default STORAGES
+# 覆蓋 → manifest storage 冇生效，static served 做 unhashed + 長 cache，改完 JS 之後
+# 舊 cache 唔 bust，用戶 browser / CDN 食住舊 aircraft.js → 出現空白頁）。
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
