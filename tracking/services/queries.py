@@ -275,8 +275,14 @@ def query_dashboard():
 def query_stats():
     """/api/stats：7 日 histogram、24h hourly、30 日 weekday×hour heatmap、TOP 10、peak alt、busiest hour。"""
     today_jst = datetime.now(JST).date()
+    # 每日圖淨係顯示完整日期：今日仲一路 ingest 緊，而且 cache 一個鐘先更新，
+    # 放入 histogram 會長期似係突然跌到接近零。由尋日倒數仍然保持足 7 日。
+    histogram_end_day = today_jst - timedelta(days=1)
+    histogram_start_day = histogram_end_day - timedelta(days=6)
+    days = [(histogram_start_day + timedelta(days=i)).isoformat() for i in range(7)]
+
+    # 其餘「近 7 日」排名維持原本 rolling calendar window（包含今日）。
     start_day = today_jst - timedelta(days=6)
-    days = [(start_day + timedelta(days=i)).isoformat() for i in range(7)]
     start_date = start_day.isoformat()
     end_date = today_jst.isoformat()
 
@@ -375,15 +381,18 @@ def query_stats():
             if row and row['hr'] is not None else None
         )
 
-        # 近 24h rolling hourly histogram（JST 顯示）
+        # 近 24h hourly histogram（JST 顯示）：淨係顯示 24 個完整鐘。
+        # 例如 00:05 生成 cache，就顯示前一日 00:00–23:59，收起 00:00 呢個半截鐘。
         now_utc = datetime.now(timezone.utc)
-        window_start = now_utc - timedelta(hours=24)
-        cur.execute(
-            'SELECT first_seen FROM aircraft_passes WHERE first_seen >= %s',
-            [window_start.isoformat()],
-        )
         cur_hour = now_utc.astimezone(JST).replace(minute=0, second=0, microsecond=0)
-        starts = [cur_hour - timedelta(hours=23 - i) for i in range(24)]
+        last_complete_hour = cur_hour - timedelta(hours=1)
+        starts = [last_complete_hour - timedelta(hours=23 - i) for i in range(24)]
+        window_start = starts[0].astimezone(timezone.utc)
+        window_end = cur_hour.astimezone(timezone.utc)
+        cur.execute(
+            'SELECT first_seen FROM aircraft_passes WHERE first_seen >= %s AND first_seen < %s',
+            [window_start.isoformat(), window_end.isoformat()],
+        )
         counts = dict.fromkeys(starts, 0)
         for r in _dict_cursor(cur):
             try:
@@ -395,7 +404,7 @@ def query_stats():
             if slot in counts:
                 counts[slot] += 1
         hourly = [
-            {'hour': s.hour, 'count': counts[s], 'current': (s == cur_hour)}
+            {'hour': s.hour, 'count': counts[s], 'current': False}
             for s in starts
         ]
 
