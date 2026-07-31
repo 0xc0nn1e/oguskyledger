@@ -101,13 +101,14 @@ python3.13 -m venv .venv
 .venv/bin/python manage.py ingest_pipeline
 .venv/bin/python manage.py browser_bulk_backfill
 .venv/bin/python manage.py healthcheck_alert
+.venv/bin/python manage.py refresh_stats_cache
 ```
 
-## 自動実行（launchd · 4 つの plist）
+## 自動実行（launchd · 5 つの plist）
 
 ```bash
-cp com.connie.plane-history.{web,ingest,backfill,healthcheck}.plist ~/Library/LaunchAgents/
-for L in web ingest backfill healthcheck; do
+cp com.connie.plane-history.{web,ingest,backfill,healthcheck,stats-cache}.plist ~/Library/LaunchAgents/
+for L in web ingest backfill healthcheck stats-cache; do
   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.$L.plist
 done
 ```
@@ -118,6 +119,7 @@ done
 | `.ingest` | `manage.py ingest_pipeline` 5 step sequential | StartInterval=60 |
 | `.backfill` | `manage.py browser_bulk_backfill` | StartInterval=180 |
 | `.healthcheck` | `manage.py healthcheck_alert` | StartInterval=900 |
+| `.stats-cache` | `/api/stats` + `/api/discover` の永続 snapshot を事前計算 | StartInterval=3600 |
 
 `ingest_pipeline` 内の sequence：
 
@@ -148,6 +150,7 @@ done
 - `manage.py enrich_operator`：flight prefix で operator / operator_country を補完（browser / FR24 が補った operator を空値で上書きしない）
 - `manage.py build_passes`：20 分 gap で passes 集計；同時に `aircraft_route_snapshots` で per-pass FROM / TO を復元
 - `manage.py healthcheck_alert`：feed watchdog、1 時間以上 update 無しで alert + DB vs tar1090 のどちらが落ちたか
+- `manage.py refresh_stats_cache`：`/api/stats` と `/api/discover` の永続 JSON snapshot をバックグラウンドで事前計算
 
 過渡期：management command はすべて thin wrapper（`tracking/services/runner.py` → `subprocess.run`）で、中身は旧 `src/*.py` の logic を実行。第二期で `tracking/services/` + `enrichment/services/` に import 方式へ徐々に refactor 予定。
 
@@ -155,7 +158,7 @@ done
 
 ## Logs / DB
 
-- `data/django-{web,ingest,backfill,healthcheck}.{log,err}`：4 つの launchd job それぞれの stdout / stderr
+- `data/django-{web,ingest,backfill,healthcheck,stats-cache}.{log,err}`：5 つの launchd job それぞれの stdout / stderr
 - `data/ingest.log` / `data/browser_bulk_backfill.log`：旧 script が直接書く detailed log
 - `data/.healthcheck_state.json`：feed watchdog の dedup state（last_alert_at + last_alerted）
 - MySQL：`127.0.0.1:3306`、DB `plane_history`（connection info は `src/config.json`）
@@ -167,8 +170,8 @@ done
 ページ：`/`（トップ）、`/details`（検索 / filter / sort）、`/stats`（統計 + ロングウィンドウ発見）、`/map`（リアルタイム地図）、`/aircraft/<hex>/`（単機履歴）、`/about`（About / システム健康）、`/admin/`（Django admin、readonly tracking / editable registry cache）。3 言語切替（繁体中文 / 日本語 / 英語）。
 
 JSON API：
-- `/api/stats`：統計データ（7 日 / 24h histogram、heatmap、top 10、peak alt、busiest hour）
-- `/api/discover`：discovery curve、rare finds、altitude 分布、全 DB top 10 ICAO（`/stats` ページはこれと `/api/stats` を同時 fetch）
+- `/api/stats`：毎時 snapshot の統計データ（7 日 / 24h histogram、heatmap、top 10、peak alt、busiest hour）
+- `/api/discover`：同じ毎時 snapshot の discovery curve、rare finds、altitude 分布、全 DB top 10 ICAO（`/stats` ページはこれと `/api/stats` を同時 fetch）
 - `/api/live`：tar1090 リアルタイム機体（地図用、registry enrichment 含む、1 秒 TTL cache）
 - `/api/aircraft?icao=`：単機履歴（registry + passes 集計、per-pass FROM / TO 含む）
 - `/api/aircraft/track?icao=&from=&to=`：単一 pass の sightings_raw 軌跡（alt + gs profile chart 用）

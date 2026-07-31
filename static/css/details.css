@@ -123,6 +123,13 @@
   color:var(--mint-light);
 }
 .controls .calendar-day:disabled { opacity:0.18; cursor:default; }
+/* 超出 raw 保留期：仲揀得（passes 有齊機隊），底下一點提示冇航跡 */
+.controls .calendar-day.no-track:not(.selected) {
+  color:rgba(245,217,111,0.55);
+  background:linear-gradient(to top, rgba(245,217,111,0.14) 2px, transparent 2px);
+}
+/* 揀咗超出保留期嘅日子：subtitle 轉琥珀色，同一般說明文字分開 */
+.page-subtitle.is-passes { color:var(--amber); opacity:0.85; }
 .controls .calendar-today {
   width:100%; margin-top:10px; padding:8px;
   border-top:0.5px solid rgba(127,255,212,0.1);

@@ -100,13 +100,14 @@ python3.13 -m venv .venv
 .venv/bin/python manage.py ingest_pipeline
 .venv/bin/python manage.py browser_bulk_backfill
 .venv/bin/python manage.py healthcheck_alert
+.venv/bin/python manage.py refresh_stats_cache
 ```
 
-## 自動執行（launchd · 4 個 plist）
+## 自動執行（launchd · 5 個 plist）
 
 ```bash
-cp com.connie.plane-history.{web,ingest,backfill,healthcheck}.plist ~/Library/LaunchAgents/
-for L in web ingest backfill healthcheck; do
+cp com.connie.plane-history.{web,ingest,backfill,healthcheck,stats-cache}.plist ~/Library/LaunchAgents/
+for L in web ingest backfill healthcheck stats-cache; do
   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.$L.plist
 done
 ```
@@ -117,6 +118,7 @@ done
 | `.ingest` | `manage.py ingest_pipeline` 5 step sequential | StartInterval=60 |
 | `.backfill` | `manage.py browser_bulk_backfill` | StartInterval=180 |
 | `.healthcheck` | `manage.py healthcheck_alert` | StartInterval=900 |
+| `.stats-cache` | 預先計算 `/api/stats` + `/api/discover` 持久快照 | StartInterval=3600 |
 
 `ingest_pipeline` 入面 sequence：
 
@@ -147,6 +149,7 @@ done
 - `manage.py enrich_operator`：按 flight prefix 補 operator / operator_country（唔會用空值覆蓋 browser / FR24 補回嘅 operator）
 - `manage.py build_passes`：用 20 分鐘 gap 聚合 passes；同時用 `aircraft_route_snapshots` 揾返 per-pass FROM / TO
 - `manage.py healthcheck_alert`：feed watchdog，超過 1 小時冇 update 推 alert + 講 DB vs tar1090 邊度死
+- `manage.py refresh_stats_cache`：背景預先計算 `/api/stats` 同 `/api/discover` 嘅持久 JSON 快照
 
 過渡期：management command 全部 thin wrapper（`tracking/services/runner.py` → `subprocess.run`），裡面跑舊 `src/*.py` 嘅 logic。第二期可以慢慢 refactor 入 `tracking/services/` + `enrichment/services/` 做 import 模式。
 
@@ -154,7 +157,7 @@ done
 
 ## Logs / DB
 
-- `data/django-{web,ingest,backfill,healthcheck}.{log,err}`：4 個 launchd job 各自 stdout / stderr
+- `data/django-{web,ingest,backfill,healthcheck,stats-cache}.{log,err}`：5 個 launchd job 各自 stdout / stderr
 - `data/ingest.log` / `data/browser_bulk_backfill.log`：舊 script 直接寫嘅 detailed log
 - `data/.healthcheck_state.json`：feed watchdog 嘅 dedup state（last_alert_at + last_alerted）
 - MySQL：`127.0.0.1:3306`，DB `plane_history`（connection info 喺 `src/config.json` 入面）
@@ -166,8 +169,8 @@ done
 頁面：`/`（首頁）、`/details`（搜尋 / filter / sort）、`/stats`（統計 + 長窗口發現）、`/map`（即時地圖）、`/aircraft/<hex>/`（單機歷史）、`/about`（關於 / 系統健康）、`/admin/`（Django admin，readonly tracking / editable registry cache）。三語切換（繁中 / 日 / 英）。
 
 JSON API：
-- `/api/stats`：統計數據（7 日 / 24h histogram、heatmap、top 10、peak alt、busiest hour）
-- `/api/discover`：discovery curve、rare finds、altitude 分佈、全 DB top 10 ICAO（`/stats` 頁同時 fetch 呢條同 `/api/stats`）
+- `/api/stats`：每小時快照嘅統計數據（7 日 / 24h histogram、heatmap、top 10、peak alt、busiest hour）
+- `/api/discover`：同一份每小時快照嘅 discovery curve、rare finds、altitude 分佈、全 DB top 10 ICAO（`/stats` 頁同時 fetch 呢條同 `/api/stats`）
 - `/api/live`：tar1090 即時飛機（地圖用，含 registry enrichment，1 秒 TTL cache）
 - `/api/aircraft?icao=`：單機歷史（registry + passes 聚合，含 per-pass FROM / TO）
 - `/api/aircraft/track?icao=&from=&to=`：單一 pass 嘅 sightings_raw 軌跡（畫 alt + gs profile chart 用）

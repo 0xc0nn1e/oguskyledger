@@ -17,8 +17,8 @@ def fmt_ts(ts):
 print('plane-history healthcheck')
 print('=' * 60)
 
-# Django 遷移後 supervisor 已拆做四個獨立 launchd job
-LAUNCHD_JOBS = ['backfill', 'healthcheck', 'ingest', 'web']
+# Django 遷移後 supervisor 已拆做五個獨立 launchd job
+LAUNCHD_JOBS = ['backfill', 'healthcheck', 'ingest', 'stats-cache', 'web']
 
 # uid 攞唔到都唔好炸死成個 healthcheck，後面 DB / log 檢查照行
 try:
@@ -72,13 +72,15 @@ except Exception as e:
     print(f'db: ERROR {e}')
 
 # django-web.log 係 gunicorn stdout，設計上長期 0 byte，唔擺入嚟以免似 false alarm；
-# web 嘅實際 log 係 access / error。四個 job 嘅 *.err（launchd StandardErrorPath）
+# web 嘅實際 log 係 access / error。五個 job 嘅 *.err（launchd StandardErrorPath）
 # 全部要睇——management command 起唔到身 / traceback 係落呢度，唔係 *.log
 for name in ['data/django-ingest.log', 'data/django-backfill.log',
               'data/django-healthcheck.log', 'data/browser_bulk_backfill.log',
+              'data/django-stats-cache.log',
               'data/django-access.log', 'data/django-error.log',
               'data/django-ingest.err', 'data/django-backfill.err',
-              'data/django-healthcheck.err', 'data/django-web.err']:
+              'data/django-healthcheck.err', 'data/django-stats-cache.err',
+              'data/django-web.err']:
     p = BASE_DIR / name
     if p.exists():
         mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=JST).strftime('%Y-%m-%d %H:%M:%S JST')

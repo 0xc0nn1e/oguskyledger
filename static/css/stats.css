@@ -11,6 +11,7 @@
   margin:0 0 18px; font-size:12px; line-height:1.7;
   letter-spacing:0.5px; color:var(--muted); max-width:720px;
 }
+.stats-updated:not([hidden]) { display:block; color:var(--amber); font-size:10px; }
 
 /* summary tiles（覆寫 base.css 嘅 stats-grid，改 2 column） */
 .summary { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:18px; }
@@ -122,4 +123,47 @@
   .top10-icao .row, .top10-icao .cols { grid-template-columns:20px 64px 72px 1fr 40px; }
   .top10-icao .type { display:none; }
   .rtable td, .rtable th { font-size:10px; padding:4px 6px; }
+}
+
+/* ===== 新增 stats：紀錄榜 / 全年日曆 / 速度分佈 / 航向羅盤 ===== */
+
+/* 紀錄榜 tiles（似 .summary） */
+.records { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+.records .stat-big { backdrop-filter:blur(8px); padding:14px 16px; }
+.records .stat-big .val { font-size:22px; }
+.records .stat-big .sub a { color:var(--mint); text-decoration:none; }
+.records .stat-big .sub a:hover { color:var(--amber); text-decoration:underline; }
+
+/* 全年日曆 heatmap（列＝週、行＝星期，色階同 .heatmap 一致） */
+.calendar-wrap { min-width:0; }
+.cal-months {
+  display:grid; grid-auto-flow:column; grid-auto-columns:11px; gap:2px;
+  margin-left:22px; margin-bottom:4px;
+}
+.cal-month { font-size:8px; letter-spacing:0.5px; color:var(--x-muted); white-space:nowrap; }
+.cal-body { display:flex; gap:4px; }
+.cal-wd { display:grid; grid-template-rows:repeat(7, 11px); gap:2px; width:18px; }
+.cal-wd span { font-size:7px; line-height:11px; color:var(--x-muted); text-align:right; }
+.cal-grid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 11px); grid-auto-columns:11px; gap:2px; }
+.cal-cell { width:11px; height:11px; border-radius:2px; background:rgba(127,255,212,0.04); }
+.cal-cap { font-size:10px; letter-spacing:0.5px; color:var(--x-muted); margin-top:8px; }
+
+/* 速度分佈（共用 alt-svg 一套樣式） */
+#speed-svg { width:100%; height:auto; display:block; }
+#speed-svg .axis { stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+#speed-svg .tick, #speed-svg .bar-lbl { fill:var(--x-muted); font-size:8px; font-family:inherit; }
+#speed-svg .bar { fill:var(--mint); }
+#speed-svg .bar-lbl { fill:var(--mint-light); font-size:9px; text-anchor:middle; }
+
+/* 航向羅盤 */
+.compass-wrap { display:flex; justify-content:center; }
+#compass-svg { width:100%; max-width:300px; height:auto; display:block; }
+#compass-svg .ring { fill:none; stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+#compass-svg .wedge { fill:rgba(127,255,212,0.45); stroke:var(--mint); stroke-width:0.5; }
+#compass-svg .dir { fill:var(--x-muted); font-size:9px; letter-spacing:0.5px; font-family:inherit; }
+
+/* 新增 stats mobile */
+@media (max-width:700px) {
+  .records { grid-template-columns:1fr 1fr; }
+  .records .stat-big .val { font-size:18px; }
 }

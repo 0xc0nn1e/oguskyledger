@@ -14,7 +14,10 @@
 {% endblock %}
 
 {% block content %}
-  <p class="page-subtitle" id="stats-note"></p>
+  <p class="page-subtitle">
+    <span id="stats-note"></span>
+    <span class="stats-updated" id="stats-last-updated" hidden></span>
+  </p>
 
   <section class="summary">
     <div class="stat-big">
@@ -38,6 +41,11 @@
   </section>
 
   <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-records"></span></div>
+    <div class="panel-body"><div class="records" id="records"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
     <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-7d-hist"></span></div>
     <div class="panel-body">
       <div class="hist" id="hist"><div class="loading" id="loading-hist"></div></div>
@@ -57,6 +65,16 @@
       <div class="heatmap" id="heatmap"><div class="loading" id="loading-heatmap"></div></div>
       <div class="heatmap-legend" id="heatmap-legend"></div>
     </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-calendar"></span></div>
+    <div class="panel-body" style="overflow-x:auto"><div class="calendar-wrap" id="calendar"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-compass"></span></div>
+    <div class="panel-body"><div class="compass-wrap" id="compass-wrap"><div class="loading"></div></div></div>
   </section>
 
   <section class="panel">
@@ -110,8 +128,18 @@
   </section>
 
   <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-fastest"></span></div>
+    <div class="panel-body"><div class="top10 top10-icao" id="top-fastest"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
     <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-alt"></span></div>
     <div class="panel-body"><div class="alt-wrap" id="alt-wrap"><div class="loading"></div></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-speed"></span></div>
+    <div class="panel-body"><div class="alt-wrap" id="speed-wrap"><div class="loading"></div></div></div>
   </section>
 
   <section class="panel">
@@ -147,6 +175,11 @@
   setTxt('hdr-db-icao', 'stats_hdr_db_icao');
   setTxt('hdr-alt', 'discover_hdr_alt');
   setTxt('hdr-rare', 'discover_hdr_rare');
+  setTxt('hdr-records', 'stats_hdr_records');
+  setTxt('hdr-calendar', 'stats_hdr_calendar');
+  setTxt('hdr-compass', 'stats_hdr_compass');
+  setTxt('hdr-fastest', 'stats_hdr_fastest');
+  setTxt('hdr-speed', 'stats_hdr_speed');
   // loading 字串
   document.querySelectorAll('.loading').forEach(el => { if (!el.textContent) el.textContent = T.loading || '読み込み中...'; });
 </script>

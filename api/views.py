@@ -20,6 +20,7 @@ from rest_framework.response import Response
 
 from notifications.models import PushRule
 from tracking.services import queries
+from tracking.services.stats_cache import StatsCacheUnavailable, get_stats_section
 from web.models import SiteConfig
 
 
@@ -80,14 +81,26 @@ def dashboard(request):
 
 @api_view(['GET'])
 def stats(request):
-    """/api/stats：7 日 / 24h histogram、heatmap、TOP 10、peak alt、busiest hour。"""
-    return Response(queries.query_stats())
+    """/api/stats：只讀每小時預先計算嘅持久 cache，唔喺 request 跑慢 SQL。"""
+    return _stats_cache_response('stats')
 
 
 @api_view(['GET'])
 def discover(request):
-    """/api/discover：discovery curve、rare finds、altitude 分佈、全 DB top icao。"""
-    return Response(queries.query_discover())
+    """/api/discover：只讀每小時預先計算嘅持久 cache。"""
+    return _stats_cache_response('discover')
+
+
+def _stats_cache_response(section):
+    """讀統計快照；cache 未準備好時明確失敗，避免 web request fallback 跑慢 SQL。"""
+    try:
+        payload, generated_at = get_stats_section(section)
+    except StatsCacheUnavailable:
+        return Response({'error': 'stats_cache_unavailable'}, status=503)
+    response = Response(payload)
+    if generated_at:
+        response['X-Stats-Cache-Generated-At'] = generated_at
+    return response
 
 
 @api_view(['GET'])
@@ -169,7 +182,7 @@ def today(request):
     day = request.GET.get('day') or _dt.now(queries.JST).strftime('%Y-%m-%d')
     sort = request.GET.get('sort', 'last_seen')
     filters = {k: request.GET.get(k, '') for k in
-               ('country', 'operator', 'type', 'from', 'to')}
+               ('country', 'operator', 'type', 'from', 'to', 'cat')}
     rows_all = queries.query_rows(
         day, sort,
         country_filter=filters['country'],
@@ -177,6 +190,7 @@ def today(request):
         type_filter=filters['type'],
         from_filter=filters['from'],
         to_filter=filters['to'],
+        category_filter=filters['cat'],
     )
     total = len(rows_all)
     page_size = _page_size()
@@ -200,6 +214,13 @@ def today(request):
     types = sorted({r['aircraft_type'] for r in all_rows if r['aircraft_type'] != '-'})
     from_airports = sorted({r['from_airport'] for r in all_rows if r['from_airport'] != '-'})
     to_airports = sorted({r['to_airport'] for r in all_rows if r['to_airport'] != '-'})
+    # CAT dropdown：淨係出當日真係有嘅 group，次序跟 CATEGORY_GROUPS 定義
+    present_groups = {queries.category_group(r['category']) for r in all_rows}
+    categories = [g for g in queries.CATEGORY_GROUPS if g in present_groups]
+    # raw 過咗 retention 嘅日子改由 aircraft_passes 砌 → 有 row 但撳入去冇航跡，
+    # 前端要提示；raw_since_day 畀日曆標返邊啲日子屬於呢類。
+    raw_since_day = queries.raw_retention_floor_day()
+    source = 'passes' if (raw_since_day and day <= raw_since_day) else 'raw'
     return Response({
         'day': day,
         'sort': sort,
@@ -213,6 +234,9 @@ def today(request):
         'types': types,
         'from_airports': from_airports,
         'to_airports': to_airports,
+        'categories': categories,
+        'source': source,
+        'raw_since_day': raw_since_day,
         'filters': filters,
         'rows': rows,
     })

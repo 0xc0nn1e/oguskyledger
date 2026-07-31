@@ -56,6 +56,9 @@
     <label><span id="lbl-type"></span>
       <select id="typeFilter"><option value="" id="opt-all-type"></option></select>
     </label>
+    <label><span id="lbl-cat"></span>
+      <select id="catFilter"><option value="" id="opt-all-cat"></option></select>
+    </label>
     <label><span id="lbl-from"></span>
       <select id="fromFilter"><option value="" id="opt-all-from"></option></select>
     </label>
@@ -93,11 +96,12 @@
   setTxt('lbl-country', 'lbl_country');
   setTxt('lbl-operator', 'lbl_operator');
   setTxt('lbl-type', 'lbl_type');
+  setTxt('lbl-cat', 'lbl_cat', 'CAT');
   setTxt('lbl-from', 'lbl_from');
   setTxt('lbl-to', 'lbl_to');
   setTxt('btn-update', 'btn_update');
   setTxt('meta', 'loading');
-  ['opt-all-country','opt-all-operator','opt-all-type','opt-all-from','opt-all-to']
+  ['opt-all-country','opt-all-operator','opt-all-type','opt-all-cat','opt-all-from','opt-all-to']
     .forEach(id => setTxt(id, 'lbl_all', 'ALL'));
 </script>
 <script type="module" src="{% static 'js/details.js' %}"></script>

@@ -22,14 +22,18 @@ function categoryIcon(code) {
   const c = String(code).trim().toUpperCase();
   if (c === 'A7') return '🚁';
   if (c === 'B1') return '🪁';
-  if (c === 'B2' || c === 'B6') return '🎈';
-  if (c.startsWith('C')) return '🚗';
+  if (c === 'B2') return '🎈';
+  if (c === 'B6') return '🛸';   // B6 = UAV，唔係氣球
+  if (c === 'B7') return '🚀';
+  if (c === 'C1' || c === 'C2') return '🚗';
+  if (c === 'C3' || c === 'C4' || c === 'C5') return '🗼';  // 障礙物，唔係車
   return '';
 }
 
 // ADS-B emitter category code → 友善名（左卡「類別」row 用）
 const CAT_LBL = { A1:'Light', A2:'Small', A3:'Large', A4:'B757', A5:'Heavy', A6:'High-perf', A7:'Heli',
-  B1:'Glider', B2:'Balloon', B3:'Parachute', B4:'Ultralight', B6:'UAV', B7:'Space', C1:'Vehicle', C2:'Vehicle' };
+  B1:'Glider', B2:'Balloon', B3:'Parachute', B4:'Ultralight', B6:'UAV', B7:'Space',
+  C1:'Vehicle', C2:'Vehicle', C3:'Obstacle', C4:'Obstacle', C5:'Obstacle' };
 function catLabel(c) {
   if (!c) return '';
   const u = String(c).trim().toUpperCase();

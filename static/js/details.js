@@ -113,10 +113,28 @@ function categoryIcon(code) {
   const c = String(code).trim().toUpperCase();
   if (c === 'A7') return '🚁';
   if (c === 'B1') return '🪁';
-  if (c === 'B2' || c === 'B6') return '🎈';
-  if (c.startsWith('C')) return '🚗';
+  if (c === 'B2') return '🎈';
+  if (c === 'B6') return '🛸';   // B6 = UAV，唔係氣球
+  if (c === 'B7') return '🚀';
+  if (c === 'C1' || c === 'C2') return '🚗';
+  if (c === 'C3' || c === 'C4' || c === 'C5') return '🗼';  // 障礙物，唔係車
   return '';
 }
+
+// CAT filter 嘅 group key → emoji + i18n label key（次序由 API 嘅 categories 決定）
+const CAT_GROUP_META = {
+  plane: ['✈', 'cat_plane'],
+  heli: ['🚁', 'cat_heli'],
+  glider: ['🪁', 'cat_glider'],
+  balloon: ['🎈', 'cat_balloon'],
+  parachute: ['🪂', 'cat_parachute'],
+  ultralight: ['🪂', 'cat_ultralight'],
+  drone: ['🛸', 'cat_drone'],
+  space: ['🚀', 'cat_space'],
+  ground: ['🚗', 'cat_ground'],
+  obstacle: ['🗼', 'cat_obstacle'],
+  unknown: ['—', 'cat_unknown'],
+};
 
 // ===== 表格 + 控制 =====
 
@@ -124,10 +142,12 @@ const day = document.getElementById('day');
 const sort = document.getElementById('sort');
 const rowsEl = document.getElementById('rows');
 const meta = document.getElementById('meta');
+const noteEl = document.getElementById('details-note');
 const loadBtn = document.getElementById('load');
 const countryFilter = document.getElementById('countryFilter');
 const operatorFilter = document.getElementById('operatorFilter');
 const typeFilter = document.getElementById('typeFilter');
+const catFilter = document.getElementById('catFilter');
 const fromFilter = document.getElementById('fromFilter');
 const toFilter = document.getElementById('toFilter');
 
@@ -158,6 +178,8 @@ if (T.cal_today) calendarToday.textContent = T.cal_today;
 if (T.cal_aria_choose) calendarPopover.setAttribute('aria-label', T.cal_aria_choose);
 if (T.cal_aria_prev) calendarPrev.setAttribute('aria-label', T.cal_aria_prev);
 if (T.cal_aria_next) calendarNext.setAttribute('aria-label', T.cal_aria_next);
+// raw retention floor（API 回）——老過呢日嘅資料由 aircraft_passes 砌，冇航跡
+let rawSinceDay = null;
 const todayJST = new Date(Date.now() + 9*3600*1000);
 const todayStr = dateString(todayJST.getUTCFullYear(), todayJST.getUTCMonth()+1, todayJST.getUTCDate());
 let calendarView = { ...dateParts(todayStr) };
@@ -204,7 +226,11 @@ function renderCalendar() {
     if (otherMonth) classes.push('other-month');
     if (value === todayStr) classes.push('today');
     if (value === day.value) classes.push('selected');
-    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${value}"${value > todayStr ? ' disabled' : ''}>${cellDate}</button>`);
+    // 老過 retention：仲揀得，但標色示意冇航跡
+    const noTrack = rawSinceDay && value <= rawSinceDay;
+    if (noTrack) classes.push('no-track');
+    const tip = noTrack ? ` title="${esc(T.details_no_track_short || 'no track data')}"` : '';
+    cells.push(`<button type="button" class="${classes.join(' ')}" data-date="${value}"${tip}${value > todayStr ? ' disabled' : ''}>${cellDate}</button>`);
   }
   calendarDays.innerHTML = cells.join('');
   const today = dateParts(todayStr);
@@ -217,6 +243,17 @@ function refillSelect(el, values) {
   while (el.options.length > 1) el.remove(1);
   values.forEach(v => el.insertAdjacentHTML('beforeend', `<option value="${esc(v)}">${esc(v)}</option>`));
   el.value = values.includes(cur) ? cur : '';
+}
+// CAT dropdown：option value 係 group key，label 要 emoji + 翻譯（唔可以直接用 refillSelect）
+function refillCatSelect(el, groups) {
+  const cur = el.value;
+  while (el.options.length > 1) el.remove(1);
+  groups.forEach(g => {
+    const [icon, key] = CAT_GROUP_META[g] || ['', ''];
+    const label = `${icon} ${T[key] || g}`.trim();
+    el.insertAdjacentHTML('beforeend', `<option value="${esc(g)}">${esc(label)}</option>`);
+  });
+  el.value = groups.includes(cur) ? cur : '';
 }
 function renderDetailRow(r) {
   const ic = categoryIcon(r.category);
@@ -242,7 +279,7 @@ function detailsURL(page) {
   const qs = new URLSearchParams({
     day: day.value, sort: sort.value,
     country: countryFilter.value, operator: operatorFilter.value, type: typeFilter.value,
-    from: fromFilter.value, to: toFilter.value, page: page,
+    cat: catFilter.value, from: fromFilter.value, to: toFilter.value, page: page,
   });
   return '/api/today?' + qs.toString();
 }
@@ -257,9 +294,16 @@ function reload() {
     onRendered: (data) => {
       meta.textContent = (T.meta_template || '{day} · {count} · {sort}')
         .replace('{day}', data.day).replace('{count}', data.count).replace('{sort}', data.sort);
+      // retention fallback：row 齊但冇 raw，撳入去冇航跡 → 提示 + 日曆標記
+      if (data.raw_since_day !== undefined) rawSinceDay = data.raw_since_day;
+      noteEl.textContent = data.source === 'passes'
+        ? (T.details_note_passes || '// older than raw retention — aggregated from passes, no track available')
+        : (T.details_note || '');
+      noteEl.classList.toggle('is-passes', data.source === 'passes');
       refillSelect(countryFilter, data.countries);
       refillSelect(operatorFilter, data.operators);
       refillSelect(typeFilter, data.types);
+      refillCatSelect(catFilter, data.categories || []);
       refillSelect(fromFilter, data.from_airports);
       refillSelect(toFilter, data.to_airports);
     },
@@ -275,6 +319,7 @@ sort.addEventListener('change', reload);
 countryFilter.addEventListener('change', reload);
 operatorFilter.addEventListener('change', reload);
 typeFilter.addEventListener('change', reload);
+catFilter.addEventListener('change', reload);
 fromFilter.addEventListener('change', reload);
 toFilter.addEventListener('change', reload);
 datePicker.addEventListener('click', () => setCalendarOpen(calendarPopover.hidden));

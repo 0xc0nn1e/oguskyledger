@@ -100,13 +100,14 @@ python3.13 -m venv .venv
 .venv/bin/python manage.py ingest_pipeline
 .venv/bin/python manage.py browser_bulk_backfill
 .venv/bin/python manage.py healthcheck_alert
+.venv/bin/python manage.py refresh_stats_cache
 ```
 
-## Auto-run (launchd · 4 plists)
+## Auto-run (launchd · 5 plists)
 
 ```bash
-cp com.connie.plane-history.{web,ingest,backfill,healthcheck}.plist ~/Library/LaunchAgents/
-for L in web ingest backfill healthcheck; do
+cp com.connie.plane-history.{web,ingest,backfill,healthcheck,stats-cache}.plist ~/Library/LaunchAgents/
+for L in web ingest backfill healthcheck stats-cache; do
   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.connie.plane-history.$L.plist
 done
 ```
@@ -117,6 +118,7 @@ done
 | `.ingest` | `manage.py ingest_pipeline`, 5-step sequential | StartInterval=60 |
 | `.backfill` | `manage.py browser_bulk_backfill` | StartInterval=180 |
 | `.healthcheck` | `manage.py healthcheck_alert` | StartInterval=900 |
+| `.stats-cache` | precomputes persistent `/api/stats` + `/api/discover` snapshots | StartInterval=3600 |
 
 The sequence inside `ingest_pipeline`:
 
@@ -147,6 +149,7 @@ Rules:
 - `manage.py enrich_operator`: fills operator / operator_country by flight prefix (won't overwrite a browser/FR24-filled operator with a blank)
 - `manage.py build_passes`: aggregates passes on a 20-minute gap; also recovers per-pass FROM / TO from `aircraft_route_snapshots`
 - `manage.py healthcheck_alert`: feed watchdog — alerts after over an hour with no update and names DB vs tar1090
+- `manage.py refresh_stats_cache`: precomputes the persistent JSON snapshot for `/api/stats` and `/api/discover`
 
 Transitional: the management commands are all thin wrappers (`tracking/services/runner.py` → `subprocess.run`) running the old `src/*.py` logic. A second phase will gradually refactor that into `tracking/services/` + `enrichment/services/` as imports.
 
@@ -154,7 +157,7 @@ The old `src/*.py` stays in the working tree as a rollback safety net. After 14 
 
 ## Logs / DB
 
-- `data/django-{web,ingest,backfill,healthcheck}.{log,err}`: stdout / stderr for each of the 4 launchd jobs
+- `data/django-{web,ingest,backfill,healthcheck,stats-cache}.{log,err}`: stdout / stderr for each of the 5 launchd jobs
 - `data/ingest.log` / `data/browser_bulk_backfill.log`: detailed logs written directly by the old scripts
 - `data/.healthcheck_state.json`: the feed watchdog's dedup state (last_alert_at + last_alerted)
 - MySQL: `127.0.0.1:3306`, DB `plane_history` (connection info in `src/config.json`)
@@ -166,8 +169,8 @@ The old `src/*.py` stays in the working tree as a rollback safety net. After 14 
 Pages: `/` (home), `/details` (search / filter / sort), `/stats` (stats + long-window discovery), `/map` (live map), `/aircraft/<hex>/` (single-aircraft history), `/about` (about / system health), `/admin/` (Django admin, read-only tracking / editable registry cache). Three-language switch (Traditional Chinese / Japanese / English).
 
 JSON API:
-- `/api/stats`: statistics (7-day / 24h histogram, heatmap, top 10, peak alt, busiest hour)
-- `/api/discover`: discovery curve, rare finds, altitude distribution, all-DB top 10 ICAO (the `/stats` page fetches this alongside `/api/stats`)
+- `/api/stats`: hourly statistics snapshot (7-day / 24h histogram, heatmap, top 10, peak alt, busiest hour)
+- `/api/discover`: discovery curve, rare finds, altitude distribution and all-DB top 10 ICAO from the same hourly snapshot (the `/stats` page fetches this alongside `/api/stats`)
 - `/api/live`: tar1090 live aircraft (for the map, with registry enrichment, 1-second TTL cache)
 - `/api/aircraft?icao=`: single-aircraft history (registry + passes aggregate, incl. per-pass FROM / TO)
 - `/api/aircraft/track?icao=&from=&to=`: a single pass's sightings_raw track (for the alt + gs profile chart)

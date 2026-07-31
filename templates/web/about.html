@@ -81,10 +81,11 @@
            │   HTTP poll · 60s
            ▼
    ┌──────────────────────────┐
-   │ launchd · 4 plist        │
+   │ launchd · 5 plist        │
    │  · ingest_pipeline (60s) │
    │  · browser_bulk (180s)   │
    │  · healthcheck (900s)    │
+   │  · stats_cache (3600s)   │
    │  · gunicorn web          │
    └──────────────────────────┘
            │
