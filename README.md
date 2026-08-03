@@ -50,8 +50,8 @@ push.connie.hk (HMAC)
   - 再對符合條件嘅 aircraft 去 FR24 aircraft page 補真實 operator
 - Web dashboard（SKYLEDGER 雷達主題）多頁：
   - `/`：首頁，recent contacts + 今日 operator group + 4 個 stat tile（PEAK ALT 撳得入嗰架最高高度機）
-  - `/details`：歷史飛機接觸搜尋 / filter（公司・機型・航線・國家・高度）+ sort
-  - `/stats`：7 日每日班次、近 24 小時逐鐘 histogram、**近 30 日 weekday × hour heatmap**、TOP 10（機型 / 公司 / 出發 / 目的地 / **ICAO** 7 日 + 全 DB）、peak altitude、busiest hour；**長窗口段**：累計 unique ICAO 發現曲線、最高高度分佈 histogram、罕見機 list（只見過 1–2 次嘅 ICAO）。`/discover` 舊 URL 301 redirect 入嚟
+  - `/details`：歷史飛機接觸搜尋 / filter（公司・機型・**類別 CAT**・航線・國家・高度）+ sort。CAT 係 ADS-B emitter category 分組（飛機 / 直升機 / 滑翔機 / 氣球 / 跳傘 / 超輕型 / 無人機 / 太空飛行器 / 地面車輛 / 障礙物 / 未分類）。舊過「仲留住嘅最舊 raw」嗰日（正常情況即係 30 日 retention 之外）會自動改由 `aircraft_passes` 砌 row，所以舊日子一樣查得返；但 `sightings_raw` 完全空嘅時候攞唔到 floor，就唔會 fallback
+  - `/stats`：7 日每日班次、近 24 小時逐鐘 histogram、**近 30 日 weekday × hour heatmap**、TOP 10（機型 / 公司 / 出發 / 目的地 / **ICAO** 7 日 + 全 DB）、peak altitude、busiest hour；**紀錄榜**（歷來最快 / 停留最耐嗰個 pass / 最繁忙一日）、**全年日曆 heatmap**（每日 pass 數，~53 週）、**航向羅盤**（近 7 日 track 16 方位分佈）、**最快 TOP 10**、**對地速度分佈 histogram**；**長窗口段**：累計 unique ICAO 發現曲線、最高高度分佈 histogram、罕見機 list（只見過 1–2 次嘅 ICAO）。頁頂顯示快照更新時間。每日 / 逐鐘圖只計**完整時段**（histogram 由尋日倒數 7 日、24h 只顯示 24 個完整鐘），避免半截時段睇落似跌到零。`/discover` 舊 URL 301 redirect 入嚟
   - `/map`：即時地圖，tar1090 live 位置，FR24 式平滑移動，click 出詳細 popup（`/api/live` 有 1 秒 TTL cache，N 個 client 共用同一 fetch）
   - `/aircraft/<hex>/`：單機歷史（聚合統計、每日出現、**SVG 速度·高度 dual-axis profile chart**、經過記錄含 per-pass FROM / TO + **速度範圍**、planespotters 相片、enrichment 資料新鮮度 badge）—— 喺 `/`、`/details`、`/map` 撳機入。舊 `/aircraft?icao=` URL 自動 redirect
   - `/about`：接收機狀態 + uptime + records today + feed health
@@ -115,7 +115,7 @@ done
 | Plist | 內容 | Schedule |
 |---|---|---|
 | `.web` | gunicorn `:8765`（`0.0.0.0` bind，LAN 可達） | KeepAlive |
-| `.ingest` | `manage.py ingest_pipeline` 5 step sequential | StartInterval=60 |
+| `.ingest` | `manage.py ingest_pipeline` 6 step sequential | StartInterval=60 |
 | `.backfill` | `manage.py browser_bulk_backfill` | StartInterval=180 |
 | `.healthcheck` | `manage.py healthcheck_alert` | StartInterval=900 |
 | `.stats-cache` | 預先計算 `/api/stats` + `/api/discover` 持久快照 | StartInterval=3600 |
@@ -127,6 +127,9 @@ done
 3. `manage.py backfill_reg_browser`（容錯，rc 非零繼續）
 4. `manage.py enrich_operator`
 5. `manage.py build_passes`
+6. `src/prune_raw.py`（容錯，rc 非零繼續）：清 30 日前嘅 `sightings_raw`
+
+跑完 6 步之後仲會做一次直升機群集 alert（`query_live` 即時快照 → detect → cooldown dedup → push），獨立於上面 step。
 
 `browser_bulk_backfill.py` 會補：
 - `registration`
@@ -142,14 +145,14 @@ done
 ## 主要 management command
 
 - `manage.py ingest`：抓 tar1090 `aircraft.json` 寫入 `sightings_raw`，並在 callsign HKE/UO 廣播 + registry 已 enrich registration 時送 push 通知到 `push.connie.hk`
-- `manage.py ingest_pipeline`：5 step sequence（上面 list）
+- `manage.py ingest_pipeline`：6 step sequence（上面 list）+ 直升機群集 push
 - `manage.py enrich_registry`：prefix/country fallback enrichment
 - `manage.py backfill_reg_browser`：browser-based REG backfill（quick source）
 - `manage.py browser_bulk_backfill`：Playwright bulk backfill，掃缺 `registration / country / aircraft_type / operator` 嘅 ICAO，自動寫回 DB；補完後如果係 HKE / Hong Kong Express 同 callsign 廣播咗，會送 `HKE confirm` push（一日一次）
 - `manage.py enrich_operator`：按 flight prefix 補 operator / operator_country（唔會用空值覆蓋 browser / FR24 補回嘅 operator）
 - `manage.py build_passes`：用 20 分鐘 gap 聚合 passes；同時用 `aircraft_route_snapshots` 揾返 per-pass FROM / TO
 - `manage.py healthcheck_alert`：feed watchdog，超過 1 小時冇 update 推 alert + 講 DB vs tar1090 邊度死
-- `manage.py refresh_stats_cache`：背景預先計算 `/api/stats` 同 `/api/discover` 嘅持久 JSON 快照
+- `manage.py refresh_stats_cache`：背景預先計算 `/api/stats` 同 `/api/discover` 嘅持久 JSON 快照，原子寫入 `data/stats-cache.json`（計唔到就保留舊檔）
 
 過渡期：management command 全部 thin wrapper（`tracking/services/runner.py` → `subprocess.run`），裡面跑舊 `src/*.py` 嘅 logic。第二期可以慢慢 refactor 入 `tracking/services/` + `enrichment/services/` 做 import 模式。
 
@@ -160,6 +163,7 @@ done
 - `data/django-{web,ingest,backfill,healthcheck,stats-cache}.{log,err}`：5 個 launchd job 各自 stdout / stderr
 - `data/ingest.log` / `data/browser_bulk_backfill.log`：舊 script 直接寫嘅 detailed log
 - `data/.healthcheck_state.json`：feed watchdog 嘅 dedup state（last_alert_at + last_alerted）
+- `data/stats-cache.json`：`/api/stats` + `/api/discover` 嘅每小時統計快照（`refresh_stats_cache` 寫，web request 只讀）
 - MySQL：`127.0.0.1:3306`，DB `plane_history`（connection info 喺 `src/config.json` 入面）
 
 ## Web UI
@@ -169,12 +173,13 @@ done
 頁面：`/`（首頁）、`/details`（搜尋 / filter / sort）、`/stats`（統計 + 長窗口發現）、`/map`（即時地圖）、`/aircraft/<hex>/`（單機歷史）、`/about`（關於 / 系統健康）、`/admin/`（Django admin，readonly tracking / editable registry cache）。三語切換（繁中 / 日 / 英）。
 
 JSON API：
-- `/api/stats`：每小時快照嘅統計數據（7 日 / 24h histogram、heatmap、top 10、peak alt、busiest hour）
+- `/api/stats`：每小時快照嘅統計數據（7 日 / 24h histogram、heatmap、top 10、紀錄榜、日曆、羅盤、速度分佈、peak alt、busiest hour）
 - `/api/discover`：同一份每小時快照嘅 discovery curve、rare finds、altitude 分佈、全 DB top 10 ICAO（`/stats` 頁同時 fetch 呢條同 `/api/stats`）
+- 兩條都**淨係讀** `data/stats-cache.json`，唔會喺 request 入面跑慢 SQL；快照未生成 / 版本唔啱就回 503 `stats_cache_unavailable`，成功會帶 `X-Stats-Cache-Generated-At` header（前端攞嚟顯示快照時間）
 - `/api/live`：tar1090 即時飛機（地圖用，含 registry enrichment，1 秒 TTL cache）
 - `/api/aircraft?icao=`：單機歷史（registry + passes 聚合，含 per-pass FROM / TO）
 - `/api/aircraft/track?icao=&from=&to=`：單一 pass 嘅 sightings_raw 軌跡（畫 alt + gs profile chart 用）
-- `/api/today?day=&sort=&country=&operator=&...`：home + details 頁用，rows + filter dropdown options
+- `/api/today?day=&sort=&country=&operator=&type=&cat=&from=&to=`：home + details 頁用，rows + filter dropdown options（`cat` = ADS-B emitter category 分組）
 - `/api/summary?day=`：home 頁 operator breakdown + total aircraft count
 - `/api/about`：接收機 / feed 狀態
 - `/api/me`：current user info（nav 用嚟揀 login / account 顯示）
@@ -185,7 +190,9 @@ JSON API：
 - `samples` = 今日同一 ICAO 在 `sightings_raw` 入面出現嘅 row 數
 - `passes` = 以 20 分鐘 gap 聚合後嘅經過次數
 - `aircraft_route_snapshots` 表：每次 `browser_bulk_backfill` 由 FR24 攞到 from/to + 當時 ADS-B 廣播 callsign，記低一條 `(icao, flight, from, to, observed_at)`。`build_passes` 重建時揾返每組 `(icao, flight)` 最新 snapshot 填返入 `aircraft_passes.from_airport / to_airport`，達到 per-pass route 而唔係全部 pass 共用 registry 嘅最新一條
+- Raw retention：`sightings_raw` 只留 30 日（`src/prune_raw.py`，pipeline 最後一步），`aircraft_passes` 永久留。所以 map track / profile chart 只回溯得 30 日，但 `/details` 同統計嘅舊日子照樣有（老過 retention floor 嘅日子由 passes 砌 row）。個 floor 係 `MIN(sightings_raw.seen_at)` 度出，所以 raw 表空嘅話（未 ingest 過 / 啱啱清空）就冇 floor、亦唔會 fallback
 - `/api/live` 用 module-level dict cache（process-local，restart 即清，無需 Redis）
+- `/api/stats` + `/api/discover` 用 file-backed 快照（`data/stats-cache.json`），gunicorn 讀之前用 mtime 判斷要唔要 reload，寫入用 `os.replace()` 原子取代，唔會讀到寫一半嘅 JSON
 - REG bulk backfill 依賴 Python `playwright` + `chromium`（venv 入面裝晒）
 - 前端 Three.js + Leaflet self-host 喺 `static/vendor/`（`base.html` importmap 把 `three` 指過去、Leaflet 用 `{% static %}`），auth 頁零第三方可執行 JS，連 vendored LICENSE（THREE MIT / Leaflet BSD-2）。Radar 背景而家係 `base.html` default `radar_bg`，login / 後台頁都有。地圖 tiles（cartocdn）+ planespotters 相維持外部（圖片、非可執行）
 - `push.connie.hk` 使用 HMAC header 驗證，Python notifier 用 `openssl + curl` 兼容現有 shell 簽名流程
