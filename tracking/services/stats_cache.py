@@ -18,7 +18,10 @@ from django.core.serializers.json import DjangoJSONEncoder
 from tracking.services import queries
 
 
-CACHE_VERSION = 1
+# v2：stats section 加咗 `coverage`（接收範圍極座標圖）。舊 snapshot 冇呢個 key，
+# 唔 bump 嘅話 web 會讀住舊檔然後前端攞唔到 coverage —— load_stats_cache() 會
+# 憑 version 判定唔相容，逼 /api/stats 回 503 直到 refresh_stats_cache 重新生成。
+CACHE_VERSION = 2
 CACHE_PATH = Path(settings.BASE_DIR) / 'data' / 'stats-cache.json'
 
 _MEMORY_CACHE = {'mtime_ns': None, 'snapshot': None}
@@ -32,6 +35,9 @@ def refresh_stats_cache():
     """重新計算兩組統計，再原子取代舊快照；計算失敗會保留舊檔。"""
     started = time.monotonic()
     stats = queries.query_stats()
+    # 覆蓋圖要全表掃 sightings_raw 嘅 lat/lon（~0.9 秒 / 296k row），
+    # 所以一定要留喺呢個每小時 job，唔好落 request path。
+    stats['coverage'] = queries.query_coverage()
     discover = queries.query_discover()
     snapshot = {
         'version': CACHE_VERSION,

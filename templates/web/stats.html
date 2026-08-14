@@ -77,6 +77,16 @@
     <div class="panel-body"><div class="compass-wrap" id="compass-wrap"><div class="loading"></div></div></div>
   </section>
 
+  {% comment %}
+  接收範圍覆蓋圖：擺喺航向羅盤隔籬——兩個都係 16 方位極座標圖，一齊睇先睇得出
+  「飛機多數由邊個方向嚟」同「邊個方向收得遠」係兩件唔同嘅事。
+  共用 .compass-wrap 個 CSS class，唔使加新 style。
+  {% endcomment %}
+  <section class="panel">
+    <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-coverage"></span></div>
+    <div class="panel-body"><div class="compass-wrap" id="coverage-wrap"><div class="loading"></div></div></div>
+  </section>
+
   <section class="panel">
     <div class="panel-hdr"><span class="diamond">◆</span><span id="hdr-curve"></span></div>
     <div class="panel-body"><div class="curve-wrap" id="curve-wrap"><div class="loading" id="loading-curve"></div></div></div>
@@ -178,6 +188,7 @@
   setTxt('hdr-records', 'stats_hdr_records');
   setTxt('hdr-calendar', 'stats_hdr_calendar');
   setTxt('hdr-compass', 'stats_hdr_compass');
+  setTxt('hdr-coverage', 'stats_hdr_coverage');
   setTxt('hdr-fastest', 'stats_hdr_fastest');
   setTxt('hdr-speed', 'stats_hdr_speed');
   // loading 字串

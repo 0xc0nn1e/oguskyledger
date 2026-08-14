@@ -386,6 +386,46 @@ function renderCompass(cm) {
   wrap.innerHTML = `<svg viewBox="0 0 ${S} ${S}" id="compass-svg" preserveAspectRatio="xMidYMid meet">${rings}${wedges}${labels}</svg>`;
 }
 
+// 接收範圍覆蓋圖：同 renderCompass 共用一套極座標數學，但楔形長度 =
+// 該方位收得幾遠（km）而唔係 sample 數，而且 ring 要標實際距離。
+function renderCoverage(cv) {
+  const wrap = document.getElementById('coverage-wrap');
+  if (!wrap) return;
+  // cv 可以係 null（config 冇 receiver.lat/lon）→ 同冇資料一樣處理
+  if (!cv || !cv.buckets || !cv.max) { wrap.innerHTML = '<div class="loading">— —</div>'; return; }
+  const buckets = cv.buckets, max = cv.max;
+  const S = 260, cx = S / 2, cy = S / 2, R = S / 2 - 26;
+  const px = (r, deg) => cx + r * Math.sin(deg * Math.PI / 180);
+  const py = (r, deg) => cy - r * Math.cos(deg * Math.PI / 180);
+  let rings = '', ringLbls = '';
+  for (const f of [0.25, 0.5, 0.75, 1]) {
+    rings += `<circle class="ring" cx="${cx}" cy="${cy}" r="${(R * f).toFixed(1)}"/>`;
+    // 沿 NE 標 km，避開正北個方位字
+    ringLbls += `<text class="tick" x="${px(R * f, 45).toFixed(1)}" y="${(py(R * f, 45) - 2).toFixed(1)}" text-anchor="middle">${Math.round(max * f)}</text>`;
+  }
+  let wedges = '';
+  for (let i = 0; i < 16; i++) {
+    const km = buckets[i] || 0;
+    if (km <= 0) continue;
+    const len = R * (km / max);
+    const a0 = i * 22.5 - 11.25, a1 = i * 22.5 + 11.25;
+    const n = (cv.samples && cv.samples[i]) || 0;
+    wedges += `<path class="wedge" d="M${cx},${cy} L${px(len, a0).toFixed(1)},${py(len, a0).toFixed(1)} A${len.toFixed(1)},${len.toFixed(1)} 0 0 1 ${px(len, a1).toFixed(1)},${py(len, a1).toFixed(1)} Z"><title>${km.toFixed(1)} km · ${n}</title></path>`;
+  }
+  const dirs = T.stats_compass_dir || ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  let labels = '';
+  for (let k = 0; k < 8; k++) {
+    const deg = k * 45;
+    labels += `<text class="dir" x="${px(R + 12, deg).toFixed(1)}" y="${(py(R + 12, deg) + 3).toFixed(1)}" text-anchor="middle">${esc(dirs[k])}</text>`;
+  }
+  // 窗口由 sightings_raw 嘅 retention 決定（30 日），唔係歷來紀錄——一定要講明，
+  // 否則會被誤讀成「我部機史上最遠收過咁遠」。
+  const d = toJSTDate(cv.since);
+  const sinceStr = d ? `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}` : '';
+  wrap.innerHTML = `<svg viewBox="0 0 ${S} ${S}" id="coverage-svg" preserveAspectRatio="xMidYMid meet">${rings}${ringLbls}${wedges}${labels}</svg>`
+    + `<div style="font-size:10px;letter-spacing:0.5px;color:var(--x-muted);margin-top:6px">${esc(T.stats_coverage_note || '')}${sinceStr ? ' · ' + esc(sinceStr) + ' →' : ''}</div>`;
+}
+
 // ===== main load =====
 
 function renderCacheUpdated(response) {
@@ -438,6 +478,7 @@ async function load() {
     renderTopIcao('top-icao-db', r.top_icao_db);
     renderRecords(r);
     renderCompass(r.compass);
+    renderCoverage(r.coverage);
   } catch (e) {
     document.getElementById('hist').innerHTML = '<div class="loading">error: ' + esc(String(e)) + '</div>';
   }

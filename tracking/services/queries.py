@@ -531,6 +531,83 @@ def query_stats():
     }
 
 
+# 覆蓋圖距離上限（km）。實測全表得 1 筆爛座標（icao a95ca4 / GTI8608 報 3,988km），
+# 第二遠 310km 先係真值。用 MAX() 唔隔走嗰筆，成個極座標圖會被佢拉到冇得睇。
+# 400 揀得寬鬆：>400km 同 >500km 都係得嗰 1 筆，即係唔會誤殺真紀錄。
+COVERAGE_MAX_KM = 400
+
+# 覆蓋圖窗口。前端個 note 寫住「最近 30 日」，所以條 query 要自己 filter 到 30 日，
+# 唔可以靠 `src/prune_raw.py` 隱含咁啱剪到 30 日——prune 一停或者改咗保留期，
+# 個圖就會靜靜哋覆蓋更長時間，同 UI 講嘅嘢對唔上。同上面航向羅盤一樣明寫 seen_at 範圍。
+COVERAGE_DAYS = 30
+
+
+def query_coverage():
+    """接收範圍極座標圖：由接收機睇出去 16 個方位，每個方位收得幾遠。
+
+    **窗口限制**：只計最近 `COVERAGE_DAYS` 日嘅 `sightings_raw`。`aircraft_passes`
+    冇 lat/lon，所以砌唔到更長窗口——呢個圖唔係歷來最遠紀錄。想要歷來紀錄要另開
+    一張持久 per-bucket max 表。
+
+    冇設定 `receiver.lat` / `receiver.lon` 就回 None（前端唔畫個 panel）。
+    """
+    rx = settings.PLANE_HISTORY.get('receiver') or {}
+    rx_lat, rx_lon = rx.get('lat'), rx.get('lon')
+    if rx_lat is None or rx_lon is None:
+        return None
+
+    # seen_at 存 ISO UTC string，可以直接做 lexicographic 範圍比較（同 query_stats
+    # 個羅盤一樣），順帶食到 idx_sightings_seen_at。
+    since_utc = (datetime.now(timezone.utc) - timedelta(days=COVERAGE_DAYS)).isoformat()
+
+    # bucket = FLOOR(MOD(bearing + 371.25, 360) / 22.5)，371.25 = 360 + 11.25，
+    # 令 bucket 0 中心對正北，同航向羅盤（上面 query_stats）用同一套分格。
+    # 同樣用 MOD() 唔用 `%` operator —— 有 param 嘅 SQL `%` 會撞 PyMySQL placeholder。
+    with connection.cursor() as cur:
+        cur.execute(
+            """SELECT bucket, MAX(km) AS max_km, COUNT(*) AS cnt, MIN(seen_at) AS since
+               FROM (
+                 SELECT
+                   FLOOR(MOD(DEGREES(ATAN2(
+                       SIN(RADIANS(lon - %s)) * COS(RADIANS(lat)),
+                       COS(RADIANS(%s)) * SIN(RADIANS(lat))
+                         - SIN(RADIANS(%s)) * COS(RADIANS(lat)) * COS(RADIANS(lon - %s))
+                   )) + 371.25, 360) / 22.5) AS bucket,
+                   ST_Distance_Sphere(POINT(lon, lat), POINT(%s, %s)) / 1000 AS km,
+                   seen_at
+                 FROM sightings_raw
+                 WHERE lat IS NOT NULL AND lon IS NOT NULL AND seen_at >= %s
+               ) t
+               WHERE km < %s
+               GROUP BY bucket""",
+            [rx_lon, rx_lat, rx_lat, rx_lon, rx_lon, rx_lat, since_utc, COVERAGE_MAX_KM],
+        )
+        buckets = [0.0] * 16
+        samples = [0] * 16
+        max_km = 0.0
+        since = None
+        for r in _dict_cursor(cur):
+            if r['bucket'] is None:
+                continue
+            b = int(r['bucket']) % 16
+            km = round(float(r['max_km']), 1)
+            buckets[b] = km
+            samples[b] = int(r['cnt'])
+            max_km = max(max_km, km)
+            if r['since'] and (since is None or r['since'] < since):
+                since = r['since']
+
+    # 特登唔回 receiver.name / lat / lon：呢個 payload 會出現喺公開 HTML，
+    # 同 web.views.AircraftDetailView 嗰個「唔好放精確 GPS」嘅顧慮一致。
+    # 個圖係以接收機為圓心嘅相對距離，本身唔需要知道圓心喺邊。
+    return {
+        'buckets': buckets,
+        'samples': samples,
+        'max': max_km,
+        'since': since,
+    }
+
+
 def query_discover():
     """/api/discover：長窗口統計 — discovery curve、rare finds、altitude 分佈、全 DB top icao。"""
     with connection.cursor() as cur:

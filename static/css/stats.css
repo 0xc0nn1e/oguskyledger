@@ -155,12 +155,16 @@
 #speed-svg .bar { fill:var(--mint); }
 #speed-svg .bar-lbl { fill:var(--mint-light); font-size:9px; text-anchor:middle; }
 
-/* 航向羅盤 */
+/* 航向羅盤 + 接收範圍覆蓋圖（同一套 16 方位極座標，共用樣式）
+   注意：呢啲 rule 一定要逐個 svg id 列明。SVG <circle>/<path> 預設 fill:black，
+   漏咗邊個 id 嗰個圖就會畫成一嚿黑餅（唔係「冇樣式」咁簡單）。 */
 .compass-wrap { display:flex; justify-content:center; }
-#compass-svg { width:100%; max-width:300px; height:auto; display:block; }
-#compass-svg .ring { fill:none; stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
-#compass-svg .wedge { fill:rgba(127,255,212,0.45); stroke:var(--mint); stroke-width:0.5; }
-#compass-svg .dir { fill:var(--x-muted); font-size:9px; letter-spacing:0.5px; font-family:inherit; }
+#compass-svg, #coverage-svg { width:100%; max-width:300px; height:auto; display:block; }
+#compass-svg .ring, #coverage-svg .ring { fill:none; stroke:rgba(127,255,212,0.12); stroke-width:0.8; }
+#compass-svg .wedge, #coverage-svg .wedge { fill:rgba(127,255,212,0.45); stroke:var(--mint); stroke-width:0.5; }
+#compass-svg .dir, #coverage-svg .dir { fill:var(--x-muted); font-size:9px; letter-spacing:0.5px; font-family:inherit; }
+/* 覆蓋圖獨有：ring 上面標實際 km */
+#coverage-svg .tick { fill:var(--x-muted); font-size:8px; font-family:inherit; }
 
 /* 新增 stats mobile */
 @media (max-width:700px) {

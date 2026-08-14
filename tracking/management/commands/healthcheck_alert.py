@@ -4,9 +4,14 @@ Diagnose 兩條 path：
   1. MySQL 連到 → SQL `SELECT 1` 正常
   2. tar1090 source URL 通 → HTTP 200 + JSON parse 到
 
+另外獨立監察兩樣嘢（各有自己 dedup，唔影響 feed alert）：
+  - chromium headless process 堆積
+  - gunicorn WORKER TIMEOUT（有 request hang 爆 --timeout）
+
 Push message 例：
   ALERT · feed 無 update 87m · DB ok · tar1090 404
   ALERT · feed 無 update 65m · DB down: 2003 Can't connect
+  ALERT · gunicorn worker timeout ×2（pid 1024, 1025）· 有 request hang 爆 30s…
   ✓ recovered · feed 返來啦（last seen 0m ago）
 
 Dedup：上次 alert < 6 小時前 skip，避免重複轟炸。
@@ -26,9 +31,13 @@ from django.db import connection
 
 
 STATE_FILE = Path(settings.BASE_DIR) / 'data' / '.healthcheck_state.json'
+ERROR_LOG = Path(settings.BASE_DIR) / 'data' / 'django-error.log'
 THRESHOLD_MIN = 60       # 超過 60 分鐘冇 ingest 就 alert
 DEDUP_HOURS = 6          # 兩個 alert 之間最少 6 小時
 CHROME_PROC_ALERT = 30   # chromium headless 超過呢個數就 alert（正常 backfill run 6-12 個）
+# Worker timeout 係「事件」唔係「水平」，用短 dedup：一次事故通常爆幾單
+# （2026-08-13 十七分鐘內五單），1 小時夠收埋一個 burst，又唔會蓋走下一單事故。
+WORKER_TIMEOUT_DEDUP_HOURS = 1
 
 
 def _read_state():
@@ -87,6 +96,48 @@ def _chromium_count():
         return None, None
 
 
+def _scan_worker_timeouts(state):
+    """由上次 offset 掃 django-error.log 新增部分，數 gunicorn WORKER TIMEOUT。
+
+    回 (count, sample_pids, new_offset)。用 byte offset 而唔係每次讀成個檔，
+    因為個 log 冇 rotation，只會愈嚟愈大。
+
+    背景：`WORKER TIMEOUT` 係 arbiter 見到 worker 超過 --timeout 冇 heartbeat 先出，
+    之後 3-5 秒補一發 SIGKILL。要同 2026-06-13 嗰批「冇 WORKER TIMEOUT 前置」嘅
+    SIGKILL 分開睇——嗰批係 macOS _scproxy fork-safety，已經由 plist 兩個 env 修好。
+    所以呢度只數 WORKER TIMEOUT，唔數 SIGKILL，否則會捉錯已修好嘅舊問題。
+    """
+    try:
+        size = ERROR_LOG.stat().st_size
+    except OSError:
+        return 0, [], state.get('error_log_offset')
+
+    offset = state.get('error_log_offset')
+    # 第一次跑：淨係記低而家個位，唔好就住兩個月歷史狂 push。
+    if offset is None:
+        return 0, [], size
+    # 檔案縮咗（有人清過 / 將來加 rotation）→ 由頭再嚟
+    if offset > size:
+        offset = 0
+
+    try:
+        with ERROR_LOG.open('r', encoding='utf-8', errors='replace') as f:
+            f.seek(offset)
+            new_text = f.read()
+            new_offset = f.tell()
+    except OSError:
+        return 0, [], offset
+
+    hits = [ln for ln in new_text.splitlines() if 'WORKER TIMEOUT' in ln]
+    pids = []
+    for ln in hits:
+        _, _, tail = ln.partition('pid:')
+        pid = tail.partition(')')[0].strip()
+        if pid:
+            pids.append(pid)
+    return len(hits), pids, new_offset
+
+
 def _probe_tar1090():
     """Fetch tar1090 source URL；回 (status, detail_or_None)。"""
     url = (settings.PLANE_HISTORY.get('source') or {}).get('aircraft_json_url')
@@ -137,6 +188,31 @@ class Command(BaseCommand):
                     state['chromium_alerted'] = False
                     _write_state(state)
                 self.stdout.write(f'chromium ok ({n_chrome} procs)')
+
+        # Gunicorn worker timeout check：有 request hang 足 --timeout（30s）就 alert。
+        # 獨立 dedup，同下面 feed alert 冇關；一定要喺 feed 嗰堆 early return 之前跑。
+        n_timeouts, timeout_pids, new_offset = _scan_worker_timeouts(state)
+        commit_offset = True
+        if n_timeouts:
+            hours_since = (now_t - state.get('worker_timeout_last_alert_at', 0.0)) / 3600
+            if hours_since >= WORKER_TIMEOUT_DEDUP_HOURS:
+                pid_str = ', '.join(timeout_pids[:5]) or '?'
+                push_status = _send(
+                    f'ALERT · gunicorn worker timeout ×{n_timeouts}（pid {pid_str}）'
+                    f'· 有 request hang 爆 30s，查 django-access.log 尾二欄（微秒）')
+                if push_status and 200 <= push_status < 300:
+                    state['worker_timeout_last_alert_at'] = now_t
+                else:
+                    # 送唔到就唔好推進 offset，下個 cycle（15 分鐘後）連呢批一齊重試
+                    commit_offset = False
+                    self.stdout.write(self.style.ERROR(
+                        f'worker timeout alert push failed (status={push_status})'))
+            self.stdout.write(self.style.WARNING(f'worker timeout ×{n_timeouts} 新增'))
+        else:
+            self.stdout.write('worker timeout 冇新增')
+        if commit_offset and new_offset is not None and new_offset != state.get('error_log_offset'):
+            state['error_log_offset'] = new_offset
+        _write_state(state)
 
         # Recovery case：之前 alert 過，而家 feed 返來
         if state['last_alerted'] and age_min is not None and age_min < THRESHOLD_MIN:
