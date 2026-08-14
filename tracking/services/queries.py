@@ -738,14 +738,29 @@ def query_discover():
     }
 
 
+def _live_with_age(result, fetched_at):
+    """加返 `snapshot_age`：呢份快照由我哋喺 tar1090 攞到之後又過咗幾多秒。
+
+    每架機嘅 `seen_pos` 係「快照生成嗰刻」個位置有幾舊，但份快照會喺
+    `_LIVE_CACHE` 度 hold 最多 `_LIVE_TTL` 秒先 serve。唔加返呢段 cache 年齡，
+    前端每次 poll 攞到嘅位置年齡就會隨機少計 0～1 秒 —— 喺 450kt 之下即係
+    ±230m 抖動，marker 會不停前後彈。加咗之後前端計嘅觀測時刻先會穩定。
+
+    用我哋自己嘅 fetch 時間做基準（唔用 tar1090 個 `now`），避免接收機同呢部機
+    clock skew 影響。tar1090 → 我哋嘅傳輸時間喺 LAN 上係毫秒級，可以忽略。
+    """
+    return {**result, 'snapshot_age': round(max(0.0, time.time() - fetched_at), 3)}
+
+
 def query_live():
     """server 端即時抓 tar1090 aircraft.json，trim 返有定位嘅機畀 `/map` 用。
 
     Cache 1 秒：N 個 client polling 都最多每秒打 tar1090 + DB 一次。
+    Serve 出去嗰陣會經 `_live_with_age()` 補返 cache 年齡。
     """
     now_t = time.time()
     if _LIVE_CACHE['data'] is not None and (now_t - _LIVE_CACHE['at']) < _LIVE_TTL:
-        return _LIVE_CACHE['data']
+        return _live_with_age(_LIVE_CACHE['data'], _LIVE_CACHE['at'])
 
     if not _SOURCE_URL:
         return {'aircraft': [], 'error': 'no source url', 'count_pos': 0, 'count_total': 0}
@@ -777,6 +792,11 @@ def query_live():
             'emergency': emerg,
             'category': (a.get('category') or '').strip() or None,
             'seen': a.get('seen'),
+            # seen_pos = 個「位置」有幾舊（秒），同 seen（最後收到任何 message）唔同：
+            # 架機淨係發 Mode-S 冇位置嗰陣 seen 會細但 seen_pos 一路大。
+            # 前端要靠佢將 dead-reckoning 嘅時間戳倒推返觀測時刻，
+            # 否則會將幾十秒前嘅座標當成「而家」，marker 每次 poll 都彈返後面。
+            'seen_pos': a.get('seen_pos'),
         })
 
     # 由 registry cache 補返機牌 / 機型 / 公司 / 國家 / 航線，click popup 用
@@ -829,7 +849,7 @@ def query_live():
     }
     _LIVE_CACHE['at'] = now_t
     _LIVE_CACHE['data'] = result
-    return result
+    return _live_with_age(result, now_t)
 
 
 # 通過履歷可排序欄白名單（key → DB column）

@@ -46,6 +46,26 @@ body { overflow:hidden; }
 }
 .map-filter:focus { border-color:var(--mint); }
 
+/* 天氣疊層開關：底色 / 邊框 / 字級跟 .map-filter，加 .on 著燈狀態 */
+.wx-toggles { display:inline-flex; gap:6px; }
+.map-toggle {
+  background:rgba(5,10,13,0.8); color:var(--x-muted); border:var(--border); border-radius:4px;
+  font:inherit; font-size:10px; letter-spacing:1px; padding:5px 8px; outline:none; cursor:pointer;
+}
+.map-toggle:hover { color:var(--mint); }
+.map-toggle:focus-visible { border-color:var(--mint); }
+.map-toggle.on { color:var(--mint); border-color:var(--mint); background:rgba(127,255,212,0.12); }
+
+/* Himawari 紅外係灰階，用 screen blend 令黑色透明、淨返亮嘅雲。
+   但 IR 嘅「晴空」唔係純黑係深灰 —— 淨係 screen 會連深灰都提亮，
+   實測會將成張底圖洗到城市名同海岸線都睇唔到，飛機同航跡亦被灰霧蓋住。
+   所以 blend 之前先用 filter 壓黑位：contrast 推低值向 0（screen 之下 = 透明），
+   高值嘅雲保留。呢兩個數係喺瀏覽器逐格對比出嚟，改之前記得再目視驗證。*/
+.wx-ir-tiles {
+  mix-blend-mode:screen; background:transparent;
+  filter:brightness(0.85) contrast(2.4);
+}
+
 /* map 區 + emergency 側欄 overlay */
 .map-area { flex:1 1 auto; min-height:0; position:relative; display:flex; }
 .map-area #map { flex:1 1 auto; min-height:0; }
@@ -89,7 +109,9 @@ body { overflow:hidden; }
 }
 
 @media (max-width:700px) {
+  /* 天氣掣唔一齊收：手機睇天氣比睇色階 legend 有用，留返佢哋 */
   .map-legend, .map-meta .note { display:none; }
+  .map-toggle { padding:5px 6px; letter-spacing:0.5px; }
   .map-search { width:110px; }
   .wrap { padding:14px 12px calc(10px + env(safe-area-inset-bottom)); }
   .wrap header.page-hdr .hdr-row.main .title { font-size:15px; }
