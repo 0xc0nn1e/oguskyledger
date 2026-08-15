@@ -921,3 +921,34 @@ refreshRain();
 refreshCloud();
 setInterval(refreshRain, RAIN_REFRESH_MS);
 setInterval(refreshCloud, CLOUD_REFRESH_MS);
+
+// ===== 屋企 / 接收機位置 =====
+// 座標只會喺已登入嘅 response 出現（web/views.py `_receiver_latlon`），
+// 所以呢度唔使自己判斷登入狀態 —— 未登入根本冇 window.RX_HOME。
+// 唔好用佢做初始視野：map.js 開頭特登用闊日本中心，一 setView 落屋企
+// 就等於用另一種方式洩露位置畀截圖 / 錄影。
+// 天線圖示：垂直桅杆 + 底座三腳 + 兩道向外發射弧。跟返 PLANE_SVG / HELI_SVG
+// 嗰套（inline SVG + divIcon）；currentColor 令顏色可以喺 CSS 度控。
+// 兩道弧特登只畫上半，睇落似向天發射而唔似 wifi。
+const HOME_SVG = '<svg viewBox="0 0 24 24" width="100%" height="100%">'
+  + '<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">'
+  + '<path class="w2" d="M5.2 9.6a9 9 0 0 1 13.6 0"/>'
+  + '<path class="w1" d="M8.2 12.2a5.2 5.2 0 0 1 7.6 0"/>'
+  + '</g>'
+  + '<g fill="currentColor" stroke="#031a14" stroke-width="0.5">'
+  + '<circle cx="12" cy="14.4" r="1.7"/>'
+  + '<path d="M11.25 15.4h1.5L14.4 21.6h-1.7L12 18.2l-0.7 3.4H9.6z"/>'
+  + '</g></svg>';
+
+if (Array.isArray(window.RX_HOME) && window.RX_HOME.length === 2) {
+  // iconAnchor 擺喺桅杆底（x 中、y 貼近底邊），令支天線係「企喺」個座標上面，
+  // 唔係個座標喺圖示正中間 —— 咁樣位置讀落先準。
+  const icon = L.divIcon({
+    className: 'rx-home-icon',
+    html: `<div class="rx-home-wrap">${HOME_SVG}</div>`,
+    iconSize: [48, 48], iconAnchor: [24, 44],
+  });
+  L.marker(window.RX_HOME, { icon, interactive: true, zIndexOffset: -500 })
+    .bindTooltip(T.map_home || 'HOME RX', { direction: 'top', offset: [0, -40], className: 'ac-tip' })
+    .addTo(map);
+}

@@ -33,6 +33,23 @@ def _fmt_jst(ts):
         return ts or '—'
 
 
+def _receiver_latlon(request):
+    """接收機（即係屋企）座標 —— **淨係畀已登入嘅 user**。
+
+    `/map` 同 `/aircraft/<hex>/` 兩個都係公開頁，未登入嘅訪客個 HTML 唔應該
+    出現屋企位置。config 入面個座標實測係 ±56m 精度，落到棟樓級別，
+    唔係註解一路寫嘅「街區級」，所以唔可以就咁擺出去。
+    未登入 / 冇設定就回 None，前端自己 fallback（例如 fitBounds）。
+    """
+    if not request.user.is_authenticated:
+        return None
+    rx = settings.PLANE_HISTORY.get('receiver') or {}
+    lat, lon = rx.get('lat'), rx.get('lon')
+    if lat is None or lon is None:
+        return None
+    return [lat, lon]
+
+
 class PlaneHistoryBaseMixin:
     """所有 page view 行呢個 mixin 攞 nav strings + lang，注入畀 base.html inline JS。
 
@@ -69,6 +86,14 @@ class DetailsView(PlaneHistoryBaseMixin, TemplateView):
 class MapView(PlaneHistoryBaseMixin, TemplateView):
     template_name = 'web/map.html'
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # 屋企 marker：登入後先送座標出去，未登入個 HTML 完全冇呢個 key
+        home = _receiver_latlon(self.request)
+        if home:
+            ctx['rx_home_json'] = json.dumps(home)
+        return ctx
+
 
 class AircraftDetailView(PlaneHistoryBaseMixin, TemplateView):
     """單機歷史 page — 純 client-side render。
@@ -81,12 +106,12 @@ class AircraftDetailView(PlaneHistoryBaseMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['icao'] = self.kwargs.get('icao', '').lower()
-        # 路線地圖以接收機做中心（config.json receiver.lat/lon，街區級就夠，
-        # 會出現喺公開 HTML，唔好放精確 GPS）；冇設定就由 JS fallback fitBounds
-        rx = settings.PLANE_HISTORY.get('receiver') or {}
-        lat, lon = rx.get('lat'), rx.get('lon')
-        if lat is not None and lon is not None:
-            ctx['rx_center_json'] = json.dumps([lat, lon])
+        # 路線地圖以接收機做中心。呢個座標實測 ±56m（棟樓級），而本頁係公開頁，
+        # 所以同 /map 一樣閘住 —— 登入先送。未登入就冇 RX_CENTER，
+        # JS 會自己 fallback fitBounds，功能唔會壞。
+        home = _receiver_latlon(self.request)
+        if home:
+            ctx['rx_center_json'] = json.dumps(home)
         return ctx
 
 

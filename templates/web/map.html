@@ -104,6 +104,11 @@
   fillSelect('alt-filter', [['', T.map_alt_all || 'ALL ALT'], ['0-10000', '<10k'],
     ['10000-25000', '10–25k'], ['25000-35000', '25–35k'], ['35000-999999', '>35k']]);
   setAttr('search-clear', 'title', 'map_clear');
+  {% comment %}
+    屋企／接收機位置：server 淨係喺已登入 response 先會俾 rx_home_json，
+    未登入嘅訪客個 HTML 根本冇下面呢句，睇 view-source 都搵唔到座標。
+  {% endcomment %}
+  {% if rx_home_json %}window.RX_HOME = {{ rx_home_json|safe }};{% endif %}
   setTxt('wx-cloud', 'map_wx_cloud', 'CLOUD');
   setTxt('wx-rain', 'map_wx_rain', 'RAIN');
   setTxt('wx-wind', 'map_wx_wind', 'WIND');

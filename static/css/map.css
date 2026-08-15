@@ -55,6 +55,25 @@ body { overflow:hidden; }
 .map-toggle:hover { color:var(--mint); }
 .map-toggle:focus-visible { border-color:var(--mint); }
 .map-toggle.on { color:var(--mint); border-color:var(--mint); background:rgba(127,255,212,0.12); }
+/* 屋企 / 接收機位置：天線圖示（divIcon + inline SVG，同 .ac-icon 一套）。
+   zIndexOffset 已經將佢排喺飛機後面，所以呢度唔搶視線就得。 */
+.rx-home-icon { background:none; border:none; overflow:visible; }
+/* 48px：SVG 用 viewBox 0 0 24 24，stroke-width 跟住比例放大，形狀完全一樣。
+   改尺寸記得同步改 map.js 個 iconSize / iconAnchor / tooltip offset。 */
+.rx-home-wrap { width:48px; height:48px; color:var(--amber); }
+/* 兩道發射弧輪流淡入淡出，做出「一路收緊」嘅感覺；錯開時間先似向外擴散。
+   幅度特登細（0.15→0.75），唔好搶飛機同雨雲嘅注意力。 */
+.rx-home-wrap .w1 { animation:rxwave 2.4s ease-in-out infinite; }
+.rx-home-wrap .w2 { animation:rxwave 2.4s ease-in-out infinite 0.5s; }
+@keyframes rxwave {
+  0%, 100% { opacity:0.15; }
+  45%      { opacity:0.75; }
+}
+/* 用戶開咗減少動態就唔好郁，淨係定住顯示 */
+@media (prefers-reduced-motion: reduce) {
+  .rx-home-wrap .w1, .rx-home-wrap .w2 { animation:none; opacity:0.6; }
+}
+
 /* 大風色階圖例：色停要同 map.js windColor() 條 hsl(60→0) 色階對得返，
    改咗一邊記得改另一邊，否則圖例會呃人 */
 .wind-legend .bar {
