@@ -400,8 +400,12 @@ const JP_RAIN_BOUNDS = L.latLngBounds([[20, 118], [48, 150]]);
 const JP_SAT_BOUNDS = L.latLngBounds([[12, 110], [55, 165]]);
 
 // 陣風分段（kt）。色跟返 emergency 色系由淺到深，同 --amber 一路去 #ff5b5b。
-const WIND_BANDS = [[45, '#ff5b5b'], [35, '#ff9a3c'], [25, '#f5d96f']];
-const WIND_MIN_KT = WIND_BANDS[WIND_BANDS.length - 1][0];
+// 漸變色階，唔用硬門檻。原本 25/35/45kt 分段嘅問題：「大風區」按定義係例外
+// 狀況，實測關東地面陣風成日淨係 6–24kt，於是成個掣八成時間都係空白，用起上嚟
+// 似壞咗。改成超過一個低底就著色、風愈大色愈深，咁就一定睇到強弱分佈，
+// 而真係大風嗰啲區域一樣突出。
+const WIND_FLOOR_KT = 10;    // 低過呢個唔畫，否則成張圖都染到一片
+const WIND_TOP_KT = 60;      // 色階上限，再大都當最深
 const WIND_COLS = 6, WIND_ROWS = 7;          // 42 點：實測 40 點 ≈ 14.8KB / 1.6s
 const WIND_DEBOUNCE_MS = 600;
 // Open-Meteo 免費 API 條款：資料以 CC-BY 4.0 提供、限非商業用途。
@@ -413,9 +417,31 @@ const WIND_DEBOUNCE_MS = 600;
 const WIND_ATTRIB = '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'
   + '（<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>）を加工';
 
+// 0 = 剛過底線，1 = 到頂。畀色同透明度共用，兩樣一齊隨風速加深。
+function windRatio(kt) {
+  if (!(kt >= WIND_FLOOR_KT)) return null;
+  return Math.min(1, (kt - WIND_FLOOR_KT) / (WIND_TOP_KT - WIND_FLOOR_KT));
+}
+
+// 黃 → 橙 → 紅。特登唔行 altColor 條橙→紫色階，免得同高度圖例撈亂。
 function windColor(kt) {
-  for (const [min, color] of WIND_BANDS) if (kt >= min) return color;
-  return null;
+  const t = windRatio(kt);
+  return t === null ? null : `hsl(${Math.round(60 - t * 60)}, 85%, 55%)`;
+}
+
+// 色階圖例：淨係喺大風圖層開咗先出，唔好長期霸住 toolbar
+function setWindLegend(show) {
+  const el = document.getElementById('wind-legend');
+  if (el) el.hidden = !show;
+}
+
+// 撳掣旁邊顯示視野內最大風速，令低風日子都知道個掣行緊、而家幾大風
+function setWindMaxLabel(kt) {
+  const el = document.getElementById('wx-wind-max');
+  if (!el) return;
+  if (kt == null) { el.textContent = ''; el.hidden = true; return; }
+  el.textContent = `${Math.round(kt)}kt`;
+  el.hidden = false;
 }
 
 // toggle 狀態（localStorage 記住）。要喺下面啲 refreshXxx / refreshWind 之前定義，
@@ -432,10 +458,25 @@ function saveWx() {
 }
 
 // 攞 JMA targetTimes（雨雲同衛星格式唔同：雨雲要 [0]，衛星要最後一個）
+// fetch() **冇 default timeout**：對面唔回應（TCP 黑洞）個 promise 可以永遠唔 settle。
+// 雨雲個 refresh 係序列化嘅，一 hang 就會令 rainRunning 永遠卡住 true，
+// 之後連用戶撳掣都開唔到雨雲。所以所有外部 fetch 一律要用 AbortController 封頂。
+const WX_FETCH_TIMEOUT_MS = 15000;
+
+async function fetchJsonTimeout(url, timeoutMs) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: ac.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function jmaLatest(url, pickLast) {
-  const r = await fetch(url, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const list = await r.json();
+  const list = await fetchJsonTimeout(url, WX_FETCH_TIMEOUT_MS);
   if (!Array.isArray(list) || !list.length) throw new Error('empty targetTimes');
   return pickLast ? list[list.length - 1] : list[0];
 }
@@ -453,25 +494,214 @@ const RainTileLayer = L.TileLayer.extend({
     return Math.max(RAIN_MIN_Z, Math.min(RAIN_MAX_Z, Math.floor(zoom / 2) * 2));
   },
 });
-let rainLayer = null;
+// 動畫：播最近 6 幀（5 分鐘一幀 = 半個鐘）睇到雨區真係喺度郁。
+// 特登用真實歷史幀，唔用 CSS 平移做假動感 —— 郁錯方向就係竄改氣象資訊，
+// 亦違反気象庁「唔可以令人以為係國家做嘅」嗰條。
+const RAIN_FRAMES = 6;
+const RAIN_FRAME_MS = 600;        // 每幀停留
+const RAIN_LAST_HOLD_MS = 1800;   // 播到最新一幀停耐啲，睇清楚「而家」先 loop
+const RAIN_OPACITY = 0.6;
+// 気象庁「公共データ利用規約 第1.0版」：要出典 + 該頁 URL，有加工要另外聲明。
+const RAIN_ATTRIB = '出典：<a href="https://www.jma.go.jp/bosai/nowc/" target="_blank" rel="noopener">気象庁ナウキャスト</a>を加工';
+
+let rainFrames = [];       // [{time, layer}]，舊 → 新，播緊嗰批
+// 換代期間降級嘅上一批：新 tile 未 load 完之前佢要留喺地圖頂住顯示。
+// 一定要 module-level 唔可以做 local —— 做 local 嘅話熄圖層 / 被更新一批插隊
+// 兩種情況都冇人拆得走佢，會遺留喺地圖上（其中一幀仲係 opacity 0.6，
+// 即係撳熄咗個掣但雨雲照樣顯示）。
+let rainStale = [];
+let rainFramesKey = '';
+// refreshRain 一次只准跑一個。之前試過用「入場序號 + 接手世代」畀佢哋並行再排先後，
+// 但重疊嘅 async 換代衍生咗一長串邊界情況（舊 response 蓋過新、早退嗰次誤搶世代、
+// fetch 快慢令次序倒轉…）。直接序列化就令「同時有兩次換代」根本唔可能發生，
+// 成類問題一次過消失，亦唔再需要嗰兩個號。
+// 跑緊嗰陣再嚟嘅呼叫唔會排隊堆積，只會標記「跑完再跑一次」（收斂到最新狀態）。
+let rainRunning = false;
+let rainQueued = false;
+
 async function refreshRain() {
+  if (rainRunning) { rainQueued = true; return; }
+  rainRunning = true;
   try {
-    const t = await jmaLatest(`${JMA_BASE}/jmatile/data/nowc/targetTimes_N1.json`, false);
-    const url = `${JMA_BASE}/jmatile/data/nowc/${t.basetime}/none/${t.validtime}`
-      + '/surf/hrpns/{z}/{x}/{y}.png';
-    if (rainLayer) { rainLayer.setUrl(url); return; }
-    // tile zoom 由上面 _clampZoom 全權決定（雙數、夾 4-8），所以唔設 maxNativeZoom。
-    // maxZoom 要留返 18：Leaflet 喺 _setView 會用未 clamp 嘅 zoom 同佢比，
-    // 細過地圖 max 就會整層收起。
-    rainLayer = new RainTileLayer(url, {
-      maxZoom: 18, opacity: 0.6, bounds: JP_RAIN_BOUNDS,
-      // 気象庁「公共データ利用規約 第1.0版」要求：(1) 寫明出典 + 該頁 URL、
-      // (2) 有編集・加工就要另外註明加工咗。呢度 tile 疊落自己張地圖兼調過透明度，
-      // 屬於加工，所以「を加工」唔可以慳。
-      attribution: '出典：<a href="https://www.jma.go.jp/bosai/nowc/" target="_blank" rel="noopener">気象庁ナウキャスト</a>を加工',
+    do {
+      rainQueued = false;
+      await doRefreshRain();
+    } while (rainQueued);
+  } finally {
+    rainRunning = false;
+  }
+}
+let rainIdx = 0;
+let rainTimer = null;
+
+function dropRainLayers(list) { list.forEach(f => map.removeLayer(f.layer)); }
+function dropStaleRain() { dropRainLayers(rainStale); rainStale = []; }
+
+// 呢批入面有冇一幀真係喺地圖上見到（唔止 opacity——removeLayer 唔會 reset opacity，
+// 所以要連 hasLayer 一齊查，否則已經拆走嘅圖層都會被當成「仲顯示緊」）。
+function rainShowing(list) {
+  return list.some(f => map.hasLayer(f.layer) && (f.layer.options.opacity || 0) > 0);
+}
+
+function rainTileUrl(t) {
+  return `${JMA_BASE}/jmatile/data/nowc/${t.basetime}/none/${t.validtime}`
+    + '/surf/hrpns/{z}/{x}/{y}.png';
+}
+
+function stopRainLoop() { clearTimeout(rainTimer); rainTimer = null; }
+
+// basetime / validtime 係 UTC（實測最新幀距今幾分鐘），顯示要 +9 轉 JST
+function setRainTimeLabel(ts) {
+  const el = document.getElementById('wx-rain-time');
+  if (!el) return;
+  if (!ts) { el.textContent = ''; el.hidden = true; return; }
+  const utc = Date.UTC(+ts.slice(0, 4), +ts.slice(4, 6) - 1, +ts.slice(6, 8),
+                       +ts.slice(8, 10), +ts.slice(10, 12), 0);
+  const j = new Date(utc + 9 * 3600 * 1000);
+  el.textContent = `${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}`;
+  el.hidden = false;
+}
+
+function showRainFrame() {
+  if (!rainFrames.length) return;
+  // 只切 opacity，唔換 URL —— tile 已經 load 好，切換先至冇閃白
+  rainFrames.forEach((f, i) => f.layer.setOpacity(i === rainIdx ? RAIN_OPACITY : 0));
+  setRainTimeLabel(rainFrames[rainIdx].time);
+  const isLast = rainIdx === rainFrames.length - 1;
+  rainTimer = setTimeout(() => {
+    rainIdx = isLast ? 0 : rainIdx + 1;
+    showRainFrame();
+  }, isLast ? RAIN_LAST_HOLD_MS : RAIN_FRAME_MS);
+}
+
+function startRainLoop() {
+  stopRainLoop();
+  if (!rainFrames.length || !wxOn.rain) return;
+  rainIdx = rainFrames.length - 1;   // 由最新一幀入手，一撳著就見到「而家」
+  showRainFrame();
+}
+
+// 等一批 tile layer 真係載完，順便數實際成功／失敗嘅 tile。
+// 回 {ready, stats}：
+//   ready = 全部 layer 都 fire 過 'load'（唔係俾 timeout 迫出嚟）
+//   stats = **逐層**嘅 {loaded, failed} tile 數，同 layers 一一對應
+// stats 一定要逐層分開，唔可以加埋做一個總數：6 幀入面得 1 幀有圖都會令總數 > 0，
+// 當成整批成功切咗過去，結果播 6 幀有 5 幀係空白。
+// 一定要有 timeout 保底：圖層完全喺 bounds 外時根本冇 tile，'load' 唔會 fire。
+// 而且淨係等 'load' 唔夠 —— Leaflet 個 'load' **連載失敗嘅 tile 都當完成**，
+// 全部 404 一樣照 fire，所以要靠 stats 分辨真定假。
+function whenTilesReady(layers, timeoutMs) {
+  return new Promise((resolve) => {
+    let pending = layers.length, settled = false;
+    const stats = layers.map(() => ({ loaded: 0, failed: 0 }));
+    const hooks = layers.map((l, i) => {
+      const onLoad = () => { stats[i].loaded++; };
+      const onErr = () => { stats[i].failed++; };
+      l.on('tileload', onLoad);
+      l.on('tileerror', onErr);
+      return { l, onLoad, onErr };
     });
-    if (wxOn.rain) rainLayer.addTo(map);
-  } catch (e) { /* JMA 死咗就當冇雨雲，唔好阻住飛機圖 */ }
+    const finish = (ready) => {
+      if (settled) return;
+      settled = true;
+      hooks.forEach(h => { h.l.off('tileload', h.onLoad); h.l.off('tileerror', h.onErr); });
+      resolve({ ready, stats });
+    };
+    if (!pending) return finish(true);
+    layers.forEach(l => l.once('load', () => { if (--pending <= 0) finish(true); }));
+    setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+const RAIN_SWAP_TIMEOUT_MS = 10000;
+
+// 淨係畀上面個序列化 wrapper 叫。因為保證唔會同自己重疊，呢度只需要處理
+// 「跑緊嗰陣用戶熄咗雨雲」呢一種外部變化（每個 await 之後 re-check wxOn.rain）。
+async function doRefreshRain() {
+  // 呢次呼叫自己起嘅圖層。任何 bail 都要自己收拾，唔可以留低喺地圖上。
+  let mine = [];
+  let committed = false;
+  try {
+    const list = await fetchJsonTimeout(
+      `${JMA_BASE}/jmatile/data/nowc/targetTimes_N1.json`, WX_FETCH_TIMEOUT_MS);
+    if (!Array.isArray(list) || !list.length) throw new Error('empty targetTimes');
+
+    // targetTimes 排新→舊，reverse 做舊→新；順住播就係雨區真實移動方向
+    const want = list.slice(0, RAIN_FRAMES).reverse();
+    const key = want.map(t => t.basetime).join(',');
+    // 「冇新幀就唔重砌」呢個慳 request 嘅早退，淨係喺畫面真係仲掛住嗰批先算數。
+    // 單靠 key 相同唔夠：熄咗之後圖層已經拆晒，key 一樣但畫面係空嘅，要照重砌。
+    const mounted = rainFrames.length && rainFrames.every(f => map.hasLayer(f.layer));
+    if (key === rainFramesKey && mounted) return;
+
+    rainFramesKey = key;
+
+    // 先停舊 loop：唔停嘅話佢下一 tick 會讀到已經換咗嘅 rainFrames，
+    // 即刻將 opacity 落喺未 load 完嘅新 tile 上面。停咗之後舊嗰幀維持顯示，
+    // 等新嗰批載好先無縫換代 —— 中間唔會出現空白。
+    stopRainLoop();
+    // 降級邊一批做「頂住顯示」嗰批，要睇邊批真係見到嘢，唔可以盲目用 rainFrames：
+    // 換代等緊嗰陣又有新一批插隊嘅話，rainFrames 自己都仲係全透明（載緊），
+    // 盲目降級就會拆走唯一顯示緊嗰批，令雨雲一片空白（實測見過 可見=0）。
+    if (rainShowing(rainFrames)) {
+      dropStaleRain();          // 舊 stale 冇用喇，即刻清走，唔好累積
+      rainStale = rainFrames;
+    } else {
+      // rainFrames 一幀都未上過台 → 直接掉，留返真係頂住顯示嗰批做 stale
+      dropRainLayers(rainFrames);
+    }
+    mine = want.map(t => ({
+      time: t.validtime,
+      // tile zoom 由 _clampZoom 全權決定（雙數、夾 4-8），所以唔設 maxNativeZoom。
+      // maxZoom 要留返 18：Leaflet 喺 _setView 用未 clamp 嘅 zoom 同佢比，
+      // 細過地圖 max 就會整層收起。
+      layer: new RainTileLayer(rainTileUrl(t), {
+        maxZoom: 18, opacity: 0, bounds: JP_RAIN_BOUNDS, attribution: RAIN_ATTRIB,
+      }),
+    }));
+    rainFrames = mine;
+    if (!wxOn.rain) { dropRainLayers(mine); dropStaleRain(); return; }
+
+    // opacity 0 落場，等 tile 到齊先切；6 幀 × 廿幾格，慢網可以行好耐，
+    // 所以唔可以好似之前咁拍個 1.5 秒定值就拆舊嗰批。
+    mine.forEach(f => f.layer.addTo(map));
+    const { stats } = await whenTilesReady(mine.map(f => f.layer), RAIN_SWAP_TIMEOUT_MS);
+
+    // 等 tile 期間唯一可能變嘅係用戶熄咗雨雲（序列化之後唔會有另一次換代插隊）。
+    // 用戶熄咗雨雲 —— 新舊兩批都要拆，唔可以淨係拆一批
+    if (!wxOn.rain) { dropRainLayers(mine); dropStaleRain(); return; }
+
+    // 3) 逐幀睇有冇真係載到圖。一幀都載唔到嘅唔可以留喺動畫入面，
+    //    否則播到嗰幀就閃白。
+    const good = mine.filter((_, i) => stats[i].loaded > 0);
+    // 全部 layer 一格 tile 都冇試過載 = 視野完全喺日本範圍外，本來就冇嘢顯示，
+    // 照切冇損失（唔照切嘅話用戶 pan 咗出去就會永遠卡住唔更新）。
+    const nothingToLoad = stats.every(s => s.loaded === 0 && s.failed === 0);
+
+    if (!good.length && !nothingToLoad) {
+      // 成批都冇圖（timeout 未載到 / tile 全部失敗）→ **唔可以**拆舊嗰批，
+      // 拆咗就係一片空白。繼續播舊嘅，清走 key 令下個 cycle 重試。
+      dropRainLayers(mine);
+      rainFrames = rainStale;
+      rainStale = [];
+      rainFramesKey = '';
+      committed = true;      // rainFrames 已經指返舊嗰批，唔可以再喺 catch 度拆
+      startRainLoop();
+      return;
+    }
+    // 掉走冇圖嗰幾幀，淨返有圖嘅入動畫
+    if (good.length && good.length < mine.length) {
+      dropRainLayers(mine.filter((_, i) => stats[i].loaded === 0));
+      rainFrames = good;
+    }
+
+    committed = true;
+    dropStaleRain();
+    startRainLoop();
+  } catch (e) {
+    // JMA 死咗就當冇雨雲，唔好阻住飛機圖；但中途爆咗唔可以留低半截圖層喺地圖上
+    if (!committed) dropRainLayers(mine);
+  }
 }
 
 // --- 雲：Himawari-9 紅外（B13/TBB）---
@@ -500,24 +730,69 @@ async function refreshCloud() {
 // --- 大風區：Open-Meteo 網格，陣風超門檻先著色 ---
 const windLayer = L.layerGroup();
 let windKey = '';          // 已經畫咗嗰個 viewport 嘅 key（zoom + 四捨五入 bbox）
+let windAt = 0;            // 上次成功畫好嘅時間，用嚟判斷手上啲格夠唔夠新
+let windMaxKt = null;      // 上次嘅視野最大值，開返掣即刻擺返個 label
+const WIND_STALE_MS = 10 * 60 * 1000;   // 超過就當過時，開掣時重新攞
 let windTimer = null;
-let windBusy = false;
-let windAgain = false;     // fetch 途中又郁過 → 完事補跑一次
+// 同雨雲一樣序列化。之前用「busy 就掉頭走 + again 旗標補飛」，但每次熄掣都會將
+// again 清返 false，於是連撳幾下之間嘅 in-flight request 一完，補飛就冇咗 ——
+// 用戶見到嘅係「撳咗開但一格色都冇」。序列化保證任何一次開掣最終都會跑完一轉。
+let windRunning = false;
+let windQueued = false;
 
 async function refreshWind() {
-  if (!wxOn.wind) return;
-  // 有 fetch 未返就唔好並行打，但一定要記低「仲要再跑」：
-  // debounce timer 已經燒完，唔補飛嘅話 pan 落新範圍嗰下啱撞正 in-flight，
-  // 用戶停低之後就永遠冇風資料（冇下一個 moveend 嚟救）。
-  if (windBusy) { windAgain = true; return; }
+  if (windRunning) { windQueued = true; return; }
+  windRunning = true;
+  try {
+    do {
+      windQueued = false;
+      await doRefreshWind();
+    } while (windQueued && wxOn.wind);
+  } finally {
+    windRunning = false;
+  }
+}
 
+// 當前視野嘅 bbox + key。doRefreshWind 同 applyWx 都要用，一定要同一份計法，
+// 否則「開掣嗰陣覺得 cache 啱用」同「refresh 覺得要重攞」會唔一致。
+function windView() {
   const b = map.getBounds();
   // worldCopyJump 開咗，pan 過日界線 lon 會爆出 ±180，一定要 clamp
   const west = Math.max(-180, b.getWest()), east = Math.min(180, b.getEast());
   const south = Math.max(-85, b.getSouth()), north = Math.min(85, b.getNorth());
-  if (!(east > west && north > south)) return;
+  if (!(east > west && north > south)) return null;
   const key = [map.getZoom(), west, south, east, north].map(v => Number(v).toFixed(1)).join(',');
-  if (key === windKey) return;
+  return { key, west, east, south, north };
+}
+
+// 清走風場。色塊、標籤、同埋描述「而家畫緊咩」嗰組 metadata 一定要一齊清 ——
+// 淨係 clearLayers() 而留低 windKey/windAt，就會出現「cache 話啱用但 layer 係空」：
+// 視野一兜返去 windKey 嗰個，doRefreshWind 就會當 cache 啱用即刻早退，
+// 圖層一路空白到過期為止。所有清場路徑都要行呢個 function。
+function clearWindField() {
+  windLayer.clearLayers();
+  setWindMaxLabel(null);
+  windMaxKt = null;
+  windKey = '';
+  windAt = 0;
+}
+
+// 手上啲格係咪仲用得：同一個視野 + 未過期。兩個條件缺一都唔可以拎去顯示 ——
+// 視野唔同就係「錯地方嘅風」，過咗期就係「當一個鐘前嘅風係而家」，都係誤導。
+function windCacheUsable() {
+  const v = windView();
+  return !!v && windKey !== '' && windKey === v.key
+    && (Date.now() - windAt) < WIND_STALE_MS;
+}
+
+// 淨係畀上面個序列化 wrapper 叫
+async function doRefreshWind() {
+  if (!wxOn.wind) return;
+  const v = windView();
+  if (!v) return;
+  const { key, west, east, south, north } = v;
+  // 同一個視野而手上啲格未過時 → 唔使再打 Open-Meteo（實測一 request ~1.6 秒）
+  if (windCacheUsable()) return;
 
   const dLat = (north - south) / WIND_ROWS, dLon = (east - west) / WIND_COLS;
   const cells = [];
@@ -529,40 +804,41 @@ async function refreshWind() {
   const lats = cells.map(c => (c.s + dLat / 2).toFixed(3)).join(',');
   const lons = cells.map(c => (c.w + dLon / 2).toFixed(3)).join(',');
 
-  windBusy = true;
   try {
-    const r = await fetch('https://api.open-meteo.com/v1/forecast'
+    // 一定要封頂：hang 住嘅話 windRunning 會永遠 true，之後點撳點 pan 都唔會再更新
+    const data = await fetchJsonTimeout('https://api.open-meteo.com/v1/forecast'
       + `?latitude=${lats}&longitude=${lons}`
-      + '&current=wind_speed_10m,wind_gusts_10m&wind_speed_unit=kn', { cache: 'no-store' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
+      + '&current=wind_speed_10m,wind_gusts_10m&wind_speed_unit=kn', WX_FETCH_TIMEOUT_MS);
     // await 期間用戶可能已經熄咗個圖層 —— 唔好再寫入已經由地圖移走嘅 layer，
     // 否則下次撳返著會見到一批冇人 clear 過嘅舊格仔。
     if (!wxOn.wind) return;
     const pts = Array.isArray(data) ? data : [data];
     windLayer.clearLayers();
+    let maxKt = null;
     pts.forEach((p, i) => {
       const cell = cells[i];
       if (!cell || !p.current) return;
       const kt = Math.max(p.current.wind_gusts_10m ?? 0, p.current.wind_speed_10m ?? 0);
+      if (maxKt === null || kt > maxKt) maxKt = kt;   // 連冇著色嘅格都要計，label 先反映到真實情況
+      const t = windRatio(kt);
+      if (t === null) return;
       const color = windColor(kt);
-      if (!color) return;
       L.rectangle([[cell.s, cell.w], [cell.s + dLat, cell.w + dLon]], {
         color, weight: 0, fillColor: color,
-        fillOpacity: 0.1 + Math.min(0.18, (kt - WIND_MIN_KT) / 100),
+        fillOpacity: 0.08 + t * 0.22,   // 同色階一齊加深
         interactive: false,          // 唔好搶飛機 marker 嘅 click（同 heliCircle 一樣）
       }).addTo(windLayer);
     });
+    setWindMaxLabel(maxKt);
+    windMaxKt = maxKt;
     windKey = key;
+    windAt = Date.now();
   } catch (e) {
-    // Open-Meteo 死咗 / 超額：清走舊格仔。舊 viewport 嗰批位置已經唔啱，
+    // Open-Meteo 死咗 / 超額 / timeout：清走舊格仔。舊 viewport 嗰批位置已經唔啱，
     // 留喺度會變成「錯地方有大風」，比乜都唔顯示更誤導。
-    windLayer.clearLayers();
-    windKey = '';
-  } finally {
-    windBusy = false;
-    // 補飛：fetch 途中郁過就再跑一次，攞返最新 viewport
-    if (windAgain) { windAgain = false; scheduleWind(); }
+    // 標籤同 metadata 都要一齊清：淨係清色塊會出現「冇色但寫住 28kt」，
+    // 而嗰個數字仲可能係 pan 走咗之前嗰個視野嘅 —— 比冇數字更誤導。
+    clearWindField();
   }
 }
 
@@ -578,23 +854,51 @@ function applyWx(kind) {
   const on = wxOn[kind];
   const btn = document.getElementById(`wx-${kind}`);
   if (btn) { btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); }
-  if (kind === 'rain' && rainLayer) on ? rainLayer.addTo(map) : map.removeLayer(rainLayer);
+  if (kind === 'rain') {
+    if (on) {
+      // 唔可以直接 addTo + startRainLoop：預設熄嘅時候 refreshRain 喺
+      // `if (!wxOn.rain) return` 就早退咗，rainFrames 雖然起好但從未上過地圖、
+      // 一格 tile 都未載過。即刻播就係播一批空白幀，兼且繞過晒逐幀載入檢查。
+      // 一律行返 refreshRain 條受控路徑：佢會加圖層、等 tile、逐幀篩走冇圖嘅、
+      // 先至開始播。清 key 係為咗迫佢真係重砌而唔係早退。
+      rainFramesKey = '';
+      refreshRain();
+    }
+    else {
+      stopRainLoop();
+      // 新舊兩批都要拆：換代載入期間熄掣嘅話，降級嗰批仲頂住顯示緊，
+      // 淨係拆 rainFrames 就會出現「撳咗熄但雨雲仲喺度」。
+      dropRainLayers(rainFrames);
+      dropStaleRain();
+      setRainTimeLabel('');
+    }
+  }
   if (kind === 'cloud' && cloudLayer) on ? cloudLayer.addTo(map) : map.removeLayer(cloudLayer);
   if (kind === 'wind') {
     // L.layerGroup 冇 attribution option，要自己掛落 attribution control
     if (on) {
       windLayer.addTo(map);
       map.attributionControl.addAttribution(WIND_ATTRIB);
-      refreshWind();
+      setWindLegend(true);
+      // 一定要先驗 cache 先至放返上地圖。無條件 addTo 嘅話，熄咗之後 pan 走
+      // （或者熄咗好耐）再開，就會先閃一閃錯視野／過期嘅風同埋舊嘅最大值，
+      // 兩秒後先被新資料換走 —— 顯示過錯嘢比遲少少出更差。
+      if (windCacheUsable()) {
+        setWindMaxLabel(windMaxKt);   // 現成嘅格啱用，即刻連數字一齊出返
+      } else {
+        clearWindField();             // 用唔到就連 metadata 一齊失效，等 refresh 攞新嘅
+      }
+      refreshWind();                // cache 啱用就會即刻早退，唔打網絡
     } else {
       clearTimeout(windTimer);
-      windLayer.clearLayers();
+      // 特登唔 clearLayers()：畫好嘅格留喺 layerGroup 度，撳返開就即刻見到，
+      // 唔使又等成 1.6 秒 API。過時嘅話 refreshWind 會自己重攞。
       map.removeLayer(windLayer);
       map.attributionControl.removeAttribution(WIND_ATTRIB);
-      // windAgain 一定要一齊清：唔清嘅話熄咗之後 in-flight 嗰個 finally
-      // 仍然會 scheduleWind()，撳返著先發現個 key 已經係舊 viewport
-      windKey = '';
-      windAgain = false;
+      setWindMaxLabel(null);
+      setWindLegend(false);
+      // 特登唔清 windKey / windAt：留住先至知「手上啲格係邊個視野、幾時攞嘅」，
+      // 撳返開先可以即刻重用。清咗就一定要重打 API，慢返轉頭。
     }
   }
 }
@@ -604,6 +908,13 @@ function applyWx(kind) {
   if (!btn) return;
   btn.addEventListener('click', () => { wxOn[kind] = !wxOn[kind]; saveWx(); applyWx(kind); });
   applyWx(kind);   // 還原上次狀態（layer 未 load 好時 refreshXxx 會自己補 addTo）
+});
+
+// Tab 收埋咗就唔好繼續播 —— 背景 tab 個 setTimeout 會被夾到最少 1 秒，
+// 動畫既卡又白白扯住 tile；返到前景先重新開始。
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopRainLoop();
+  else if (wxOn.rain) startRainLoop();
 });
 
 refreshRain();

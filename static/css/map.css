@@ -55,6 +55,17 @@ body { overflow:hidden; }
 .map-toggle:hover { color:var(--mint); }
 .map-toggle:focus-visible { border-color:var(--mint); }
 .map-toggle.on { color:var(--mint); border-color:var(--mint); background:rgba(127,255,212,0.12); }
+/* 大風色階圖例：色停要同 map.js windColor() 條 hsl(60→0) 色階對得返，
+   改咗一邊記得改另一邊，否則圖例會呃人 */
+.wind-legend .bar {
+  background:linear-gradient(90deg, hsl(60,85%,55%), hsl(30,85%,55%), hsl(0,85%,55%));
+}
+
+/* 雨雲動畫播緊嗰幀嘅時刻（JST），淡色唔搶鏡但睇得到 */
+.wx-time {
+  align-self:center; font-size:10px; letter-spacing:1px;
+  color:var(--mint); opacity:0.7; font-variant-numeric:tabular-nums;
+}
 
 /* Himawari 紅外係灰階，用 screen blend 令黑色透明、淨返亮嘅雲。
    但 IR 嘅「晴空」唔係純黑係深灰 —— 淨係 screen 會連深灰都提亮，

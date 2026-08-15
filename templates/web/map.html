@@ -49,8 +49,25 @@
       <button type="button" class="map-toggle" id="wx-cloud" aria-pressed="false"></button>
       <button type="button" class="map-toggle" id="wx-rain" aria-pressed="false"></button>
       <button type="button" class="map-toggle" id="wx-wind" aria-pressed="false"></button>
+      {% comment %}
+        雨雲播緊嗰幀嘅 JST 時刻。動畫係播最近 30 分鐘嘅真實觀測，
+        唔標時間就會令人以為成個 loop 都係「而家」。
+      {% endcomment %}
+      <span class="wx-time" id="wx-rain-time" hidden></span>
+      {% comment %}
+        視野內最大風速。大風區用漸變色階，低風日子色好淡，冇呢個數字就
+        分唔清「而家真係靜」定「個掣壞咗」。
+      {% endcomment %}
+      <span class="wx-time" id="wx-wind-max" hidden></span>
     </span>
     <span class="map-legend"><span id="map-low"></span><span class="bar"></span><span id="map-high"></span></span>
+    {% comment %}
+      大風色階圖例。冇佢嘅話啲色塊淨係一片黃橙紅，睇唔出代表咩風速。
+      只喺大風圖層開咗先顯示，唔好長期霸住 toolbar。
+    {% endcomment %}
+    <span class="map-legend wind-legend" id="wind-legend" hidden>
+      <span>10kt</span><span class="bar"></span><span>60kt+</span>
+    </span>
     <span class="note" id="map-note"></span>
   </div>
 
